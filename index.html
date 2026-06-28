@@ -341,7 +341,7 @@ table th, .card-body table th, .tbl-wrap table th {
 /* ── MAIN ────────────────────────────────────────────────── */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 .main-body{flex:1;overflow-y:auto}
-.page{display:none;padding:24px;animation:fadeIn .15s ease}
+.page{display:none;padding:24px;animation:fadeIn .15s ease;font-size:var(--fz-lg)}
 .page.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
@@ -4746,8 +4746,7 @@ var MK_SUBNAV=[
   ['scorecard','Scorecard'],
   ['events','Events'],
   ['reports','Reports'],
-  ['templates','Templates'],
-  ['team','Team']
+  ['templates','Templates']
 ];
 function _mkActiveSec(){ return _curPage||'dashboard'; }
 
