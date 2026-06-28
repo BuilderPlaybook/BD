@@ -26,7 +26,7 @@
       the shared mail contract).
     - Follow-ups across partners and market leads.
     - Market Leads / prospecting: lots, building permits, development
-      permits, active builders, with copy-forward Add to category.
+      permits, active builders, with copy-forward Add to pipeline.
     - Reach-out alert + cadence (native to BD): per-contact priority drives
       a check-in cadence (Hot 30d / Warm 60d / Cool 90d, default Warm); due
       = last contact + cadence; resets on any logged touch; green / amber
@@ -539,6 +539,13 @@ tr.overdue td:first-child{border-left:3px solid var(--red);padding-left:9px}
 .lp-date input[type=date]:hover{border-color:var(--blu)}
 .lp-date input[type=date]:focus{outline:none;border-color:var(--blu)}
 .lp-stage.lp-lost .lp-name{color:var(--red);font-weight:700}
+.lp-datechip{position:relative;display:inline-block;font-size:var(--fz-xs);line-height:1.7;color:var(--txd);cursor:pointer;border:1px solid var(--brd);border-radius:10px;padding:0 8px;background:var(--bg);white-space:nowrap}
+.lp-datechip:hover{border-color:var(--blu);color:var(--blu)}
+.lp-datechip input[type=date]{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
+.lead-pipe.lp-paused{opacity:.55}
+.lp-atrisk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:9px 12px;background:var(--ambb);border:1px solid var(--amb);border-radius:8px;color:var(--ambt);font-size:var(--fz-body)}
+.lp-atrisk svg{color:var(--amb);flex-shrink:0}
+.lp-atrisk button{margin-left:auto}
 .st-conn{height:2px;background:var(--brd);flex:1;min-width:6px;margin-bottom:14px;flex-shrink:0}
 .st-conn.done{background:var(--pg-tea)}
 
@@ -619,6 +626,8 @@ tr.overdue td:first-child{border-left:3px solid var(--red);padding-left:9px}
 .textarea:focus{border-color:var(--blu)}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--sb);color:#fff;padding:10px 18px;border-radius:8px;font-weight:500;z-index:9999;transform:translateY(60px);opacity:0;transition:all .25s;pointer-events:none;border-left:3px solid var(--gp)}
 .toast.show{transform:none;opacity:1}
+.toast-undo{margin-left:14px;background:transparent;border:1px solid var(--gp);color:#fff;font-family:inherit;font-size:var(--fz-body);font-weight:600;padding:3px 11px;border-radius:5px;cursor:pointer}
+.toast-undo:hover{background:var(--gp);color:var(--sb)}
 .quick-actions{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none;gap:4px}
 tr.clickable:hover .quick-actions{display:flex}
 .qa-btn{padding:3px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--sur);font-size:var(--fz-xs);font-weight:600;cursor:pointer;color:var(--txb);white-space:nowrap;font-family:inherit}
@@ -1024,8 +1033,7 @@ tr.clickable:hover .quick-actions{display:flex}
 .pill-gray{background:var(--sur2);color:var(--txm);border:1px solid var(--brd)}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .kpi-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.kpi-cards.dash-metrics{grid-template-columns:repeat(5,1fr);margin-bottom:16px}
-@media(max-width:800px){.kpi-cards{grid-template-columns:repeat(2,1fr)}.kpi-cards.dash-metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.kpi-cards{grid-template-columns:repeat(2,1fr)}}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--brd)}
 .kv:last-child{border-bottom:none}
 .kv-k{color:var(--txm);font-weight:500}
@@ -1176,6 +1184,20 @@ tr.clickable:hover .quick-actions{display:flex}
 .bd-tab{padding:8px 16px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-body);font-weight:500;color:var(--txm);border-bottom:2px solid transparent;margin-bottom:-1px}
 .bd-tab:hover{color:var(--txt)}
 .bd-tab.active{color:var(--blu);border-bottom-color:var(--blu);font-weight:600}
+/* D-49: KPI card semantic colour drives BOTH the left strip AND the value number (matches VSP). */
+.kpi-card.k-grn .kpi-card-val{color:var(--grn)}
+.kpi-card.k-amb .kpi-card-val{color:var(--amb)}
+.kpi-card.k-red .kpi-card-val{color:var(--red)}
+.kpi-card.k-blu .kpi-card-val{color:var(--blu)}
+.kpi-card.k-gold .kpi-card-val{color:var(--gp)}
+.kpi-card.k-gray .kpi-card-val{color:var(--txt)}
+/* Dashboard metric row (matches CRM/VSP .kpi-cards.dash-metrics) */
+.kpi-cards.dash-metrics{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:16px}
+/* tooltip-clip fix: let the info-icon tip escape the card */
+.kpi-card{overflow:visible}
+.kpi-card::before{border-radius:var(--r-card) 0 0 var(--r-card)}
+.kpi-cards.dash-metrics > .kpi-card:last-child .info-icon .tip{left:auto;right:0;transform:none}
+.kpi-cards.dash-metrics > .kpi-card:last-child .info-icon .tip::before{left:auto;right:8px;transform:none}
 .goal-board-grid{display:grid;grid-template-columns:repeat(4,minmax(190px,1fr));gap:10px;overflow-x:auto}
 
 /* === BD SCORECARD CSS (ported from VSP v8) === */
@@ -1218,7 +1240,7 @@ td:hover > .sc-note-pop{display:block}
   <div class="main-body">
 
   <div class="page" id="p-dashboard">
-    <div class="pg"><div><div class="pg-title">BD</div><div class="pg-sub">Outbound relationships, partner channels, and market-lead prospecting</div></div>
+    <div class="pg"><div><div class="pg-title">Business Development</div><div class="pg-sub">Outbound relationships, partner channels, and market-lead prospecting</div></div>
     <div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openPartnerModal(null)"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>Add Partner</button></div></div>
     <div id="dash-content"></div>
   </div>
@@ -1296,8 +1318,8 @@ td:hover > .sc-note-pop{display:block}
   
   
                     <div class="page" id="p-prospecting">
-    <div class="pg"><div><div class="pg-title">Prospecting</div><div class="pg-sub">Leads sourced from public market data: lot listings, development applications, building permits, and active builders. Logging a contact moves the record to the Partner directory with the method recorded.</div></div>
-    <div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="prospectEdit(null)"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>Add Prospect</button></div></div>
+    <div class="pg"><div><div class="pg-title">Market Leads</div><div class="pg-sub">Leads sourced from public market data: lot listings, development applications, building permits, and active builders. Logging a contact moves the record to the Partner directory with the method recorded.</div></div>
+    <div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="prospectEdit(null)"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>Add Market Lead</button></div></div>
     <div id="prospecting-content"></div>
   </div>
   <div class="page" id="p-followups">
@@ -1314,6 +1336,8 @@ td:hover > .sc-note-pop{display:block}
     <div id="scorecard-content"></div>
   </div>
   <div class="page" id="p-events"><div id="events-content"></div></div>
+  <div class="page" id="p-templates"><div id="templates-content"></div></div>
+  <div class="page" id="p-team"><div id="team-content"></div></div>
   </div><!-- /.main-body -->
 </div><!-- /.main -->
 </div><!-- /.app -->
@@ -1392,8 +1416,7 @@ function fmtDateTime(s){ if(!s) return '-';
   var d=(s instanceof Date)?s:new Date(s); if(isNaN(d.getTime())) return '-';
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+
     ' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-function fmtM(v){ if(!v) return '-'; if(v>=1000000) return '$'+(v/1000000).toFixed(1).replace(/\.0$/,'')+'M';
-  if(v>=1000) return '$'+(v/1000).toFixed(0)+'K'; return '$'+v; }
+function fmtM(v){ return v?fmtVal(v,'$'):'-'; }
 function num(v){ return (v||0).toLocaleString('en-CA'); }
 function pct(n,d){ if(!d) return '0%'; return Math.round((n/d)*100)+'%'; }
 
@@ -1520,7 +1543,7 @@ function _ensureOutreachAssets(){
 var _curPage='dashboard';
 var _ptnView='all';
 var _ptnTier='';
-var _ptnTab='prospects';
+var _ptnTab='all';
 
 var RENDER_FOR = {
   dashboard:   function(){ renderDash(); },
@@ -1532,7 +1555,9 @@ var RENDER_FOR = {
   followups:   function(){ renderFollowups(); },
   goals:       function(){ renderGoals(); },
   scorecard:   function(){ renderScorecard(); },
-  events:      function(){ renderEvents(); }
+  events:      function(){ renderEvents(); },
+  templates:   function(){ renderTemplates(); },
+  team:        function(){ renderTeam(); }
 };
 
 /* Accessibility v1: stamp scope="col" on every table header (direct or
@@ -1551,7 +1576,7 @@ function normalizeTableScope(root){
   }catch(e){}
 }
 var PAGE_GROUPS=[
-  { primary:'partners', tabs:[ ['prospecting','Market Leads'], ['partners','Prospects','prospects'], ['partners','Referral Partners','referral'] ] }
+  { primary:'partners', tabs:[ ['prospecting','Market Leads'], ['partners','Partners','all'] ] }
 ];
 var PAGE_PARENT={};
 PAGE_GROUPS.forEach(function(g){ g.tabs.forEach(function(t){ if(t[0]!==g.primary) PAGE_PARENT[t[0]]=g.primary; }); });
@@ -1646,6 +1671,15 @@ function toast(title,msg){
 }
 function toastInfo(t,m){ toast(t,m); }
 function toastSuccess(t,m){ toast(t,m); }
+var _pendingUndo=null;
+function toastUndo(title,msg,fn){
+  _pendingUndo=fn;
+  var t=_toastHost();
+  t.innerHTML='<span><strong>'+_esc(title)+'</strong>'+(msg?' &middot; '+_esc(msg):'')+'</span><button class="toast-undo" onclick="_runPendingUndo()">Undo</button>';
+  t.classList.add('show'); t.style.pointerEvents='auto';
+  clearTimeout(t._h); t._h=setTimeout(function(){ _pendingUndo=null; t.classList.remove('show'); t.style.pointerEvents=''; },6500);
+}
+function _runPendingUndo(){ var f=_pendingUndo; _pendingUndo=null; var t=document.getElementById('toast'); if(t){ clearTimeout(t._h); t.classList.remove('show'); t.style.pointerEvents=''; } if(typeof f==='function') f(); }
 function toastWarn(t,m){ toast(t,m); }
 function toastError(t,m){ toast(t,m); }
 
@@ -1736,10 +1770,15 @@ function _readForm(scopeId){
   });
   return out;
 }
-function _personOpts(sel){
-  var people=['','Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'];
-  return people.map(function(p){ return '<option value="'+_esc(p)+'"'+(p===sel?' selected':'')+'>'+(p||'Unassigned')+'</option>'; }).join('');
-}
+/* ---- module team roster (interim until HR assigns modules globally) ----
+   One editable list of the people assigned to this module, shown by full
+   name in every person picker. A stored value may be a full name (new) or a
+   first name (legacy); _fullName resolves either to the full display name. */
+var BD_TEAM=['Dave Stephens','Terry Pearson','Mika Nishimura'];
+function _bdSeedTeam(){ if(!BD_TEAM||!BD_TEAM.length){ _fill(BD_TEAM,['Dave Stephens','Terry Pearson','Mika Nishimura']); } }
+function _fullName(v){ v=String(v||'').trim(); if(!v) return ''; for(var i=0;i<BD_TEAM.length;i++){ var f=BD_TEAM[i]; if(f===v||String(f).split(' ')[0]===v) return f; } return v; }
+function _teamOpts(sel,includeBlank){ sel=_fullName(sel); var out=includeBlank?'<option value="">Unassigned</option>':''; out+=BD_TEAM.map(function(n){ return '<option value="'+_esc(n)+'"'+(n===sel?' selected':'')+'>'+_esc(n)+'</option>'; }).join(''); return out; }
+function _personOpts(sel){ return _teamOpts(sel,true); }
 
 /* ---- topbar ---- */
 function renderTopbar(){
@@ -1769,7 +1808,6 @@ function mktgToggleSidebar(){ var sb=document.querySelector('.sb');
    ============================================================ */
 
 function pulseItem(n,l,c,go){ return '<div class="pulse-i"'+(go?' style="cursor:pointer" onclick="nav(\''+go+'\')"':'')+'><div class="pulse-n"'+(c?' style="color:'+c+'"':'')+'>'+n+'</div><div class="pulse-l">'+_esc(l)+'</div></div>'; }
-function kpiCard(v,l,cls,go){ return '<div class="kpi-card '+cls+'"'+(go?' style="cursor:pointer" onclick="nav(\''+go+'\')"':'')+'><div class="kpi-card-top"><div class="kpi-card-lbl">'+_esc(l)+'</div></div><div class="kpi-card-val">'+v+'</div></div>'; }
 
 /* ---- pills ---- */
 var STAGE_STAG={'New':'stag-slate','Contacted':'stag-sky','Responded':'stag-blue','Meeting':'stag-indigo','Dormant':'stag-gray','Identified':'stag-slate','Introduced':'stag-sky','Book Delivered':'stag-blue','First Meeting':'stag-indigo','Relationship Building':'stag-violet','Active Collaborator':'stag-teal','Preferred Partner':'stag-done'};
@@ -1793,7 +1831,7 @@ function ptnFiltered(){
     if(fc && p.cat!==fc) return false;
     if(fs && _pStage(p)!==fs) return false;
     if(fh && partnerHealth(p)!==fh) return false;
-    if(_ptnView==='mine' && p.assignedTo!==me) return false;
+    if(_ptnView==='mine' && _fullName(p.assignedTo)!==_fullName(me)) return false;
     if(_ptnView==='overdue'){ var du=daysUntil(p.nextContact); if(du===null||du>=0) return false; }
     if(_ptnView==='architects' && ['Architect','Residential Designer','Interior Designer'].indexOf(p.cat)<0) return false;
     if(_ptnView==='realtors' && p.cat!=='Realtor') return false;
@@ -1828,7 +1866,7 @@ var ACC_LOTS={
   follow:function(p){return p.nextContact||'';},
   value:function(p){return _numOr(p.totalValue,0);}
 };
-function promotePartner(id){ var p=_partnerFind(id); if(!p) return; p.isPartner=true; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} save(); openPartner(id); if(typeof toastSuccess==='function') toastSuccess('Promoted to Partner',(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact')+' is now a Partner.'); }
+function promotePartner(id){ partnerLogReferral(id); }
 function demotePartner(id){ var p=_partnerFind(id); if(!p) return; p.isPartner=false; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} save(); openPartner(id); if(typeof toastSuccess==='function') toastSuccess('Moved back to pipeline',''); }
 function _partnersSection(list){
   if(!list||!list.length) return '';
@@ -1838,7 +1876,7 @@ function _partnersSection(list){
       '<td class="cell-firm">'+_esc(p.firm||'')+'</td>'+
       '<td>'+_esc(((p.cf||'')+' '+(p.cl||'')).trim())+(p.hasReply?' <span class="pill pill-grn">Replied</span>':'')+'</td>'+
       '<td>'+catPill(p.cat)+'</td>'+
-      '<td>'+_esc(p.assignedTo||'-')+'</td>'+
+      '<td>'+_esc(_fullName(p.assignedTo)||'-')+'</td>'+
       '<td class="nowrap">'+fmtDate(p.lastContact)+'</td>'+
       '<td>'+healthPill(partnerHealth(p))+'</td>'+
     '</tr>';
@@ -1850,13 +1888,16 @@ function _refDeals(p){ return (p&&p.crmLeads)?p.crmLeads:[]; }
 function _refDealTotal(p){ return _refDeals(p).reduce(function(a,x){ return a+(Number(x.value)||0); },0); }
 function _isReferralPartner(p){ return !!(p && (p.isPartner || _refDeals(p).length>0)); }
 function navPtn(scope){ _ptnAList=false; _ptnTab=scope; nav('partners'); }
-function bdMoney(v){ v=Math.round(Number(v)||0); return '$'+num(v); }
+function _ptnSeg(){ return _ptnAList?'alist':(_ptnTab==='referral'?'referral':'all'); }
+function _ptnSetSeg(seg){ if(seg==='alist'){ _ptnAList=true; } else if(seg==='referral'){ _ptnAList=false; _ptnTab='referral'; } else { _ptnAList=false; _ptnTab='all'; } renderPartners(); }
+function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('alist',_aListStarIcon(true)+' A List')+'</div>'; }
+function bdMoney(v){ return fmtVal(Number(v)||0,'$'); }
 function _refStatCell(lbl,val){ return '<div><div class="muted" style="font-size:var(--fz-xs);text-transform:uppercase;letter-spacing:.05em">'+_esc(lbl)+'</div><div style="font-weight:700;font-size:var(--fz-lg)">'+val+'</div></div>'; }
 function _referralPartnersView(list){
   var totDeals=0,totVal=0;
   list.forEach(function(p){ totDeals+=_refDeals(p).length; totVal+=_refDealTotal(p); });
   var head='<div class="card" style="margin-bottom:10px;padding:10px 14px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">'+_refStatCell('Referral partners',num(list.length))+_refStatCell('Deals referred',num(totDeals))+_refStatCell('Total referred',bdMoney(totVal))+'</div>';
-  if(!list.length){ return head+'<div class="card"><div class="smb-empty"><div class="smb-empty-title">No referral partners yet</div><div class="smb-empty-sub">A partner moves here automatically when they send a real lead to CRM, or when you promote them by hand from Prospects.</div></div></div>'; }
+  if(!list.length){ return head+'<div class="card"><div class="smb-empty"><div class="smb-empty-title">No referral partners yet</div><div class="smb-empty-sub">A partner moves here automatically when they send a real lead to CRM, or when you promote them by hand.</div></div></div>'; }
   var rows=_applySort(list,'partners',ACC_PARTNERS);
   var PR={rerender:'renderPartners'};
   var body=rows.map(function(p){
@@ -1890,7 +1931,7 @@ function renderPartners(){
     '<div class="ms">Dormant <strong>'+dormant+'</strong></div></div>';
 
   var rows=ptnFiltered();
-  var prospects=rows.filter(function(p){ return !_isReferralPartner(p); });
+  var prospects=(_ptnTab==='all')?rows.slice():rows.filter(function(p){ return !_isReferralPartner(p); });
   var referral=rows.filter(_isReferralPartner);
   var host=document.getElementById('ptn-table');
   if(!PARTNERS.length){
@@ -1898,9 +1939,10 @@ function renderPartners(){
       '<button class="btn btn-primary btn-sm" onclick="openPartnerModal(null)">+ Add Partner</button>');
     return;
   }
-  if(_ptnAList){ host.innerHTML=_aListHeaderBtn()+_aListView(); return; }
-  if(_ptnTab==='referral'){ host.innerHTML=_referralPartnersView(referral); return; }
-  var _ptnToggle='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+_aListToggleBtn()+'<div class="crm-view-toggle">'+'<button class="'+(_ptnLayout!=='board'?'active':'')+'" onclick="_ptnSetLayout(\'table\')" aria-selected="'+(_ptnLayout!=='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>List</button>'+'<button class="'+(_ptnLayout==='board'?'active':'')+'" onclick="_ptnSetLayout(\'board\')" aria-selected="'+(_ptnLayout==='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16"/><rect x="10" y="4" width="5" height="10"/><rect x="17" y="4" width="4" height="14"/></svg>Kanban</button>'+'</div></div>';
+  var seg=_ptnSegBar();
+  if(_ptnAList){ host.innerHTML=seg+_aListView(); return; }
+  if(_ptnTab==='referral'){ host.innerHTML=seg+_referralPartnersView(referral); return; }
+  var _ptnToggle='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+seg+'<div class="crm-view-toggle">'+'<button class="'+(_ptnLayout!=='board'?'active':'')+'" onclick="_ptnSetLayout(\'table\')" aria-selected="'+(_ptnLayout!=='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>List</button>'+'<button class="'+(_ptnLayout==='board'?'active':'')+'" onclick="_ptnSetLayout(\'board\')" aria-selected="'+(_ptnLayout==='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16"/><rect x="10" y="4" width="5" height="10"/><rect x="17" y="4" width="4" height="14"/></svg>Kanban</button>'+'</div></div>';
   if(!prospects.length){ host.innerHTML=_ptnToggle+filteredEmpty('clearPtnFilters'); return; }
   _sortGet('partners','firm',1); prospects=_applySort(prospects,'partners',ACC_PARTNERS);
   prospects.sort(function(a,b){ return _tierRank(a)-_tierRank(b); });
@@ -1913,8 +1955,8 @@ function renderPartners(){
       '<td>'+_esc(p.cf+' '+p.cl)+(p.hasReply?' <span class="pill pill-grn">Replied</span>':'')+(ag.cls?' <span class="dr-badge '+ag.cls+'" title="'+_esc(ag.title)+'">!</span>':'')+'<div class="muted" style="font-size:var(--fz-xs)">'+_esc(p.title)+(p.contactCompleteness?' &middot; '+_esc(p.contactCompleteness):'')+'</div></td>'+
       '<td>'+catPill(p.cat)+'</td>'+
       '<td>'+_esc(p.city)+'</td>'+
-      '<td>'+_esc(p.assignedTo||'-')+'</td>'+
-      '<td>'+stagePill(_pStage(p))+'</td>'+
+      '<td>'+_esc(_fullName(p.assignedTo)||'-')+'</td>'+
+      '<td>'+(p.isPartner?'<span class="stag stag-done">Referral Partner</span>':'<span class="stag '+(STAGE_STAG[_pStage(p)]||'stag-slate')+'">'+_esc(_pStage(p))+'</span>')+'</td>'+
       '<td class="right">'+(p.relScore||0)+'</td>'+
       '<td class="nowrap">'+fmtDate(p.lastContact)+'</td>'+
       '<td class="right">'+(d===null?'-':d+'d')+'</td>'+
@@ -1993,16 +2035,27 @@ function _bdKbMore(items,key,rerender){ return (items.length>BD_KB_CAP&&!_bdKbEx
 function _bdKbSlice(items,key){ return _bdKbExp[key]?items:items.slice(0,BD_KB_CAP); }
 function _partnerBoard(rows){
   var stages=_partnerStageOrder();
+  function _colLabel(st){ return st; }
+  function _onBoard(p){ if(p.isPartner) return true; if(p.relStage==='Dormant') return false; if(_pStage(p)!=='New') return true; return p.source==='Prospecting' || (p.act&&p.act.length>0) || (p.meetings&&p.meetings.length>0); }
+  var boardRows=rows.filter(_onBoard);
   var cols=stages.map(function(st){
-    var items=rows.filter(function(p){ return _pStage(p)===st; });
+    var items=boardRows.filter(function(p){ return _pStage(p)===st && !p.isPartner; });
     var _k='ptn:'+st; var cards=items.length?(_bdKbSlice(items,_k).map(_partnerCard).join('')+_bdKbMore(items,_k,'renderPartners')):'<div class="kb-empty">None</div>';
     return '<div class="kb-col" data-stage="'+_esc(st)+'" ondragover="_ptnDragOver(event)" ondragleave="_ptnDragLeave(event)" ondrop="_ptnDrop(event)">'+
-      '<div class="kb-col-hd"><span style="font-weight:600;font-size:var(--fz-body)">'+_esc(st)+'</span><span class="kb-col-hd-count">'+items.length+'</span></div>'+
+      '<div class="kb-col-hd"><span style="font-weight:600;font-size:var(--fz-body)">'+_esc(_colLabel(st))+'</span><span class="kb-col-hd-count">'+items.length+'</span></div>'+
       '<div class="kb-col-body">'+cards+'</div></div>';
   }).join('');
+  var refItems=boardRows.filter(function(p){ return !!p.isPartner; });
+  var _rk='ptn:Partner'; var refCards=refItems.length?(_bdKbSlice(refItems,_rk).map(_partnerCard).join('')+_bdKbMore(refItems,_rk,'renderPartners')):'<div class="kb-empty">None</div>';
+  cols+='<div class="kb-col" data-stage="Partner" ondragover="_ptnDragOver(event)" ondragleave="_ptnDragLeave(event)" ondrop="_ptnDrop(event)">'+
+    '<div class="kb-col-hd"><span style="font-weight:600;font-size:var(--fz-body)">Referral Partner</span><span class="kb-col-hd-count">'+refItems.length+'</span></div>'+
+    '<div class="kb-col-body">'+refCards+'</div></div>';
   var dormant=rows.filter(function(p){ return p.relStage==='Dormant'; }).length;
-  var note=dormant?('<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">'+dormant+' dormant partner'+(dormant===1?'':'s')+' not shown on the board. Switch to Table to see them.</div>'):'';
-  return '<div class="kb-board">'+cols+'</div>'+note;
+  var hidden=rows.filter(function(p){ return !p.isPartner && p.relStage!=='Dormant' && _pStage(p)==='New' && !(p.source==='Prospecting'||(p.act&&p.act.length>0)); }).length;
+  var notes='';
+  if(hidden){ notes+='<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">'+hidden+' directory contact'+(hidden===1?'':'s')+' not yet worked '+(hidden===1?'is':'are')+' hidden from the board. Switch to List to see '+(hidden===1?'it':'them')+'.</div>'; }
+  if(dormant){ notes+='<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">'+dormant+' dormant partner'+(dormant===1?'':'s')+' not shown on the board. Switch to List to see them.</div>'; }
+  return '<div class="kb-board">'+cols+'</div>'+notes;
 }
 function _ptnDragStart(e){ _ptnDragId=Number(e.currentTarget.getAttribute('data-id')); e.currentTarget.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain',String(_ptnDragId)); e.dataTransfer.effectAllowed='move'; }catch(_){} }
 function _ptnDragEnd(e){ e.currentTarget.classList.remove('dragging'); }
@@ -2011,7 +2064,9 @@ function _ptnDragLeave(e){ e.currentTarget.classList.remove('drop-target'); }
 function _ptnDrop(e){ e.preventDefault(); var col=e.currentTarget; col.classList.remove('drop-target'); var st=col.getAttribute('data-stage'); var id=_ptnDragId; if(id==null||isNaN(id)){ try{ id=Number(e.dataTransfer.getData('text/plain')); }catch(_){} } _ptnDragId=null; if(id==null||isNaN(id)||!st) return; _ptnBoardSetStage(id,st); }
 function _ptnBoardSetStage(id,stage){
   var p=_partnerFind(id); if(!p) return;
-  if(p.relStage===stage){ renderPartners(); return; }
+  if(stage==='Partner'){ if(p.isPartner){ renderPartners(); return; } partnerLogReferral(id); return; }
+  var demoted=false; if(p.isPartner){ p.isPartner=false; demoted=true; }
+  if(p.relStage===stage && !demoted){ renderPartners(); return; }
   p.relStage=stage;
   if(stage!=='Dormant' && p.ownershipStatus==='Dormant') p.ownershipStatus='Active';
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
@@ -2045,6 +2100,7 @@ function _refsEnsure(){
   if(_refsMigrated) return;
   var changed=false;
   (PARTNERS||[]).forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ var b=r.status; _refNorm(r,p); if(r.status!==b||r.feeAmount===undefined) changed=true; }); });
+  (PARTNERS||[]).forEach(function(p){ if((p.crmLeads||[]).length>0){ if(!p.isPartner){ p.isPartner=true; changed=true; } p.stageDates=p.stageDates||{}; if(!p.stageDates['Partner']){ p.stageDates['Partner']=(p.crmLeads[0]&&p.crmLeads[0].date)||_today(); changed=true; } } });
   _refsMigrated=true;
   if(changed){ try{ save(); }catch(e){} }
 }
@@ -2138,30 +2194,26 @@ function _refByLeadId(leadId){ if(leadId==null) return null; var found=null; (PA
 var _bdRepTab='referrals';
 function setBdRepTab(t){ _bdRepTab=t; renderReports(); }
 function _bdReportsTabBar(){
-  return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+
+  return '<div class="bd-tab-bar">'+
     [['referrals','Referrals'],['leaderboard','Leaderboard'],['overview','Overview']].map(function(t){
-      return '<button class="btn btn-sm'+(_bdRepTab===t[0]?' btn-primary':'')+'" onclick="setBdRepTab(&quot;'+t[0]+'&quot;)">'+t[1]+'</button>';
+      return '<button class="bd-tab'+(_bdRepTab===t[0]?' active':'')+'" onclick="setBdRepTab(&quot;'+t[0]+'&quot;)">'+t[1]+'</button>';
     }).join('')+'</div>';
 }
-function _refStatCard(val,label,tone){
-  var c=tone||'txt';
-  var bg=tone?('var(--'+tone+'b)'):'var(--sur2)';
-  var bd=tone?('var(--'+tone+')'):'var(--brd)';
-  var fg=tone?('var(--'+tone+')'):'var(--txt)';
-  return '<div style="flex:1;min-width:130px;padding:10px 14px;background:'+bg+';border:1px solid '+bd+';border-radius:8px">'+
-    '<div style="font-size:var(--fz-xl);font-weight:700;color:'+fg+'">'+val+'</div>'+
-    '<div style="font-size:var(--fz-body);color:var(--txm)">'+label+'</div></div>';
+function _refStatCard(val,label,tone,desc){
+  var k=tone?('k-'+tone):'k-blu';
+  var info=desc?('<button class="info-icon" type="button" aria-label="About '+label+'"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg><span class="tip">'+desc+'</span></button>'):'';
+  return '<div class="kpi-card '+k+'"><div class="kpi-card-top"><div class="kpi-card-lbl">'+label+'</div>'+info+'</div><div class="kpi-card-val">'+val+'</div></div>';
 }
 function renderReferralsTab(){
   var s=refStats();
   var fc=refForecast();
-  var h='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
-    _refStatCard(num(s.count),'Referrals')+
-    _refStatCard(num(s.logged+s.leads)+(s.pipelineVal?' \u00b7 '+bdMoney(s.pipelineVal):''),'In pipeline','blu')+
-    _refStatCard(num(s.won)+(s.wonRevenue?' \u00b7 '+bdMoney(s.wonRevenue):''),'Won','grn')+
-    _refStatCard(bdMoney(s.wonGP),'GP sourced','grn')+
-    _refStatCard(bdMoney(s.feesOwed),'Fees owed','amb')+
-    _refStatCard(bdMoney(s.feesPaid),'Fees paid')+
+  var h='<div class="kpi-cards dash-metrics">'+
+    _refStatCard(num(s.count),'Referrals',null,'Total referrals logged from partners, across every stage.')+
+    _refStatCard(num(s.logged+s.leads)+(s.pipelineVal?' \u00b7 '+bdMoney(s.pipelineVal):''),'In pipeline','blu','Referrals still open, with their combined estimated value.')+
+    _refStatCard(num(s.won)+(s.wonRevenue?' \u00b7 '+bdMoney(s.wonRevenue):''),'Won','grn','Referrals that became signed work, with revenue.')+
+    _refStatCard(bdMoney(s.wonGP),'GP sourced','grn','Gross profit from partner-sourced won work.')+
+    _refStatCard(bdMoney(s.feesOwed),'Fees owed','amb','Referral fees earned by partners but not yet paid.')+
+    _refStatCard(bdMoney(s.feesPaid),'Fees paid',null,'Referral fees already paid out to partners.')+
     '</div>';
   // Forecast
   h+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Forecast</span><span class="card-hd-meta">expected gross profit from open referrals</span></div><div class="card-body">'+
@@ -2211,11 +2263,11 @@ function renderLeaderboardTab(){
     .sort(function(a,b){ return (b.pr.wonRevenue-a.pr.wonRevenue)||(b.pr.wonGP-a.pr.wonGP)||(b.pr.refs-a.pr.refs); });
   var tot={sourced:0,influenced:0,won:0,wonRevenue:0,wonGP:0,feesOwed:0,feesPaid:0};
   rows.forEach(function(o){ tot.sourced+=o.pr.sourced; tot.influenced+=o.pr.influenced; tot.won+=o.pr.won; tot.wonRevenue+=o.pr.wonRevenue; tot.wonGP+=o.pr.wonGP; tot.feesOwed+=o.pr.feesOwed; tot.feesPaid+=o.pr.feesPaid; });
-  var h='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
-    _refStatCard(num(tot.sourced),'Sourced referrals','blu')+
-    _refStatCard(num(tot.influenced),'Self / influenced')+
-    _refStatCard(bdMoney(tot.wonRevenue),'Won revenue','grn')+
-    _refStatCard(bdMoney(tot.wonGP),'Won GP','grn')+
+  var h='<div class="kpi-cards dash-metrics">'+
+    _refStatCard(num(tot.sourced),'Sourced referrals','blu','Referrals a partner directly introduced.')+
+    _refStatCard(num(tot.influenced),'Self / influenced',null,'Deals you sourced yourself or a partner influenced.')+
+    _refStatCard(bdMoney(tot.wonRevenue),'Won revenue','grn','Revenue from won partner-sourced work.')+
+    _refStatCard(bdMoney(tot.wonGP),'Won GP','grn','Gross profit from won partner-sourced work.')+
     '</div>';
   if(!rows.length){ return h+'<div class="card"><div class="smb-empty"><div class="smb-empty-title">No production yet</div><div class="smb-empty-sub">As partners send referrals that turn into won contracts, this leaderboard ranks them by the revenue and gross profit they actually produced.</div></div></div>'; }
   var body=rows.map(function(o,i){ var p=o.p,pr=o.pr, nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner');
@@ -2265,7 +2317,7 @@ function renderReports(){
   var pipeCard='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Partner pipeline by stage</span></div><div class="tbl-wrap"><table><thead><tr><th scope="col">Stage</th><th class="right" scope="col">Partners</th></tr></thead><tbody>'+stageRows+'</tbody></table></div></div>';
   function dual(a1,l1,a2,l2){ return '<div class="card-body"><div style="display:flex;gap:28px"><div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt)">'+a1+'</div><div style="font-size:var(--fz-body);color:var(--txm)">'+l1+'</div></div><div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt)">'+a2+'</div><div style="font-size:var(--fz-body);color:var(--txm)">'+l2+'</div></div></div></div>'; }
   var emailCard='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Email activity</span></div>'+dual(num(sent),'Sent',num(recv),'Received')+'</div>';
-  var prospCard='<div class="card"><div class="card-hd"><span class="card-title">Prospecting</span></div>'+dual(num(lots),'Lot listings',num(pulls),'Permit / development records')+'</div>';
+  var prospCard='<div class="card"><div class="card-hd"><span class="card-title">Market Leads</span></div>'+dual(num(lots),'Lot listings',num(pulls),'Permit / development records')+'</div>';
   host.innerHTML=_tb+kpis+pipeCard+emailCard+prospCard+bdRoiReportCards()+bdTrendCards()+keyAccountsReportCard();
 }
 var _ptnSel={};
@@ -2313,6 +2365,7 @@ function _pushLeadToCrm(lead, partner, kind, label){
   try{ window.dispatchEvent(new CustomEvent('smb.lead.intake',{detail:{source:'partner',kind:kind,referralSourcePartnerId:(kind==='referral'?partner.id:null),lead:lead}})); }catch(e){}
   partner.crmLeads=partner.crmLeads||[];
   partner.crmLeads.push({name:label,kind:kind,date:_today(),projectType:lead.projectType||'',value:lead.estimatedRange||0,leadId:leadId});
+  partner.isPartner=true; partner.stageDates=partner.stageDates||{}; if(!partner.stageDates['Partner']) partner.stageDates['Partner']=_today();
   if(leadId!=null){ partner.linkedLeads=partner.linkedLeads||[]; if(partner.linkedLeads.indexOf(leadId)<0) partner.linkedLeads.push(leadId); }
   partner.act=partner.act||[];
   partner.act.unshift({d:_today(),type:(kind==='referral'?'Referral logged':'Pushed to CRM'),subj:label+(kind==='referral'?' (referred lead)':' (partner promoted to lead)'),notes:(lead.notes||''),by:_curName().split(' ')[0]});
@@ -2327,21 +2380,33 @@ function _pushLeadToCrm(lead, partner, kind, label){
 /* The partner becomes the lead. Stays a partner; the two are linked. */
 function partnerPushLead(id){
   var p=_partnerFind(id); if(!p) return;
-  openModal({title:'Push to CRM as lead', sub:((p.cf||'')+' '+(p.cl||'')).trim()+(p.firm?' - '+p.firm:''),
+  var srcName=(p.firm||((p.cf||'')+' '+(p.cl||''))).trim();
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
+  openModal({title:'Push to CRM as lead', sub:'New lead, sourced by '+(srcName||'this partner'),
     body:_section('Lead details',
+      _fld('Lead first name','fn','text','')+
+      _fld('Lead last name','ln','text','')+
+      _fld('Email','email','text','')+
+      _fld('Phone','phone','text','')+
       _fld('Project type','projectType','text','',{ph:'e.g. Custom home, Renovation'})+
       _fld('Estimated value','estValue','number','')+
+      _fld('Referred by','referredBy','text',srcName)+
+      _fld('Assign to','assignedTo','select',_fullName(p.assignedTo||''),{options:people})+
       _fld('Note','note','textarea','',{full:true,ph:'Optional context for CRM'}))+
-      '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Creates a lead in CRM from this partner at the first pipeline stage. The partner stays a partner and the two are linked.</div>',
+      '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Creates a lead in CRM at the first pipeline stage. The name in Referred by is recorded as the referral source, and the partner stays linked.</div>',
     saveLabel:'Create lead', onSave:function(){
       var f=_readForm();
-      var lead={fn:p.cf||'',ln:p.cl||'',email:p.email||'',phone:p.phone||'',company:p.firm||'',
+      var fn=String(f.fn||'').trim(), ln=String(f.ln||'').trim();
+      if(!fn && !ln){ modalErr('Enter the lead name.'); return; }
+      var refBy=String(f.referredBy||'').trim()||srcName;
+      var lead={fn:fn,ln:ln,email:String(f.email||'').trim(),phone:String(f.phone||'').trim(),company:'',
         projectType:String(f.projectType||'').trim(),estimatedRange:_numOr(f.estValue,0),
-        src:'Partner',ref:p.firm||'',referralSource:'',referralSourcePartnerId:null,
-        cdate:_today(),createdAt:_nowIso(),stage:'Lead',status:'Opportunity',assignedTo:p.assignedTo||'',
-        notes:('Partner promoted to lead.'+(f.note?' '+String(f.note).trim():'')),
-        act:[{d:_today(),type:'Created',subj:'Promoted from partner '+(p.firm||''),notes:'',by:_curName().split(' ')[0]}]};
-      _pushLeadToCrm(lead, p, 'self', ((p.cf||'')+' '+(p.cl||'')).trim()||(p.firm||'Partner'));
+        src:'Referral',ref:refBy,referralSource:refBy,referralSourcePartnerId:p.id,
+        cdate:_today(),createdAt:_nowIso(),stage:'Lead',status:'Opportunity',assignedTo:f.assignedTo||'',
+        notes:('Referred by '+refBy+'.'+(f.note?' '+String(f.note).trim():'')),
+        act:[{d:_today(),type:'Created',subj:'Referral from '+refBy,notes:'',by:_curName().split(' ')[0]}]};
+      p.referralDiscussions=(p.referralDiscussions||0)+1;
+      _pushLeadToCrm(lead, p, 'referral', (fn+' '+ln).trim());
     }});
 }
 
@@ -2349,7 +2414,7 @@ function partnerPushLead(id){
    stage with this partner recorded as the referral source. */
 function partnerLogReferral(id){
   var p=_partnerFind(id); if(!p) return;
-  var people=[{v:'',l:'Unassigned'}].concat(['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'].map(function(x){ return {v:x,l:x}; }));
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
   var srcName=(p.firm||((p.cf||'')+' '+(p.cl||''))).trim();
   openModal({title:'Log a referral', sub:'Referred by '+srcName,
     body:_section('Referred lead',
@@ -2403,31 +2468,65 @@ var REL_PROGRAMS={
     ]}
 };
 function _relProgramFor(cat){ for(var k in REL_PROGRAMS){ if(REL_PROGRAMS[k].cats.indexOf(cat)>=0) return REL_PROGRAMS[k]; } return null; }
-function _relProgramAdvance(id,actObj){
+function _relProgCounter(p,n,delta){
+  if(n===1) p.booksDelivered=Math.max(0,(p.booksDelivered||0)+delta);
+  else if(n===4) p.siteTours=Math.max(0,(p.siteTours||0)+delta);
+  else if(n===6) p.eventsAttended=Math.max(0,(p.eventsAttended||0)+delta);
+  else if(n===7) p.referralDiscussions=Math.max(0,(p.referralDiscussions||0)+delta);
+}
+function _relProgRecompute(p,PR){
+  var steps=PR.steps, prog=p.program, done=prog.doneSteps||{};
+  var firstOpen=0,i;
+  for(i=0;i<steps.length;i++){ if(!done[steps[i].n]){ firstOpen=steps[i].n; break; } }
+  var maxDone='';
+  for(var k in done){ if(done[k]&&done[k]>maxDone) maxDone=done[k]; }
+  if(maxDone && maxDone>(p.lastContact||'')) p.lastContact=maxDone;
+  if(!firstOpen){
+    prog.phase=2; prog.step=steps.length+1;
+    p.nextAction='Quarterly coffee or lunch'; p.nextContact=_addDays(90);
+  } else {
+    prog.phase=1; prog.step=firstOpen;
+    var cur=steps[firstOpen-1];
+    p.nextAction=cur.month+': '+cur.title; p.nextContact=_today();
+  }
+  p.nextOwner=p.assignedTo||_curName().split(' ')[0];
+}
+function _relProgMark(id,n,actObj){
   var p=_partnerFind(id); if(!p||!p.program) return;
   var PR=_relProgramFor(p.cat); if(!PR) return;
-  var prog=p.program, steps=PR.steps, cur=steps[prog.step-1]; if(!cur) return;
-  prog.doneSteps=prog.doneSteps||{}; prog.doneSteps[prog.step]=_today();
-  if(prog.step===1) p.booksDelivered=(p.booksDelivered||0)+1;
-  if(prog.step===4) p.siteTours=(p.siteTours||0)+1;
-  if(prog.step===6) p.eventsAttended=(p.eventsAttended||0)+1;
-  if(prog.step===7) p.referralDiscussions=(p.referralDiscussions||0)+1;
-  // pipeline stage advance is decoupled: promotion to Partner is a manual decision
-  var nextStep=prog.step+1, next=steps[nextStep-1], na='', nc='';
-  if(next){ var gap=Math.max(1,(next.day-cur.day)); nc=_addDays(gap); na=next.month+': '+next.title; prog.step=nextStep; }
-  else { prog.phase=2; prog.step=steps.length+1; nc=_addDays(90); na='Quarterly coffee or lunch'; }
+  var step=null,i; for(i=0;i<PR.steps.length;i++){ if(PR.steps[i].n===n){ step=PR.steps[i]; break; } }
+  if(!step) return;
+  p.program.doneSteps=p.program.doneSteps||{};
+  if(p.program.doneSteps[n]){ openPartner(id); return; }
+  p.program.doneSteps[n]=_today();
+  _relProgCounter(p,n,1);
   if(!p.act) p.act=[];
   var owner=p.assignedTo||_curName().split(' ')[0];
-  var a=actObj||{type:(cur.act||'Other'),subj:cur.title,notes:''};
-  a.d=_today(); a.na=na; a.nc=nc; a.by=_curName().split(' ')[0]; a.owner=owner; a.loggedAt=new Date().toISOString();
+  var a=actObj||{type:(step.act||'Other'),subj:step.title,notes:''};
+  a.d=_today(); a.by=_curName().split(' ')[0]; a.owner=owner; a.loggedAt=new Date().toISOString(); a.progStep=n;
   p.act.unshift(a);
-  if(_today()>(p.lastContact||'')) p.lastContact=_today();
-  p.nextContact=nc; p.nextAction=na; p.nextOwner=owner;
+  _advanceStageOnTouch(p);
+  _relProgRecompute(p,PR);
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   save();
-  if(typeof toastSuccess==='function') toastSuccess('Step logged', cur.title+' done.');
+  if(typeof toastSuccess==='function') toastSuccess('Step marked done', step.month+': '+step.title);
   openPartner(id);
 }
+function relProgramUndo(id,n){
+  var p=_partnerFind(id); if(!p||!p.program||!p.program.doneSteps||!p.program.doneSteps[n]) return;
+  var PR=_relProgramFor(p.cat); if(!PR) return;
+  var step=null,i; for(i=0;i<PR.steps.length;i++){ if(PR.steps[i].n===n){ step=PR.steps[i]; break; } }
+  delete p.program.doneSteps[n];
+  _relProgCounter(p,n,-1);
+  if(p.act){ for(i=0;i<p.act.length;i++){ if(p.act[i] && p.act[i].progStep===n){ p.act.splice(i,1); break; } } }
+  _demoteStageOnUntouch(p);
+  _relProgRecompute(p,PR);
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  save();
+  if(typeof toastSuccess==='function') toastSuccess('Step reset to to-do', step?(step.month+': '+step.title):'');
+  openPartner(id);
+}
+function relProgramMark(id,n){ _relProgMark(id,n,null); }
 function relProgramStart(id){
   var p=_partnerFind(id); if(!p) return;
   var PR=_relProgramFor(p.cat); if(!PR) return;
@@ -2440,73 +2539,184 @@ function relProgramStart(id){
 function relProgramEmail(id){
   var p=_partnerFind(id); if(!p||!p.program) return;
   var PR=_relProgramFor(p.cat); if(!PR) return;
-  var cur=PR.steps[p.program.step-1]; if(!cur||cur.mode!=='email') return;
+  var n=p.program.step, cur=PR.steps[n-1]; if(!cur||cur.mode!=='email') return;
   _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(),
-    function(s,m){ _relProgramAdvance(id,{type:'Email',subj:s,notes:m}); },
+    function(s,m){ _relProgMark(id,n,{type:'Email',subj:s,notes:m}); },
     {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, defaultTemplate:cur.tpl});
 }
 function relProgramDone(id){
   var p=_partnerFind(id); if(!p||!p.program) return;
-  var PR=_relProgramFor(p.cat); if(!PR) return;
-  var cur=PR.steps[p.program.step-1]; if(!cur) return;
-  _relProgramAdvance(id,{type:(cur.act||'Other'),subj:cur.title,notes:''});
+  _relProgMark(id,p.program.step,null);
 }
+var _relProgCollapsed={};
+function relProgramToggle(id){ _relProgCollapsed[id]=!_relProgCollapsed[id]; openPartner(id); }
+function relProgramReset(id){ var p=_partnerFind(id); if(!p||!p.program) return; if(typeof confirm==='function' && !confirm('Remove this relationship program? Step progress will be cleared.')) return; p.program=null; if(_relProgCollapsed) delete _relProgCollapsed[id]; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); openPartner(id); }
 function _relProgramPanel(p){
   var PR=_relProgramFor(p.cat); if(!PR) return '';
   var steps=PR.steps;
   if(!p.program){
     return '<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Relationship Program</span><span class="muted" style="font-size:var(--fz-body)">'+_esc(PR.label)+'</span></div><div class="card-body">'+
-      '<div class="muted" style="margin-bottom:10px">A guided seven-step program over the first year to earn a referral relationship: book delivery, follow-up, coffee, jobsite tour, a helpful insight, an event invite, and a budget-help offer. Completing a step logs it and sets the next as a follow-up.</div>'+
+      '<div class="muted" style="margin-bottom:10px">A guided seven-step program over the first year to earn a referral relationship: book delivery, follow-up, coffee, jobsite tour, a helpful insight, an event invite, and a budget-help offer. Mark each step done as you do it, in any order. Marking a step logs it on the partner.</div>'+
       '<button class="btn btn-primary btn-sm" onclick="relProgramStart('+p.id+')">Start program</button></div></div>';
   }
   var prog=p.program, done=prog.doneSteps||{};
+  var doneCount=steps.filter(function(s){ return !!done[s.n]; }).length;
+  var allDone=(doneCount===steps.length);
+  var curN=prog.step;
+  var curStep=(!allDone)?steps[curN-1]:null;
+  var pct=Math.round(doneCount/steps.length*100);
+  var bar='<div style="height:6px;border-radius:4px;background:var(--sur2);overflow:hidden;margin-top:8px"><div style="height:100%;width:'+pct+'%;background:var(--grn)"></div></div>';
+  var statusHd;
+  if(allDone){
+    statusHd='<div style="background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:10px 12px"><div style="font-weight:700;color:var(--txt)">All '+steps.length+' steps done &middot; ongoing rhythm</div><div class="muted" style="font-size:var(--fz-body);margin-top:2px">Next: '+_esc(p.nextAction||'-')+' on '+fmtDate(p.nextContact)+'</div>'+bar+'</div>';
+  } else {
+    statusHd='<div style="background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:10px 12px">'+
+      '<div style="font-weight:700;color:var(--txt)">Step '+curN+' of '+steps.length+(curStep?' &middot; '+_esc(curStep.month+': '+curStep.title):'')+'</div>'+
+      '<div class="muted" style="font-size:var(--fz-body);margin-top:2px">'+doneCount+' of '+steps.length+' done'+(p.nextContact?(' &middot; next due '+fmtDate(p.nextContact)):'')+'</div>'+bar+'</div>';
+  }
   var rows=steps.map(function(s){
-    var isDone=!!done[s.n], isCur=(prog.phase!==2 && prog.step===s.n);
-    var icon=isDone?'<span style="color:var(--grn);font-weight:700">&#10003;</span>':(isCur?'<span class="stag stag-blue">Next</span>':'<span class="muted">&middot;</span>');
-    var meta=isDone?('<span class="muted" style="font-size:var(--fz-body)">done '+fmtDate(done[s.n])+'</span>'):'';
+    var isDone=!!done[s.n], isCur=(!allDone && curN===s.n);
+    var icon=isDone?'<span style="color:var(--grn);font-weight:700">&#10003;</span>':(isCur?'<span style="color:var(--blu);font-weight:700">&#9679;</span>':'<span class="muted">&middot;</span>');
+    var badge=isCur?'<span class="stag stag-blue" style="margin-left:8px">Current</span>':'';
+    var dStyle=isDone?'background:var(--grn);border-color:var(--grn);color:#fff':'background:var(--sur);border-color:var(--brd2);color:var(--txm)';
+    var nStyle=isDone?'background:var(--sur);border-color:var(--brd2);color:var(--txm)':'background:var(--red);border-color:var(--red);color:#fff';
+    var stepBtns='<div style="display:flex;gap:4px;flex:none">'+
+      '<button onclick="relProgramMark('+p.id+','+s.n+')" title="Mark this step done" style="font-size:var(--fz-xs);font-weight:600;padding:3px 11px;border:1.5px solid;border-radius:5px;cursor:pointer;font-family:inherit;'+dStyle+'">Done</button>'+
+      '<button onclick="relProgramUndo('+p.id+','+s.n+')" title="Mark this step not done" style="font-size:var(--fz-xs);font-weight:600;padding:3px 11px;border:1.5px solid;border-radius:5px;cursor:pointer;font-family:inherit;'+nStyle+'">Not Done</button>'+
+    '</div>';
     var detail='';
     if(isCur){
       if(s.mode==='email'){
-        detail='<div style="margin-top:6px"><button class="btn btn-primary btn-sm" onclick="relProgramEmail('+p.id+')">Open email</button> <button class="btn btn-sm" onclick="relProgramDone('+p.id+')">Mark done</button></div>';
+        detail='<div style="margin-top:6px"><button class="btn btn-primary btn-sm" onclick="relProgramEmail('+p.id+')">Open email</button></div>';
       } else {
-        detail='<div style="margin-top:6px;background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:8px;font-size:var(--fz-body);white-space:pre-wrap">'+_esc(s.starter||'')+'</div>'+
-          '<div style="margin-top:6px"><button class="btn btn-primary btn-sm" onclick="relProgramDone('+p.id+')">Mark done</button></div>';
+        detail='<div style="margin-top:6px;background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:8px;font-size:var(--fz-body);white-space:pre-wrap">'+_esc(s.starter||'')+'</div>';
       }
     }
-    return '<div style="padding:8px 0;border-bottom:1px solid var(--brd)"><div style="display:flex;gap:8px;align-items:center">'+
-      '<span style="width:22px;text-align:center">'+icon+'</span>'+
-      '<span style="font-weight:600;color:var(--txt)">'+_esc(s.month+': '+s.title)+'</span>'+
-      '<span style="flex:1"></span>'+meta+'</div>'+detail+'</div>';
+    var doneMeta=isDone?'<span style="color:var(--grn);font-weight:600;font-size:var(--fz-body);margin-right:8px">Done &middot; '+fmtDate(done[s.n])+'</span>':'';
+    var nameStyle=isCur?'font-weight:700;color:var(--txt)':(isDone?'font-weight:600;color:var(--txt)':'font-weight:600;color:var(--txm)');
+    var rowStyle='padding:8px;border-bottom:1px solid var(--brd)'+(isCur?';background:var(--sur2);border-radius:6px':'');
+    return '<div style="'+rowStyle+'"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<span style="width:22px;text-align:center;flex:none">'+icon+'</span>'+
+      '<span style="'+nameStyle+'">'+_esc(s.month+': '+s.title)+'</span>'+badge+
+      '<span style="flex:1"></span>'+doneMeta+stepBtns+'</div>'+detail+'</div>';
   }).join('');
-  var doneCount=steps.filter(function(s){ return !!done[s.n]; }).length;
-  var phaseLine=(prog.phase===2)?('<div class="muted" style="margin-top:10px">Phase 2, ongoing rhythm: '+PR.phase2.join('; ')+'. Next: '+_esc(p.nextAction||'-')+' on '+fmtDate(p.nextContact)+'.</div>'):'';
-  return '<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Relationship Program</span>'+
-    '<span class="muted" style="font-size:var(--fz-body)">'+(prog.phase===2?'Phase 2':('Phase 1, '+doneCount+' of 7'))+' &middot; '+_esc(PR.label)+'</span></div>'+
-    '<div class="card-body">'+rows+phaseLine+'</div></div>';
+  var _rpCol=!!(_relProgCollapsed&&_relProgCollapsed[p.id]);
+  var _rpChev=_rpCol?'<path d="M9 18l6-6-6-6"/>':'<path d="M6 9l6 6 6-6"/>';
+  var _rpActions='<span style="flex:1"></span>'+
+    '<button class="btn btn-sm" onclick="relProgramReset('+p.id+')" title="Remove the whole program (use only if it was started by mistake). To reset a single step, use its Not Done button.">Remove program</button>'+
+    '<button class="btn btn-sm" onclick="relProgramToggle('+p.id+')" title="'+(_rpCol?'Expand the program':'Minimize the program')+'" style="display:inline-flex;align-items:center;gap:5px"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">'+_rpChev+'</svg>'+(_rpCol?'Expand':'Minimize')+'</button>';
+  return '<div class="card" style="margin-top:16px"><div class="card-hd" style="display:flex;align-items:center;gap:8px"><span class="card-title">Relationship Program</span>'+
+    '<span class="muted" style="font-size:var(--fz-body)">'+(allDone?'Complete':('Phase 1, '+doneCount+' of '+steps.length))+' &middot; '+_esc(PR.label)+'</span>'+_rpActions+'</div>'+
+    '<div class="card-body">'+statusHd+(_rpCol?'':('<div style="margin-top:10px">'+rows+'</div>'))+'</div></div>';
 }
 var _PIPE_RAMP=['var(--pg-slate)','var(--pg-sky)','var(--pg-blue)','var(--pg-indigo)','var(--pg-violet)','var(--pg-teal)','var(--pg-done)'];
 function _rampColor(i,n){if(n<=1)return _PIPE_RAMP[_PIPE_RAMP.length-1];var idx=Math.round(i/(n-1)*(_PIPE_RAMP.length-1));if(idx<0)idx=0;if(idx>=_PIPE_RAMP.length)idx=_PIPE_RAMP.length-1;return _PIPE_RAMP[idx];}
 function _partnerStageOrder(){ return STAGE_LIST.filter(function(s){ return s!=='Dormant'; }); }
 function _advanceStageTo(p,stage){ var o=_partnerStageOrder(), ci=o.indexOf(p.relStage), ni=o.indexOf(stage); if(ni>ci) p.relStage=stage; }
+function _advanceStageOnTouch(p){
+  if(!p || p.relStage==='Dormant' || p.isPartner) return;
+  if(_pStage(p)==='New'){
+    p.relStage='Contacted';
+    if(!p.stageDates) p.stageDates={};
+    if(!p.stageDates.Contacted) p.stageDates.Contacted=_today();
+  }
+}
+function _demoteStageOnUntouch(p){
+  if(!p || p.isPartner) return;
+  if(_pStage(p)!=='Contacted') return;
+  var done=(p.program&&p.program.doneSteps)||{};
+  var anyDone=Object.keys(done).some(function(k){ return !!done[k]; });
+  if(anyDone) return;
+  var otherAct=(p.act||[]).some(function(a){ return a && (a.progStep===undefined||a.progStep===null); });
+  if(otherAct) return;
+  p.relStage='New';
+  if(p.stageDates) delete p.stageDates.Contacted;
+}
 function partnerSetStage(id,stage){ var p=_partnerFind(id); if(!p) return; p.relStage=stage; if(stage){ if(!p.stageDates) p.stageDates={}; if(!p.stageDates[stage]) p.stageDates[stage]=_today(); } try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); openPartner(id); }
 function _partnerStageDate(p,stage){ return (p&&p.stageDates&&p.stageDates[stage])?p.stageDates[stage]:''; }
 function partnerSetStageDate(id,stage,val){ var p=_partnerFind(id); if(!p) return; if(!p.stageDates) p.stageDates={}; if(val) p.stageDates[stage]=val; else delete p.stageDates[stage]; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); openPartner(id); }
-function _partnerStageTrack(p){
-  var stages=_partnerStageOrder(), isDormant=(p.relStage==='Dormant'), curIdx=stages.indexOf(_pStage(p)), nL=stages.length;
-  var strip=stages.map(function(s,i){
-    var isDone=(curIdx>=0&&i<curIdx&&!isDormant), isCur=(i===curIdx&&!isDormant);
-    var state=isDone?'lp-done':(isCur?'lp-cur':'');
-    var circleCol=_rampColor(i,nL);
-    var lineAfter=isDone?_rampColor(i,nL):'var(--brd)';
-    var lineBefore=(i===0)?'transparent':((curIdx>=0&&i<=curIdx&&!isDormant)?_rampColor(i-1,nL):'var(--brd)');
-    var mark=isDone?'&#10003;':(isCur?'&bull;':'');
+function _partnerStageTrack(p,ro){
+  function _hcol(st){ return st==='red'?'var(--red)':(st==='amber'?'var(--amb)':(st==='green'?'var(--grn)':'var(--blu)')); }
+  function _shortD(v){ if(!v) return ''; var dt=new Date(v+'T00:00:00'); if(isNaN(dt.getTime())) return v; return dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+  function _chip(stage){
+    var sd=_partnerStageDate(p,stage);
+    var ttl=sd?('Reached '+stage+' on '+sd):('Set the date this partner reached '+stage);
+    if(ro){ return sd?('<div class="lp-date"><span class="lp-datechip" style="cursor:default" title="'+_esc(ttl)+'"><span>'+_esc(_shortD(sd))+'</span></span></div>'):'<div class="lp-date" style="height:20px"></div>'; }
+    return '<div class="lp-date"><label class="lp-datechip" onclick="event.stopPropagation()" title="'+_esc(ttl)+'"><span>'+(sd?_esc(_shortD(sd)):'&#43; date')+'</span><input type="date" value="'+_esc(sd)+'" onclick="event.stopPropagation()" onchange="partnerSetStageDate('+p.id+',&quot;'+_esc(stage)+'&quot;,this.value)"></label></div>';
+  }
+  var fwd=_partnerStageOrder();
+  var nodes=fwd.concat(['Partner']);
+  var nL=nodes.length;
+  var isPartner=!!p.isPartner;
+  var isDormant=(p.relStage==='Dormant');
+  var curIdx=isPartner?(nL-1):(isDormant?-1:nodes.indexOf(_pStage(p)));
+  var reachedIdx=-1; nodes.forEach(function(s,i){ if(p.stageDates&&p.stageDates[s]) reachedIdx=Math.max(reachedIdx,i); });
+  if(isPartner) reachedIdx=nL-1; else if(curIdx>reachedIdx) reachedIdx=curIdx;
+  var progressBoundary=isDormant?reachedIdx:curIdx;
+  var rs=reachState(p);
+  var hcol=_hcol(rs.state);
+
+  var strip=nodes.map(function(s,i){
+    var isPartnerNode=(s==='Partner');
+    var isDone, isCur=false;
+    if(isDormant){ isDone=(i<=reachedIdx); }
+    else { isDone=(curIdx>=0&&i<curIdx); isCur=(i===curIdx); }
+    var circleCol=isCur?hcol:(isDone?_rampColor(i,nL):'var(--brd)');
+    var lineBefore=(i===0)?'transparent':((i<=progressBoundary)?_rampColor(i-1,nL):'var(--brd)');
+    var lineAfter=(i<progressBoundary)?_rampColor(i,nL):'var(--brd)';
+    var mark=isDone?'&#10003;':(isCur?(isPartnerNode?'&#9733;':'&bull;'):'');
+    var stateCls=isDone?'lp-done':(isCur?'lp-cur':'');
     var styleStr='--circle-col:'+circleCol+';--line-after:'+lineAfter+';--line-before:'+lineBefore;
-    var _sd=_partnerStageDate(p,s);
-    return '<div class="lp-stage '+state+' lp-click" style="'+styleStr+'" onclick="partnerSetStage('+p.id+',&quot;'+_esc(s)+'&quot;)" title="Set stage to '+_esc(s)+'"><div class="lp-circle"><div class="lp-mark">'+mark+'</div></div><div class="lp-name">'+_esc(s)+'</div><div class="lp-date" onclick="event.stopPropagation()"><input type="date" value="'+_sd+'" onclick="event.stopPropagation()" onchange="partnerSetStageDate('+p.id+',&quot;'+_esc(s)+'&quot;,this.value)" title="Date this partner reached the '+_esc(s)+' stage"></div></div>';
+    var click,ttl,clickCls=' lp-click';
+    if(isPartnerNode){
+      if(isPartner){ click=''; clickCls=''; ttl='Active referring partner'; }
+      else if(ro){ click=''; clickCls=''; ttl='Pipeline stage'; }
+      else { click='onclick="promotePartner('+p.id+')"'; ttl='Log a referral to promote'; }
+    } else if(ro){ click=''; clickCls=''; ttl=_esc(s); } else { click='onclick="partnerSetStage('+p.id+',&quot;'+_esc(s)+'&quot;)"'; ttl='Set stage to '+_esc(s); }
+    var sub;
+    if(isPartnerNode){
+      if(isPartner){
+        var refs=_refDeals(p);
+        if(refs.length){
+          var first=refs.slice().sort(function(a,b){ return new Date(a.date||0)-new Date(b.date||0); })[0];
+          sub='<div class="lp-date"><span class="lp-datechip" style="border-style:dashed;cursor:default;color:var(--grn);border-color:var(--grn)" title="First referral received"><span>&#9733; '+(_shortD(first.date)?_esc(_shortD(first.date)):'referral')+'</span></span></div>';
+        } else { sub=_chip('Partner'); }
+      } else { sub='<div class="lp-date" style="height:20px"></div>'; }
+    } else { sub=_chip(s); }
+    return '<div class="lp-stage '+stateCls+clickCls+'" style="'+styleStr+'" '+click+' title="'+ttl+'"><div class="lp-circle"><div class="lp-mark">'+mark+'</div></div><div class="lp-name">'+_esc(s==='Partner'?'Referral Partner':s)+'</div>'+sub+'</div>';
   }).join('');
-  strip+='<div class="lp-stage '+(isDormant?'lp-lost':'')+' lp-click" style="--circle-col:var(--brd);--line-after:var(--brd);--line-before:var(--brd)" onclick="partnerSetStage('+p.id+',&quot;Dormant&quot;)" title="Mark dormant"><div class="lp-circle"><div class="lp-mark">'+(isDormant?'&#10005;':'')+'</div></div><div class="lp-name">Dormant</div><div class="lp-date" onclick="event.stopPropagation()"><input type="date" value="'+_partnerStageDate(p,'Dormant')+'" onclick="event.stopPropagation()" onchange="partnerSetStageDate('+p.id+',&quot;Dormant&quot;,this.value)" title="Date marked dormant"></div></div>';
-  var html='<div class="card" style="margin-bottom:16px"><div class="card-hd"><span class="card-title">Pipeline</span>'+(isDormant?'<span class="stag stag-gray">Dormant</span>':'')+'</div><div class="card-body"><div class="lead-pipe lp-dated">'+strip+'</div>';
-  html+='<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">'+(p.isPartner?('<button class="btn btn-sm" onclick="demotePartner('+p.id+')">Move back to pipeline</button>'):('<button class="btn btn-primary btn-sm" onclick="promotePartner('+p.id+')">Promote to Partner</button>'))+(isDormant?('<button class="btn btn-sm" onclick="partnerSetStage('+p.id+',&quot;Meeting&quot;)">Reactivate</button>'):('<button class="btn btn-sm" onclick="partnerSetStage('+p.id+',&quot;Dormant&quot;)">Mark dormant</button>'))+'</div></div></div>';
+
+  var html='<div class="card" style="margin-bottom:16px"><div class="card-hd"><span class="card-title">Pipeline</span>'+
+    (isPartner?'<span class="stag stag-done">Referral Partner</span>':'')+(isDormant?'<span class="stag stag-gray">Dormant</span>':'')+'</div><div class="card-body">';
+
+  if(isDormant){
+    var reTarget=(reachedIdx>=0&&reachedIdx<(nL-1))?nodes[reachedIdx]:'Meeting';
+    html+='<div class="lp-atrisk"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>'+
+      '<span><strong>Dormant.</strong> This relationship has gone cold'+(p.lastContact?(' &middot; last touch '+daysSince(p.lastContact)+'d ago'):'')+'.</span>'+
+      (ro?'':'<button class="btn btn-sm" onclick="partnerSetStage('+p.id+',&quot;'+_esc(reTarget)+'&quot;)">Reactivate</button>')+'</div>';
+  }
+
+  html+='<div class="lead-pipe lp-dated'+(isDormant?' lp-paused':'')+'">'+strip+'</div>';
+
+  if(!isDormant){
+    var bits=[];
+    var curStage=isPartner?'Partner':_pStage(p);
+    var sdCur=_partnerStageDate(p,curStage);
+    if(isPartner){
+      var rn=_refDeals(p).length;
+      bits.push('Active partner');
+      bits.push(rn?(rn+' referral'+(rn===1?'':'s')+' received'):'no referrals yet');
+    } else if(sdCur){ var din=daysSince(sdCur); if(din!==null) bits.push('In <strong>'+_esc(curStage)+'</strong> '+din+' day'+(din===1?'':'s')); }
+    if(p.lastContact) bits.push('last touch '+daysSince(p.lastContact)+'d ago');
+    if(rs.state!=='none') bits.push('<span style="color:'+hcol+';font-weight:600">'+_esc(rs.label)+'</span>');
+    if(bits.length) html+='<div style="margin-top:2px;font-size:var(--fz-body);color:var(--txm)">'+bits.join(' &middot; ')+'</div>';
+    if(!ro) html+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
+      (isPartner?('<button class="btn btn-sm" onclick="demotePartner('+p.id+')">Move back to pipeline</button>'):('<button class="btn btn-primary btn-sm" onclick="promotePartner('+p.id+')">Log referral</button>'))+
+      '<button class="btn btn-sm" onclick="partnerSetStage('+p.id+',&quot;Dormant&quot;)">Mark dormant</button>'+
+    '</div>';
+  }
+
+  html+='</div></div>';
   return html;
 }
 var _replyKeepFor=null;
@@ -2516,6 +2726,8 @@ function openPartner(id){
   if(p.hasReply){ if(_replyKeepFor===id){ _replyKeepFor=null; } else { p.hasReply=false; save(); } }
   var d=daysSince(p.lastContact);
   var h=partnerHealth(p);
+  function _ir(k,v){ return '<div class="ir"><span>'+_esc(k)+'</span><span class="ir-v">'+((v==null||v==='')?'-':v)+'</span></div>'; }
+  function _ib(t,rows){ return '<div class="ib"><div class="ib-title">'+_esc(t)+'</div>'+rows+'</div>'; }
   var html='';
   html+='<div class="pg"><div>'+
     '<div class="pg-title">'+_esc(p.firm)+'</div>'+
@@ -2524,86 +2736,90 @@ function openPartner(id){
       ((p.email)?('<button class="btn btn-sm" onclick="partnerComposeEmail('+p.id+')" title="Compose, log, and open your mail app" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>Email</button>'):'')+
       ((p.phone||p.mobile)?('<a class="btn btn-sm" href="tel:'+_esc((p.phone||p.mobile).replace(/[^0-9+]/g,''))+'" title="Call '+_esc(p.phone||p.mobile)+'" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call</a>'):'')+
       '<button class="btn btn-sm" onclick="openBookMeetingModal('+p.id+')" title="Book a meeting with this partner and an assigned team member (calendar invites pending backend)" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Book Meeting</button>'+
+      '<button class="btn btn-sm" onclick="openActivityModal('+p.id+')" title="Log a call, email, meeting, or note" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Log Activity</button>'+
       '<button class="coach-ask-btn" onclick="askPartnerCoach('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg>Ask Coach</button>'+
       '<button class="btn btn-sm" onclick="partnerPushLead('+p.id+')">Push to CRM as lead</button>'+
-      '<button class="btn btn-sm" onclick="partnerLogReferral('+p.id+')">Log a referral</button>'+
       '<button class="btn btn-sm" onclick="openPartnerModal('+p.id+')">Edit</button>'+
       '<button class="btn btn-red btn-sm" onclick="deletePartner('+p.id+')">Delete</button>'+
     '</div></div>';
 
   html+='<div id="ptn-coach-mount"></div>';
 
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+catPill(p.cat)+_tierBadge(p,true)+(p.isPartner?'<span class="stag stag-done">Partner</span>':stagePill(_pStage(p)))+healthPill(h)+getPartnerStatusTag(p)+(p.worksWithBuilder?'<span class="stag stag-yellow">Works with '+_esc(p.worksWithBuilder)+'</span>':'')+'</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+catPill(p.cat)+_tierBadge(p,true)+(p.isPartner?'<span class="stag stag-done">Referral Partner</span>':stagePill(_pStage(p)))+healthPill(h)+getPartnerStatusTag(p)+(p.worksWithBuilder?'<span class="stag stag-yellow">Works with '+_esc(p.worksWithBuilder)+'</span>':'')+'</div>';
   html+=_partnerStageTrack(p);
 
+  // ===== Left rail: structured partner facts (CRM rec-layout) =====
+  var rail='';
+  rail+=_ib('Contact information',
+    _ir('Email',(p.email?'<a href="mailto:'+_esc(p.email)+'">'+_esc(p.email)+'</a>':'-'))+
+    _ir('Office phone',(p.phone?'<a href="tel:'+_esc(p.phone.replace(/[^0-9+]/g,''))+'">'+_esc(p.phone)+'</a>':'-'))+
+    _ir('Mobile phone',(p.mobile?'<a href="tel:'+_esc(p.mobile.replace(/[^0-9+]/g,''))+'">'+_esc(p.mobile)+'</a>':'-'))+
+    _ir('Website',(p.web?('<a href="'+_esc(/^https?:/i.test(p.web)?p.web:('https://'+p.web))+'" target="_blank" rel="noopener">'+_esc(p.web)+'</a>'):'-'))+
+    _ir('City',((p.city||p.province)?_esc((p.city||'')+(p.province?', '+p.province:'')):'-'))+
+    _ir('Preferred contact',_esc(p.prefContact||'-'))+
+    _ir('Best time',_esc(p.bestTime||'-')));
+  rail+=_ib('Relationship',
+    _ir('Assigned to',_esc(_fullName(p.assignedTo)||'-'))+(p.source?_ir('Source',(p.source==='Prospecting'?'Market Leads':_esc(p.source))):'')+
+    _ir('Secondary owner',_esc(p.secondaryOwner||'-'))+
+    _ir('Relationship score',(p.relScore||0)+' / 10')+
+    _ir('Last contact',_esc(fmtDate(p.lastContact)+(d!==null?' ('+d+'d ago)':'')))+
+    _ir('Next contact',_esc(fmtDate(p.nextContact)))+
+    _ir('Next action',_esc(p.nextAction||'-')));
+  rail+=_ib('Opportunity',
+    _ir('Potential opportunity',_esc(p.potentialOpp||'-'))+
+    _ir('Works with builder',_esc(p.worksWithBuilder||'-'))+
+    _ir('Estimated value',fmtM(p.estValue))+
+    _ir('Team / group',_esc(p.team||'-'))+
+    _ir('Contact completeness',_esc(p.contactCompleteness||'-')));
+  rail+=_ib('Engagement',
+    _ir('Books delivered',num(p.booksDelivered))+
+    _ir('Events attended',num(p.eventsAttended))+
+    _ir('Site tours',num(p.siteTours))+
+    _ir('Referral discussions',num(p.referralDiscussions)));
+
+  // ===== Main column =====
+  var main='';
   var _plots=PROSPECTS.filter(function(pr){ return pr.type==='lot' && pr.linkedPartnerId===p.id; });
   if(_plots.length){
     var _lc=_plots.reduce(function(a,pr){ return a+(pr.listingCount||(pr.portfolio?pr.portfolio.length:0)||0); },0);
     var _lv=_plots.reduce(function(a,pr){ return a+(pr.totalValue||pr.value||0); },0);
-    html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Active listings</span>'+
+    main+='<div class="card" style="margin-bottom:16px"><div class="card-hd"><span class="card-title">Active listings</span>'+
       '<button class="btn btn-sm" onclick="nav(\'prospecting\');lotAgentListings('+_plots[0].id+')">View listings</button></div>'+
       '<div class="card-body"><div class="kv"><span class="kv-k">Listings</span><span class="kv-v">'+num(_lc)+'</span></div>'+
       '<div class="kv"><span class="kv-k">Inventory value</span><span class="kv-v">'+fmtVal(_lv,'$')+'</span></div>'+
       '<div class="muted" style="font-size:var(--fz-xs);margin-top:4px">From imported lot listings, linked automatically by email or name and brokerage.</div></div></div>';
   }
 
-  html+='<div class="grid-2">';
-  // Relationship
-  html+='<div class="card"><div class="card-hd"><span class="card-title">Relationship</span></div><div class="card-body">'+
-    kv('Assigned to',p.assignedTo||'-')+kv('Secondary owner',p.secondaryOwner||'-')+
-    kv('Relationship score',(p.relScore||0)+' / 10')+
-    kv('Last contact',fmtDate(p.lastContact)+(d!==null?' ('+d+'d ago)':''))+
-    kv('Next contact',fmtDate(p.nextContact))+
-    kv('Next action',p.nextAction||'-')+
-    kv('Books delivered',num(p.booksDelivered))+kv('Events attended',num(p.eventsAttended))+
-    kv('Site tours',num(p.siteTours))+kv('Referral discussions',num(p.referralDiscussions))+
-    '</div></div>';
-  // Contact + opportunity
-  html+='<div class="card"><div class="card-hd"><span class="card-title">Contact + Opportunity</span></div><div class="card-body">'+
-    '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+(p.email?'<a href="mailto:'+_esc(p.email)+'">'+_esc(p.email)+'</a>':'-')+'</span></div>'+
-    '<div class="kv"><span class="kv-k">Office phone</span><span class="kv-v">'+(p.phone?'<a href="tel:'+_esc(p.phone.replace(/[^0-9+]/g,''))+'">'+_esc(p.phone)+'</a>':'-')+'</span></div>'+'<div class="kv"><span class="kv-k">Mobile phone</span><span class="kv-v">'+(p.mobile?'<a href="tel:'+_esc(p.mobile.replace(/[^0-9+]/g,''))+'">'+_esc(p.mobile)+'</a>':'-')+'</span></div>'+
-    '<div class="kv"><span class="kv-k">Website</span><span class="kv-v">'+(p.web?('<a href="'+_esc(/^https?:/i.test(p.web)?p.web:('https://'+p.web))+'" target="_blank" rel="noopener">'+_esc(p.web)+'</a>'):'-')+'</span></div>'+
-    kv('Contact completeness',p.contactCompleteness||'-')+kv('Team / group',p.team||'-')+
-    kv('City',(p.city||'')+(p.province?', '+p.province:''))+
-    kv('Preferred contact',p.prefContact||'-')+kv('Best time',p.bestTime||'-')+
-    kv('Potential opportunity',p.potentialOpp||'-')+
-    kv('Works with builder',p.worksWithBuilder||'-')+
-    kv('Estimated value',fmtM(p.estValue))+
-    '</div></div>';
-  html+='</div>';
-
-  html+=_relProgramPanel(p);
-  html+=keyAccountPanel(p);
-  html+=emailEngagementPanel(p);
-  // Strategic notes
-  html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Strategic Notes</span></div><div class="card-body">'+
+  main+='<div class="card"><div class="card-hd"><span class="card-title">Notes &amp; Intelligence</span></div><div class="card-body">'+
     noteBlock('Strategic',p.strategic)+noteBlock('Partner notes',p.partnerNotes)+
     noteBlock('Do not forget',p.dnf)+noteBlock('Personal notes',p.personalNotes)+
     noteBlock('Interests',p.interests)+noteBlock('Important dates',p.importantDates)+
     '</div></div>';
 
-  // Leads sent to CRM
+  main+=_relProgramPanel(p);
+  main+=keyAccountPanel(p);
+  main+=emailEngagementPanel(p);
+
   var _cl=(p.crmLeads||[]);
   if(_cl.length){
     var _pp=partnerProduction(p);
-    html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Referrals from this partner ('+_cl.length+')</span>'+
+    main+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Referrals from this partner ('+_cl.length+')</span>'+
       '<span class="muted" style="font-size:var(--fz-body)">Sourced '+_pp.sourced+' &middot; Won '+_pp.won+' &middot; Revenue '+bdMoney(_pp.wonRevenue)+' &middot; GP '+bdMoney(_pp.wonGP)+(_pp.feesOwed?(' &middot; Fees owed '+bdMoney(_pp.feesOwed)):'')+'</span></div><div class="card-body">';
     _cl.slice().reverse().forEach(function(x){
       _refNorm(x,p);
       var _i=_cl.indexOf(x);
       var won=(x.status==='won');
-      html+='<div style="padding:8px 0;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">'+
+      main+='<div style="padding:8px 0;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">'+
         '<span><strong>'+_esc(x.name||'-')+'</strong> '+refStatusPill(x.status)+' '+(x.kind==="referral"?'<span class="pill pill-blu">Sourced</span>':'<span class="pill pill-gray">Self</span>')+
         (x.projectType?' <span class="muted">'+_esc(x.projectType)+'</span>':'')+
         (won&&x.feeAmount?(' '+(x.feePaid?'<span class="pill pill-grn">Fee paid</span>':'<span class="pill pill-amb">Fee owed '+bdMoney(x.feeAmount)+'</span>')):'')+'</span>'+
         '<span class="nowrap"><span class="muted">'+(won?bdMoney(x.contractValue):(x.value?fmtM(x.value):''))+(won&&_refGp(x)?(' &middot; GP '+bdMoney(_refGp(x))):'')+' &middot; '+fmtDate(x.date)+'</span> '+
         (won?'<button class="btn btn-sm" onclick="refMarkPaid('+p.id+','+_i+')">'+(x.feePaid?'Unpay':'Mark fee paid')+'</button>':'<button class="btn btn-sm" onclick="refMarkWon('+p.id+','+_i+')">Mark won</button>')+'</span></div>';
     });
-    html+='</div></div>';
+    main+='</div></div>';
   }
 
-  // Upcoming Meetings (placeholder card - calendar integration pending)
-  html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Upcoming Meetings<button class="info-icon" type="button" aria-label="About this card" tabindex="0"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg><span class="tip">Scheduled meetings between this partner and an internal team member. Calendar integration pending: meetings booked here are saved on the partner and will be sent as real calendar invites once the backend is connected.</span></button></span><button class="btn btn-primary btn-sm" onclick="openBookMeetingModal('+p.id+')">Book Meeting</button></div>'+
+  main+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Upcoming Meetings<button class="info-icon" type="button" aria-label="About this card" tabindex="0"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg><span class="tip">Scheduled meetings between this partner and an internal team member. Calendar integration pending: meetings booked here are saved on the partner and will be sent as real calendar invites once the backend is connected.</span></button></span><button class="btn btn-primary btn-sm" onclick="openBookMeetingModal('+p.id+')">Book Meeting</button></div>'+
     '<div class="card-body" style="padding:8px 16px">'+
       (function(){
         var ms=(p.meetings||[]).slice().sort(function(a,b){return new Date(a.start||0)-new Date(b.start||0);});
@@ -2621,17 +2837,16 @@ function openPartner(id){
           var attCount=(m.attendeeEmails||[]).length;
           var statusLabel=m.integrationStatus==='pending-backend'?'Not sent yet':m.status;
           var statusCls=m.integrationStatus==='pending-backend'?'pending':(m.status||'pending');
-          return '<div class="mtg-row" onclick="openBookMeetingModal('+p.id+','+idx+')" title="Click to view or edit"><div class="mtg-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="mtg-main"><div class="mtg-title">'+_esc(m.type)+'</div><div class="mtg-when">'+_esc(when||'No date set')+'</div><div class="mtg-attendees">Assigned to '+_esc(m.assignedTo||'')+' &middot; '+attCount+' attendee'+(attCount===1?'':'s')+(m.location?' &middot; '+_esc(m.location):'')+'</div></div><span class="mtg-status-pill '+statusCls+'">'+_esc(statusLabel)+'</span></div>';
+          return '<div class="mtg-row" onclick="openBookMeetingModal('+p.id+','+idx+')" title="Click to view or edit"><div class="mtg-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="mtg-main"><div class="mtg-title">'+_esc(m.type)+'</div><div class="mtg-when">'+_esc(when||'No date set')+'</div><div class="mtg-attendees">Assigned to '+_esc(_fullName(m.assignedTo)||'')+' &middot; '+attCount+' attendee'+(attCount===1?'':'s')+(m.location?' &middot; '+_esc(m.location):'')+'</div></div><span class="mtg-status-pill '+statusCls+'">'+_esc(statusLabel)+'</span></div>';
         }).join('');
       })()+
     '</div>'+
   '</div>';
 
-  // Email Thread (interim manual thread; auto-sync pending backend)
-  html+=_emailThreadCard('partner',p.id,p.act,((p.cf||'')+' '+(p.cl||'')).trim(),p.email);
-  // Activity
-  var acts=(p.act||[]).slice().sort(function(a,b){ return new Date(b.d)-new Date(a.d); });
-  html+=_mktgActsCard(p.act,'partner',p.id);
+  main+=_mktgActsCard(p.act,'partner',p.id);
+  main+=_emailThreadCard('partner',p.id,p.act,((p.cf||'')+' '+(p.cl||'')).trim(),p.email);
+
+  html+='<div class="rec-layout"><div class="rec-side">'+rail+'</div><div class="rec-main">'+main+'</div></div>';
 
   document.getElementById('ptn-rec').innerHTML=html;
   nav('partner-record');
@@ -2705,7 +2920,7 @@ function openBookMeetingModal(partnerId, meetingIdx){
   if(typeof openModal!=='function')return;
   var l=PARTNERS.filter(function(x){return x.id===partnerId;})[0]; if(!l)return;
   var isEdit=(typeof meetingIdx==='number' && l.meetings && l.meetings[meetingIdx]);
-  var m=isEdit?l.meetings[meetingIdx]:{type:'Intro Meeting',start:'',durationMin:60,assignedTo:l.assignedTo||'Dave',attendeeEmails:l.email?[l.email]:[],location:'',meetingLink:'',notes:''};
+  var m=isEdit?l.meetings[meetingIdx]:{type:'Intro Meeting',start:'',durationMin:60,assignedTo:_fullName(l.assignedTo)||BD_TEAM[0]||'',attendeeEmails:l.email?[l.email]:[],location:'',meetingLink:'',notes:''};
   var startVal='';
   if(m.start){
     var sd=new Date(m.start);
@@ -2715,7 +2930,7 @@ function openBookMeetingModal(partnerId, meetingIdx){
     }
   }
   var types=['Intro Meeting','Coffee / Catch-up','Site Visit','Portfolio Review','Office Visit','Lunch','Follow-up','Other'];
-  var users=['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'];
+  var users=BD_TEAM.slice();
   var addlEmails=(m.attendeeEmails||[]).filter(function(e){return e && e!==l.email;}).join(', ');
   var nm=((l.cf||'')+' '+(l.cl||'')).trim()||l.firm||'partner';
   var body=''+
@@ -2730,7 +2945,7 @@ function openBookMeetingModal(partnerId, meetingIdx){
     '<div class="smb-fld"><label for="mtg-dur">Duration (minutes)</label>'+
       '<select id="mtg-dur">'+[30,45,60,90,120,180].map(function(d){return '<option value="'+d+'"'+(m.durationMin===d?' selected':'')+'>'+d+' min</option>';}).join('')+'</select></div>'+
     '<div class="smb-fld"><label for="mtg-who">Assigned to</label>'+
-      '<select id="mtg-who">'+users.map(function(u){return '<option value="'+_esc(u)+'"'+(m.assignedTo===u?' selected':'')+'>'+_esc(u)+'</option>';}).join('')+'</select></div>'+
+      '<select id="mtg-who">'+users.map(function(u){return '<option value="'+_esc(u)+'"'+(_fullName(m.assignedTo)===u?' selected':'')+'>'+_esc(u)+'</option>';}).join('')+'</select></div>'+
     '<div class="smb-fld"><label for="mtg-attendees">Additional attendee emails (comma-separated)</label>'+
       '<input type="text" id="mtg-attendees" value="'+_esc(addlEmails)+'" placeholder="optional"></div>'+
     '<div class="smb-fld"><label for="mtg-loc">Location</label>'+
@@ -2827,7 +3042,7 @@ function openPartnerModal(id){
     _fld('Postal code','officePostal','text',e.officePostal||'')+
     _fld('Country','officeCountry','text',e.officeCountry||''));
   body+=_section('Ownership',
-    _fld('Assigned to','assignedTo','select',e.assignedTo||'',{options:['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa']})+
+    _fld('Assigned to','assignedTo','select',_fullName(e.assignedTo||''),{options:BD_TEAM})+
     _fld('Secondary owner','secondaryOwner','select',e.secondaryOwner||'',{options:['','Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa']})+
     _fld('Department','department','text',e.department||'')+
     _fld('Date assigned','dateAssigned','date',e.dateAssigned||'')+
@@ -2890,10 +3105,15 @@ function savePartner(existing){
 }
 function deletePartner(id){
   var p=window.SMB_PARTNERS.get(id); if(!p) return;
-  if(!confirm('Delete partner "'+p.firm+'"? This cannot be undone.')) return;
+  var snapshot=JSON.parse(JSON.stringify(p));
+  var firm=p.firm||'Partner';
   window.SMB_PARTNERS._delete(id);
-  toastInfo('Partner deleted',p.firm);
   nav('partners');
+  toastUndo('Partner deleted',firm,function(){
+    window.SMB_PARTNERS._upsert(snapshot);
+    if(typeof renderPartners==='function') renderPartners();
+    toastSuccess('Partner restored',firm);
+  });
 }
 
 function partnerComposeEmail(id){
@@ -3401,7 +3621,7 @@ function renderPermitPullers(){
       '<td class="nowrap">'+(o.value?fmtVal(o.value,'$'):'<span class="muted">-</span>')+'</td>'+'<td class="nowrap muted" style="font-size:var(--fz-body)">'+_esc(o.primaryWorkType||'-')+'</td>'+
       '<td>'+contact+'</td>'+
       '<td class="nowrap muted" style="font-size:var(--fz-body)">'+(o.first?fmtDate(o.first):'-')+' to '+(o.latest?fmtDate(o.latest):'-')+'</td>'+
-      '<td><span class="stag '+stag+'">'+st+'</span></td>'+
+      '<td><span class="stag '+stag+'">'+(st==='Tracked'?'Tracked':'In pipeline')+'</span></td>'+
       '<td class="right nowrap"><button class="btn btn-sm" onclick="pullerDetail('+i+')">View</button></td>'+
     '</tr>';
   }).join('');
@@ -3419,27 +3639,27 @@ function pullerDetail(i){
       '<td class="right"><button class="btn btn-sm" onclick="permitPullDelete('+pu.id+')" style="color:var(--red);border-color:var(--reds)">&times;</button></td></tr>';
   }).join('');
   var contact=(o.phone||o.email)?(_esc(o.phone||'')+(o.phone&&o.email?' &middot; ':'')+_esc(o.email||'')):'<span style="color:var(--amb);font-weight:600">no contact on record (queued for research)</span>';
-  var act=(pullerStatus(o)==='Partner')?'':'<button class="btn btn-primary btn-sm" onclick="pullerLogContact('+i+')">Add to category</button>';
+  var act=(pullerStatus(o)==='Partner')?'':'<button class="btn btn-primary btn-sm" onclick="pullerLogContact('+i+')">Add to pipeline</button>';
   var body='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
-    '<div class="muted" style="font-size:var(--fz-body)">'+num(o.total)+' permit'+(o.total===1?'':'s')+' &middot; '+fmtVal(o.value||0,'$')+' total &middot; status: '+pullerStatus(o)+'<div style="margin-top:4px">'+contact+'</div></div>'+act+'</div>'+
+    '<div class="muted" style="font-size:var(--fz-body)">'+num(o.total)+' permit'+(o.total===1?'':'s')+' &middot; '+fmtVal(o.value||0,'$')+' total &middot; status: '+(pullerStatus(o)==='Tracked'?'Tracked':'In pipeline')+'<div style="margin-top:4px">'+contact+'</div></div>'+act+'</div>'+
     '<div class="tbl-wrap"><table><thead><tr><th scope="col">Type</th><th scope="col">Property</th><th scope="col">Value</th><th scope="col">Pulled</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   openModal({title:o.display, sub:'Permit history', body:body, saveLabel:'Close', onSave:function(){ closeModal(); }});
 }
 function pullerLogContact(i){
   var stats=permitPullStats(); var o=stats[i]; if(!o) return;
-  var people=[{v:'',l:'Unassigned'}].concat(['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'].map(function(x){ return {v:x,l:x}; }));
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
   var body=_section('First contact',
     _fld('How did you contact them','channel','select','Phone',{options:PROSPECT_CONTACT_CHANNELS})+
     _fld('Date','date','date',_today())+
     _fld('Logged by','owner','select','',{options:people})+
     _fld('Note','note','textarea','',{full:true}))+
     '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Creates a Partner record for '+_esc(o.display)+' and links their '+num(o.total)+' permit'+(o.total===1?'':'s')+'. Manage the conversation from Partners.</div>';
-  openModal({title:'Add to category', sub:o.display, body:body, saveLabel:'Add to category', onSave:function(){
+  openModal({title:'Add to pipeline', sub:o.display, body:body, saveLabel:'Add to pipeline', onSave:function(){
     var f=_readForm(); var channel=f.channel||'Phone'; var dt=f.date||_today(); var owner=f.owner||'';
     var nm=_splitName(o.display); var devHeavy=o.development>=o.building;
     var rec={firm:o.display,cf:nm.fn,cl:nm.ln,title:'',cat:devHeavy?'Developer':'Other',
       phone:o.phone||'',email:o.email||'',web:'',li:'',city:'',province:'BC',
-      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',dateAssigned:_today(),
+      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',stageDates:{New:dt},dateAssigned:_today(),
       initialContact:dt,lastContact:dt,nextContact:'',nextAction:'Follow up from permit outreach',
       referralDiscussions:0,contactMethod:channel,
       partnerNotes:'From permit pullers: '+num(o.total)+' permits ('+num(o.building)+' building, '+num(o.development)+' dev), '+fmtVal(o.value||0,'$')+' total value.',
@@ -3449,7 +3669,7 @@ function pullerLogContact(i){
     if(typeof publishPartnersSteward==='function') publishPartnersSteward();
     PERMIT_PULLS.forEach(function(pu){ if((pu.applicantKey||_pullKey(pu.applicant,''))===o.key) pu.linkedPartnerId=rec.id; });
     save(); closeModal(); renderProspecting();
-    if(typeof toastSuccess==='function') toastSuccess('Added to category', o.display+' added as a '+rec.cat+'.');
+    if(typeof toastSuccess==='function') toastSuccess('Added to pipeline', o.display+' added as a '+rec.cat+'.');
   }});
 }
 function _permitHeaderRow(lines){
@@ -3747,14 +3967,55 @@ function mleadComposeEmail(kind,id,tplName){
   if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach')}); }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}}); }
 }
+function _mleadAutoPartner(kind,id){
+  var dt=_today();
+  if(kind==='lot'){
+    var p=_prospFind(id); if(!p||p.linkedPartnerId!=null) return null;
+    var nm=_splitName(p.contactName); var cat=p.type==='lot'?'Realtor':p.type==='development'?'Developer':'Other';
+    var rec={firm:p.contactFirm||p.contactName||'New contact',cf:nm.fn,cl:nm.ln,title:p.contactRole||'',cat:cat,
+      phone:p.contactPhone||'',mobile:p.contactMobile||'',email:p.contactEmail||'',web:'',li:'',city:'',province:'BC',
+      assignedTo:p.owner||_curName(),ownershipStatus:'Active',relStage:'New',stageDates:{New:dt},dateAssigned:dt,
+      initialContact:dt,lastContact:dt,nextContact:'',nextAction:'Follow up from first outreach',
+      referralDiscussions:0,contactMethod:'Email',
+      partnerNotes:'From Market Leads: '+(p.isAgent?(num(p.listingCount||0)+' lot listings, '+fmtVal(p.totalValue||0,'$')+' total inventory'):(prospectTypeLabel(p.type)+' at '+p.address+(p.ref?(' ('+p.ref+')'):''))),
+      source:'Prospecting',act:[]};
+    rec.id=_nextId(PARTNERS); PARTNERS.push(rec);
+    if(typeof publishPartnersSteward==='function') publishPartnersSteward();
+    p.linkedPartnerId=rec.id;
+    PERMIT_PULLS.forEach(function(pu){ if(pu.linkedProspectId===id) pu.linkedPartnerId=rec.id; });
+    return rec;
+  }
+  var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } }
+  if(!pu) return null;
+  var key=pu.applicantKey||_pullKey(pu.applicant,'');
+  var grp=key?PERMIT_PULLS.filter(function(x){ return (x.applicantKey||_pullKey(x.applicant,''))===key; }):[pu];
+  if(grp.some(function(x){ return x.linkedPartnerId!=null; })) return null;
+  var disp=_pullDisplay(pu.applicant,'')||'Applicant'; var nm2=_splitName(disp);
+  var totals={building:0,development:0,value:0};
+  grp.forEach(function(x){ if(x.type==='development') totals.development++; else totals.building++; totals.value+=_numOr(x.value,0); });
+  var devHeavy=totals.development>=totals.building;
+  var rec2={firm:disp,cf:nm2.fn,cl:nm2.ln,title:'',cat:devHeavy?'Developer':'Other',
+    phone:pu.phone||'',email:pu.email||'',web:'',li:'',city:'',province:'BC',
+    assignedTo:_curName(),ownershipStatus:'Active',relStage:'New',stageDates:{New:dt},dateAssigned:dt,
+    initialContact:dt,lastContact:dt,nextContact:'',nextAction:'Follow up from permit outreach',
+    referralDiscussions:0,contactMethod:'Email',
+    partnerNotes:'From Market Leads: '+(pu.type==='development'?'development':'building')+' permits, '+num(grp.length)+' permit'+(grp.length===1?'':'s')+', '+fmtVal(totals.value||0,'$')+' total value.',
+    source:'Prospecting',act:[]};
+  rec2.id=_nextId(PARTNERS); PARTNERS.push(rec2);
+  if(typeof publishPartnersSteward==='function') publishPartnersSteward();
+  grp.forEach(function(x){ x.linkedPartnerId=rec2.id; });
+  return rec2;
+}
 function mleadLogEmail(kind,id,subj,notes){
   var by=_curName().split(' ')[0];
   var a={d:_today(),type:'Email',subj:(subj||'Email sent'),notes:(notes||''),na:'',nc:'',by:by,loggedAt:new Date().toISOString()};
   var who='this lead';
   if(kind==='lot'){ var p=_prospFind(id); if(p){ if(!p.act) p.act=[]; p.act.unshift(a); if(a.d>(p.lastContact||'')) p.lastContact=a.d; who=p.contactName||who; } }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(pu){ var k=pu.applicantKey||_pullKey(pu.applicant,''); if(k){ if(!PULL_ACTIVITY[k]) PULL_ACTIVITY[k]=[]; PULL_ACTIVITY[k].unshift(a); who=_pullDisplay(pu.applicant,'')||who; } } }
+  var _np=null; try{ _np=_mleadAutoPartner(kind,id); }catch(e){}
+  if(_np){ if(!_np.act) _np.act=[]; _np.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); }
   try{ save(); }catch(e){}
-  if(typeof toastSuccess==='function') toastSuccess('Email logged','Logged to '+who+'.');
+  if(typeof toastSuccess==='function') toastSuccess(_np?'Added to pipeline':'Email logged', _np?(who+' has been added to your pipeline.'):('Logged to '+who+'.'));
   if(MLEAD_VIEW) renderProspecting();
 }
 
@@ -3822,7 +4083,7 @@ function _naField(val){
   return '<div class="smb-fld full"><label for="mk-na-inp">Next action</label>'+_dd('mk-na-inp','na',val||'',NA)+'</div>';
 }
 function _ownerField(val){
-  var ppl=['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'];
+  var ppl=BD_TEAM.slice();
   return '<div class="smb-fld"><label for="mk-owner-inp">Assigned to</label>'+_dd('mk-owner-inp','owner',val||'',ppl.concat([{v:'',label:'Unassigned'}]))+'</div>';
 }
 function mktgLogActivity(kind,id,editIdx){
@@ -3913,7 +4174,7 @@ function _logEmailReply(kind,id){
 function _emailThreadCard(kind,id,acts,name,email){
   var emails=(acts||[]).filter(function(a){ return a.type==='Email'; }).slice().sort(function(a,b){ return new Date(b.loggedAt||b.d)-new Date(a.loggedAt||a.d); });
   var btns='';
-  if(email) btns+='<button class="btn btn-sm" onclick="_emailThreadWrite(\''+kind+'\','+id+')" title="Compose, log, and open your mail app">Write email</button>';
+  if(email) btns+='<button class="btn btn-sm" onclick="_emailThreadWrite(\''+kind+'\','+id+')" title="Compose, log, and open your mail app (Outlook if it is your default)">Open in Outlook</button>';
   btns+='<button class="btn btn-sm" onclick="_logEmailReply(\''+kind+'\','+id+')" title="Record a reply you received">Log reply</button>';
   var head='<div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="card-title">Email Thread</span><span style="display:flex;gap:6px">'+btns+'</span></div>';
   var inner;
@@ -3933,7 +4194,7 @@ function _mleadActsCard(acts,kind,id){ return _mktgActsCard(acts,kind,id); }
 
 function _mleadDetailLot(p){
   var email=p.contactEmail||'', phone=p.contactPhone||'', mob=p.contactMobile||'';
-  var html='<div class="back-link" onclick="mleadBack()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Prospecting</div>';
+  var html='<div class="back-link" onclick="mleadBack()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Market Leads</div>';
   html+='<div class="pg"><div><div class="pg-title">'+_esc(p.contactName||'Lot agent')+'</div>'+
     '<div class="pg-sub">'+_esc(p.contactFirm||'')+(p.contactRole?(' &middot; '+_esc(p.contactRole)):'')+'</div></div>'+
     '<div class="pg-actions">'+
@@ -3941,10 +4202,11 @@ function _mleadDetailLot(p){
       (phone?('<a class="btn btn-sm" href="tel:'+_telHref(phone)+'" title="Call '+_esc(phone)+'" style="text-decoration:none">'+_MLI_PHONE+'Call</a>'):'')+
       '<button class="btn btn-sm" onclick="mleadLogActivity(\'lot\','+p.id+')">Log activity</button>'+
       '<button class="btn btn-sm" onclick="_setFollowUp(\'lot\','+p.id+')">Set follow-up</button>'+
-      '<button class="btn btn-primary btn-sm" onclick="prospectLogContact('+p.id+')">Add to category</button>'+
+      (p.linkedPartnerId!=null?('<button class="btn btn-primary btn-sm" onclick="openPartner('+p.linkedPartnerId+')">View partner</button>'):('<button class="btn btn-primary btn-sm" onclick="prospectLogContact('+p.id+')">Add to pipeline</button>'))+
       '<button class="btn btn-sm" onclick="prospectEdit('+p.id+')">Edit</button>'+
       '<button class="btn btn-sm" onclick="prospectDelete('+p.id+')" style="color:var(--red);border-color:var(--reds)">Delete</button>'+
     '</div></div>';
+  if(p.linkedPartnerId!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===p.linkedPartnerId; })[0]; if(_lp) html+=_partnerStageTrack(_lp,true); }
   html+='<div class="grid-2">';
   html+='<div class="card"><div class="card-hd"><span class="card-title">Contact</span></div><div class="card-body">'+
     '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+_mleadMailto(email)+'</span></div>'+
@@ -3973,17 +4235,18 @@ function _mleadDetailPull(key){
   var first=pulls[0]; var disp=_pullDisplay(first.applicant,'')||'Applicant';
   var phone='',email='',leadScore='',totalVal=0,nb=0,nd=0;
   pulls.forEach(function(x){ if(!phone&&x.phone)phone=x.phone; if(!email&&x.email)email=x.email; if(!leadScore&&x.leadScore)leadScore=x.leadScore; totalVal+=_numOr(x.value,0); if(x.type==='development')nd++; else nb++; });
-  var linked=pulls.some(function(x){ return x.linkedPartnerId!=null; });
+  var linked=pulls.some(function(x){ return x.linkedPartnerId!=null; }); var linkedPid=null; pulls.forEach(function(x){ if(x.linkedPartnerId!=null) linkedPid=x.linkedPartnerId; });
   var split=[]; if(nb) split.push(nb+' building'); if(nd) split.push(nd+' development');
-  var html='<div class="back-link" onclick="mleadBack()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Prospecting</div>';
+  var html='<div class="back-link" onclick="mleadBack()" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Market Leads</div>';
   html+='<div class="pg"><div><div class="pg-title">'+_esc(disp)+'</div>'+
-    '<div class="pg-sub">Permit applicant'+(split.length?(' &middot; '+_esc(split.join(' / '))):'')+(linked?' &middot; Partner':'')+'</div></div>'+
+    '<div class="pg-sub">Permit applicant'+(split.length?(' &middot; '+_esc(split.join(' / '))):'')+(linked?' &middot; In pipeline':'')+'</div></div>'+
     '<div class="pg-actions">'+
       (email?('<button class="btn btn-sm" onclick="mleadComposeEmail(\'pull\','+first.id+')" title="Compose, log, and open your mail app" style="display:inline-flex;align-items:center;gap:5px">'+_MLI_MAIL+'Email</button>'):'')+
       (phone?('<a class="btn btn-sm" href="tel:'+_telHref(phone)+'" title="Call '+_esc(phone)+'" style="text-decoration:none">'+_MLI_PHONE+'Call</a>'):'')+
       '<button class="btn btn-sm" onclick="mleadLogActivity(\'pull\','+first.id+')">Log activity</button>'+
-      (linked?'':('<button class="btn btn-primary btn-sm" onclick="pullRowLogContact('+first.id+')">Add to category</button>'))+
+      (linked?('<button class="btn btn-primary btn-sm" onclick="openPartner('+linkedPid+')">View partner</button>'):('<button class="btn btn-primary btn-sm" onclick="pullRowLogContact('+first.id+')">Add to pipeline</button>'))+
     '</div></div>';
+  if(linked && linkedPid!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===linkedPid; })[0]; if(_lp) html+=_partnerStageTrack(_lp,true); }
   html+='<div class="grid-2">';
   html+='<div class="card"><div class="card-hd"><span class="card-title">Contact</span></div><div class="card-body">'+
     '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+_mleadMailto(email)+'</span></div>'+
@@ -4014,20 +4277,20 @@ function pullRowLogContact(id){
   var grp=key?PERMIT_PULLS.filter(function(x){ return (x.applicantKey||_pullKey(x.applicant,''))===key; }):[pu];
   var totals={building:0,development:0,value:0};
   grp.forEach(function(x){ if(x.type==='development') totals.development++; else totals.building++; totals.value+=_numOr(x.value,0); });
-  var people=[{v:'',l:'Unassigned'}].concat(['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'].map(function(x){ return {v:x,l:x}; }));
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
   var body=_section('First contact',
     _fld('How did you contact them','channel','select','Phone',{options:PROSPECT_CONTACT_CHANNELS})+
     _fld('Date','date','date',_today())+
     _fld('Logged by','owner','select','',{options:people})+
     _fld('Note','note','textarea','',{full:true}))+
     '<div class="muted" style="font-size:var(--fz-body);margin-top:6px">Creates a Partner record for '+_esc(disp)+(grp.length>1?(' and links their '+num(grp.length)+' permits'):' and links this permit')+'. The permit stays in the ledger.</div>';
-  openModal({title:'Add to category', sub:disp, body:body, saveLabel:'Add to category', onSave:function(){
+  openModal({title:'Add to pipeline', sub:disp, body:body, saveLabel:'Add to pipeline', onSave:function(){
     var f=_readForm(); var channel=f.channel||'Phone'; var dt=f.date||_today(); var owner=f.owner||'';
     var nm=_splitName(disp); var devHeavy=totals.development>=totals.building;
     var carried=(PULL_ACTIVITY[key]||[]).slice();
     var rec={firm:disp,cf:nm.fn,cl:nm.ln,title:'',cat:devHeavy?'Developer':'Other',
       phone:pu.phone||'',email:pu.email||'',web:'',li:'',city:'',province:'BC',
-      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',dateAssigned:_today(),
+      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',stageDates:{New:dt},dateAssigned:_today(),
       initialContact:dt,lastContact:dt,nextContact:'',nextAction:'Follow up from permit outreach',
       referralDiscussions:0,contactMethod:channel,
       partnerNotes:'From '+(pu.type==='development'?'development':'building')+' permits: '+num(grp.length)+' permit'+(grp.length===1?'':'s')+', '+fmtVal(totals.value||0,'$')+' total value.',
@@ -4039,14 +4302,14 @@ function pullRowLogContact(id){
     if(key && PULL_ACTIVITY[key]) delete PULL_ACTIVITY[key];
     MLEAD_VIEW=null;
     save(); closeModal(); renderProspecting();
-    if(typeof toastSuccess==='function') toastSuccess('Added to category', disp+' added as a '+rec.cat+'.');
+    if(typeof toastSuccess==='function') toastSuccess('Added to pipeline', disp+' added as a '+rec.cat+'.');
   }});
 }
 
 function _prospLotsShell(){
   return '<div class="card"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'+
     '<div class="muted" style="font-size:var(--fz-body)">Listing agents with active lot inventory. Click a row to open the agent, see their listings, log activity, and move them into Partners.</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button> <button class="btn btn-sm" onclick="prospectEdit(null)">Add prospect</button></div></div></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button> <button class="btn btn-sm" onclick="prospectEdit(null)">Add market lead</button></div></div></div>'+
     '<div id="mlead-mini"></div>'+
     _mleadBar('Search agent, firm, email, area...', _mleadSel('f1','All areas',_allLotCities())+_mleadSel('f2','Any contact',[{v:'yes',l:'Has contact'},{v:'no',l:'Missing contact'}]))+
     '<div id="mlead-table"></div>';
@@ -4239,7 +4502,7 @@ function mleadRenderList(){
           '<td class="nowrap">'+appLink+'</td>'+
           '<td>'+_mleadActsTouchCell(_mleadPullActsFor(pu))+'</td>'+
           '<td>'+_mleadActsFollowCell(_mleadPullActsFor(pu))+'</td>'+
-          _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="stag stag-done">Partner</span>':'')+'</td></tr>';
+          _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="stag stag-done" style="cursor:pointer" onclick="event.stopPropagation();openPartner('+pu.linkedPartnerId+')" title="View partner">In pipeline</span>':'')+'</td></tr>';
       }).join('');
       table='<div class="card"><div class="card-hd"><span class="card-title">Development permit applications</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows2.length)+' of '+num(all2.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr><th scope="col">Date filed</th><th scope="col">Address</th><th scope="col">Neighbourhood</th><th scope="col">Applicant</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Application type</th><th scope="col">Project type</th><th scope="col">Application #</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>'+b1+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
@@ -4260,7 +4523,7 @@ function mleadRenderList(){
           '<td>'+_mleadMailto(pu.email,true)+'</td>'+
           '<td>'+_mleadActsTouchCell(_mleadPullActsFor(pu))+'</td>'+
           '<td>'+_mleadActsFollowCell(_mleadPullActsFor(pu))+'</td>'+
-          _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="stag stag-done">Partner</span>':'')+'</td></tr>';
+          _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="stag stag-done" style="cursor:pointer" onclick="event.stopPropagation();openPartner('+pu.linkedPartnerId+')" title="View partner">In pipeline</span>':'')+'</td></tr>';
       }).join('');
       table='<div class="card"><div class="card-hd"><span class="card-title">Building permits issued</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows2.length)+' of '+num(all2.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr><th scope="col">Date issued</th><th scope="col">Address</th><th scope="col">Neighbourhood</th><th scope="col">Project type</th><th scope="col">Description</th><th scope="col">Est. value</th><th scope="col">Applicant</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>'+b2+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
@@ -4291,7 +4554,7 @@ function mleadRenderList(){
           '<td class="nowrap" style="font-weight:700">'+num(o.total)+'</td>'+
           '<td class="nowrap">'+(o.value?fmtVal(o.value,'$'):'<span class="muted">-</span>')+'</td>'+
           '<td class="nowrap muted">'+_esc(o.primaryWorkType||'-')+'</td>'+
-          '<td>'+_mleadActsTouchCell(_mleadBuilderActs(o))+'</td>'+'<td>'+_mleadActsFollowCell(_mleadBuilderActs(o))+'</td>'+'<td><span class="stag '+stag+'">'+st+'</span></td></tr>';
+          '<td>'+_mleadActsTouchCell(_mleadBuilderActs(o))+'</td>'+'<td>'+_mleadActsFollowCell(_mleadBuilderActs(o))+'</td>'+'<td><span class="stag '+stag+'">'+(st==='Tracked'?'Tracked':'In pipeline')+'</span></td></tr>';
       }).join('');
       table='<div class="card"><div class="card-hd"><span class="card-title">Active builders</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows3.length)+' of '+num(stats.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Builder</th><th scope="col">Permits</th><th scope="col">Value</th><th scope="col">Primary work</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th></tr></thead><tbody>'+b3+'</tbody></table></div></div>';
@@ -4392,14 +4655,14 @@ function prospectSetFilter(k,v){ PROSPECT_FILTER[k]=v; renderProspecting(); }
 function prospectConnect(kind){
   openModal({title:'Connect '+kind, sub:'Backend Pending',
     body:'<p style="margin:0 0 8px">Automatic '+_esc(kind)+' pulls arrive with the data integration. Per-municipality permit feeds and a listings source connect here.</p>'+
-      '<p class="muted" style="margin:0">Add prospects manually now; nothing is blocked.</p>',
+      '<p class="muted" style="margin:0">Add market leads manually now; nothing is blocked.</p>',
     saveLabel:'Got it', onSave:function(){ closeModal(); }});
 }
 function prospectEdit(id){
   var p=id===null?null:_prospFind(id);
   var t=p?p.type:'lot';
-  var people=[{v:'',l:'Unassigned'}].concat(['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'].map(function(x){ return {v:x,l:x}; }));
-  var body=_section('Prospect',
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
+  var body=_section('Market lead',
     _fld('Type','type','select',t,{options:PROSPECT_TYPES})+
     _fld('Address','address','text',p?p.address:'',{full:true})+
     _fld('Description','desc','text',p?p.desc:'',{full:true})+
@@ -4414,7 +4677,7 @@ function prospectEdit(id){
     _fld('Mobile phone','contactMobile','text',p?p.contactMobile:'')+
     _fld('Owner','owner','select',p?p.owner:'',{options:people})+
     _fld('Note','note','textarea',p?p.note:'',{full:true}));
-  openModal({title:p?'Edit prospect':'Add prospect', body:body, saveLabel:'Save', onSave:function(){
+  openModal({title:p?'Edit market lead':'Add market lead', body:body, saveLabel:'Save', onSave:function(){
     var f=_readForm(); var addr=String(f.address||'').trim();
     if(!addr && !(p&&p.isAgent)){ modalErr('Enter an address.'); return; }
     if(p){
@@ -4440,26 +4703,26 @@ function prospectEdit(id){
 }
 function prospectDelete(id){
   var p=_prospFind(id); if(!p) return;
-  openModal({title:'Discard prospect', body:'<p style="margin:0">Discard the pulled prospect at "'+_esc(p.address)+'"? It has not been contacted, so nothing moves to Partners.</p>', saveLabel:'Discard', onSave:function(){
+  openModal({title:'Discard market lead', body:'<p style="margin:0">Discard the pulled lead at "'+_esc(p.address)+'"? It has not been contacted, so nothing moves to Partners.</p>', saveLabel:'Discard', onSave:function(){
     PROSPECTS=PROSPECTS.filter(function(x){ return x.id!==id; }); save(); closeModal(); renderProspecting();
   }});
 }
 function prospectLogContact(id){
   var p=_prospFind(id); if(!p) return;
-  var people=[{v:'',l:'Unassigned'}].concat(['Dave','Terry','Will','Mika','Lisa','Daniel','Vanessa'].map(function(x){ return {v:x,l:x}; }));
+  var people=[{v:'',l:'Unassigned'}].concat(BD_TEAM.map(function(x){ return {v:x,l:x}; }));
   var body=_section('First contact',
     _fld('How did you contact them','channel','select','Phone',{options:PROSPECT_CONTACT_CHANNELS})+
     _fld('Date','date','date',_today())+
     _fld('Logged by','owner','select',p.owner||'',{options:people})+
     _fld('Note','note','textarea','',{full:true}))+
     '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Adds a Partner record under the matching category (Realtors for lot agents) and keeps this row in the market data list as reference.</div>';
-  openModal({title:'Add to category', sub:p.contactName||p.address, body:body, saveLabel:'Add to category', onSave:function(){
+  openModal({title:'Add to pipeline', sub:p.contactName||p.address, body:body, saveLabel:'Add to pipeline', onSave:function(){
     var f=_readForm(); var channel=f.channel||'Phone'; var dt=f.date||_today(); var owner=f.owner||p.owner||'';
     var nm=_splitName(p.contactName);
     var cat=p.type==='lot'?'Realtor':p.type==='development'?'Developer':'Other';
     var rec={firm:p.contactFirm||p.contactName||'New contact',cf:nm.fn,cl:nm.ln,title:p.contactRole||'',cat:cat,
       phone:p.contactPhone||'',mobile:p.contactMobile||'',email:p.contactEmail||'',web:'',li:'',city:'',province:'BC',
-      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',dateAssigned:_today(),
+      assignedTo:owner||'Dave',ownershipStatus:'Active',relStage:'New',stageDates:{New:dt},dateAssigned:_today(),
       initialContact:dt,lastContact:dt,nextContact:'',nextAction:'Follow up from first outreach',
       referralDiscussions:0,contactMethod:channel,
       partnerNotes:'From Prospecting: '+(p.isAgent?(num(p.listingCount||0)+' lot listings, '+fmtVal(p.totalValue||0,'$')+' total inventory'):(prospectTypeLabel(p.type)+' at '+p.address+(p.ref?(' ('+p.ref+')'):''))),
@@ -4467,9 +4730,9 @@ function prospectLogContact(id){
       act:[{d:dt,type:'First contact - '+channel,subj:'Initial outreach',notes:String(f.note||'').trim(),by:owner||'Marketing'}]};
     rec.id=_nextId(PARTNERS); PARTNERS.push(rec);
     if(typeof publishPartnersSteward==='function') publishPartnersSteward();
-    PERMIT_PULLS.forEach(function(pu){ if(pu.linkedProspectId===id) pu.linkedPartnerId=rec.id; });
+    p.linkedPartnerId=rec.id; PERMIT_PULLS.forEach(function(pu){ if(pu.linkedProspectId===id) pu.linkedPartnerId=rec.id; });
     save(); closeModal(); renderProspecting();
-    if(typeof toastSuccess==='function') toastSuccess('Added to category', (p.contactName||'Contact')+' added as a '+cat+'.');
+    if(typeof toastSuccess==='function') toastSuccess('Added to pipeline', (p.contactName||'Contact')+' added as a '+cat+'.');
   }});
 }
 
@@ -4482,7 +4745,9 @@ var MK_SUBNAV=[
   ['goals','Goals'],
   ['scorecard','Scorecard'],
   ['events','Events'],
-  ['reports','Reports']
+  ['reports','Reports'],
+  ['templates','Templates'],
+  ['team','Team']
 ];
 function _mkActiveSec(){ return _curPage||'dashboard'; }
 
@@ -5331,7 +5596,23 @@ function _qGoalOverride(m,q){ if(m.unit==='%'||m.unit==='YN') return m.goal; var
 
 function _qMonths(m,q){ var r=m.readings||[],n=0; for(var k=q*3;k<q*3+3;k++){ if(typeof r[k]==='number'&&!isNaN(r[k])) n++; } return n; }
 
-function _recalcAll(){ scorecard.forEach(function(s){(s.metrics||[]).forEach(_recalcMetric);}); }
+/* ---- BD scorecard auto-feed: VSP _autoKey/_autoSrc mechanism, BD sources.
+   A measurable carrying an auto key is filled read-only from BD activity and
+   partner data; toggling it off in the editor returns it to manual entry
+   (the standard VSP behaviour). Each weekly cell counts records dated in that
+   calendar week, indexed against weekRanges like every other measurable. ---- */
+function _bdScWk(i){ var s=scWeekDate(i); return {s:s,e:new Date(s.getTime()+7*86400000)}; }
+function _bdActOut(a){ return !!(a && !a.inbound && /^(Email|Phone Call|Phone|Text|Meeting|Other)$/.test(a.type||'')); }
+function _bdFeedOutreach(s,e){ var n=0; (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){ (p.act||[]).forEach(function(a){ if(_bdActOut(a)&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedTouches(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ (p.act||[]).forEach(function(a){ if(a&&!a.inbound&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedMeetings(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ (p.act||[]).forEach(function(a){ if(a&&a.type==='Meeting'&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ if(_inWk(r.date,s,e)) n++; }); }); return n; }
+function _bdFeedActivePartners(s,e){ var lo=new Date(e.getTime()-90*86400000),n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var hit=false; (p.crmLeads||[]).forEach(function(r){ if(!hit) hit=_inWk(r.date,lo,e); }); if(hit) n++; }); return n; }
+var BD_AUTO_FEED={ 'bd.outreachAttempts':_bdFeedOutreach, 'bd.relationshipTouches':_bdFeedTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.activePartners':_bdFeedActivePartners };
+var BD_AUTO_SRC={ 2:['bd.outreachAttempts','BD activity'], 4:['bd.relationshipTouches','BD activity'], 6:['bd.relationshipMeetings','BD activity'], 8:['bd.referralsReceived','Partners'], 9:['bd.activePartners','Partners'] };
+function _bdEnsureAutoSources(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&BD_AUTO_SRC[m.id]&&!m.auto&&!m._autoKey){ m.auto=BD_AUTO_SRC[m.id][0]; m.autoSrc=BD_AUTO_SRC[m.id][1]; } }); }); }catch(_){} }
+function _bdAutoFillScorecard(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ var k=m&&m.auto; if(!k||!BD_AUTO_FEED[k]||!Array.isArray(m.readings)) return; var fn=BD_AUTO_FEED[k]; for(var i=0;i<m.readings.length;i++){ var w=_bdScWk(i); var v=fn(w.s,w.e); m.readings[i]=(typeof v==='number'&&v>0)?v:null; } }); }); }catch(_){} }
+function _recalcAll(){ _bdEnsureAutoSources(); _bdAutoFillScorecard(); scorecard.forEach(function(s){(s.metrics||[]).forEach(_recalcMetric);}); }
 
 function _recalcMetric(m){
   if(!m||!m.calc||!m.calc.op||m.calc.op==='none') return;
@@ -7300,6 +7581,146 @@ function publishMailContract(){
   publishTemplatesSteward();
 }
 
+/* ---- Templates page: browse and edit the shared email template library from
+   BD. Writes go through the shared store (TEMPLATES + publishTemplatesSteward)
+   so Marketing sees the same set. BD does not build a second send engine; this
+   is the template editor only. ---- */
+function _tplFind(id){ for(var i=0;i<TEMPLATES.length;i++){ if(String(TEMPLATES[i].id)===String(id)) return TEMPLATES[i]; } return null; }
+function _tplCategories(){ return ['Lot Agent','Realtor','Architect','Designer','Developer','Partner Outreach','Other']; }
+function renderTemplates(){
+  var host=document.getElementById('templates-content'); if(!host) return;
+  var list=TEMPLATES.filter(function(t){ return (t.channel||'email')!=='sms'; }).slice().sort(function(a,b){ return String(a.name||'').toLowerCase()<String(b.name||'').toLowerCase()?-1:1; });
+  var totalSends=list.reduce(function(s,t){ return s+(Number(t.sends)||0); },0);
+  var head='<div class="pg"><div><div class="pg-title">Email Templates</div><div class="pg-sub">Reusable outreach emails for partners and lot agents. These are the templates that show in the "Start from a template" picker when you compose an email. Editing here updates the shared template library, so Marketing stays in sync. Use {{first_name}} and {{area}} to personalize.</div></div><div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openTemplateEditor(null)">New template</button></div></div>';
+  var kpi=_miniBar([['Templates',num(list.length)],['Total sends',num(totalSends)]]);
+  var body;
+  if(!list.length){
+    body=emptyState('No templates yet','Create a reusable outreach email so partner and lot-agent emails start from a consistent, on-brand message.','<button class="btn btn-primary btn-sm" onclick="openTemplateEditor(null)">New template</button>');
+  } else {
+    var rows=list.map(function(t){
+      return '<tr>'+
+        '<td><strong>'+_esc(t.name||'(untitled)')+'</strong></td>'+
+        '<td>'+_esc(t.category||'')+'</td>'+
+        '<td>'+_esc(String(t.subject||'').slice(0,80))+'</td>'+
+        '<td>'+_esc(t.updated||'')+'</td>'+
+        '<td class="right">'+num(Number(t.sends)||0)+'</td>'+
+        '<td class="right"><button class="btn btn-sm" onclick="openTemplateEditor('+t.id+')">Edit</button> <button class="btn btn-sm" onclick="deleteTemplate('+t.id+')">Delete</button></td>'+
+      '</tr>';
+    }).join('');
+    body='<div class="card"><div class="tbl-wrap"><table><thead><tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Subject</th><th scope="col">Updated</th><th class="right" scope="col">Sends</th><th class="right" scope="col">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }
+  host.innerHTML=head+kpi+body;
+}
+function openTemplateEditor(id){
+  if(typeof openModal!=='function') return;
+  var t=(id==null)?null:_tplFind(id);
+  var isEdit=!!t;
+  var cats=_tplCategories();
+  var curCat=isEdit?(t.category||'Partner Outreach'):'Partner Outreach';
+  if(cats.indexOf(curCat)<0) cats=[curCat].concat(cats);
+  var bodyHtml=_section('Template',
+      _fld('Name','name','text',isEdit?(t.name||''):'',{full:true,ph:'e.g. Realtor Coffee Invite'})+
+      _fld('Category','category','select',curCat,{options:cats})+
+      _fld('Subject','subject','text',isEdit?(t.subject||''):'',{full:true,ph:'Subject line'})+
+      _fld('Message','body','textarea',isEdit?(t.body||''):'',{full:true,autogrow:true,ph:'Write the email. Use {{first_name}} and {{area}} to personalize.'})
+    );
+  openModal({
+    title:(isEdit?'Edit template':'New template'),
+    sub:(isEdit?(t.name||''):'Shared with Marketing'),
+    body:bodyHtml,
+    saveLabel:(isEdit?'Save changes':'Create template'),
+    onSave:function(){ saveTemplate(isEdit?t.id:null); }
+  });
+}
+function saveTemplate(id){
+  var f=_readForm();
+  var name=String(f.name||'').trim();
+  if(!name){ if(typeof modalErr==='function') modalErr('Enter a template name.'); return; }
+  var rec=(id==null)?null:_tplFind(id);
+  if(rec){
+    rec.name=name; rec.category=f.category||rec.category||'Partner Outreach';
+    rec.subject=String(f.subject||''); rec.body=String(f.body||'');
+    rec.channel='email'; rec.updated=_today();
+  } else {
+    rec={ id:_nextId(TEMPLATES), name:name, category:(f.category||'Partner Outreach'), channel:'email', subject:String(f.subject||''), body:String(f.body||''), updated:_today(), sends:0 };
+    TEMPLATES.push(rec);
+  }
+  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+  save();
+  if(typeof closeModal==='function') closeModal();
+  if(typeof toastSuccess==='function') toastSuccess(id==null?'Template created':'Template saved', name+' is ready in the compose picker.');
+  renderTemplates();
+}
+function deleteTemplate(id){
+  var t=_tplFind(id); if(!t) return;
+  openModal({
+    title:'Delete template',
+    sub:t.name||'',
+    body:'<div style="font-size:var(--fz-body);line-height:1.5">Delete <strong>'+_esc(t.name||'this template')+'</strong>? It will be removed from the compose picker for everyone. This cannot be undone.</div>',
+    saveLabel:'Delete template',
+    onSave:function(){
+      for(var i=0;i<TEMPLATES.length;i++){ if(String(TEMPLATES[i].id)===String(id)){ TEMPLATES.splice(i,1); break; } }
+      try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+      save();
+      if(typeof closeModal==='function') closeModal();
+      if(typeof toastSuccess==='function') toastSuccess('Template deleted', (t.name||'Template')+' removed.');
+      renderTemplates();
+    }
+  });
+}
+
+/* ---- Team page: the people assigned to this module. Interim, local control
+   until HR owns module assignment across the app. Everyone here populates
+   every person picker (Assigned to, Logged by, meeting assignee, etc.). ---- */
+function renderTeam(){
+  var host=document.getElementById('team-content'); if(!host) return;
+  var head='<div class="pg"><div><div class="pg-title">Team</div><div class="pg-sub">The people assigned to the BD module. Everyone here appears in every person dropdown, like "Assigned to" and "Logged by". Interim setup: once HR is live, module assignment moves there.</div></div><div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="bdAddTeamMember()">Add person</button></div></div>';
+  var body;
+  if(!BD_TEAM.length){
+    body=emptyState('No one assigned yet','Add the people who work in BD so they show up in the assignment dropdowns.','<button class="btn btn-primary btn-sm" onclick="bdAddTeamMember()">Add person</button>');
+  } else {
+    var rows=BD_TEAM.map(function(n,idx){
+      return '<tr><td><strong>'+_esc(n)+'</strong></td><td class="right"><button class="btn btn-sm" onclick="bdRemoveTeamMember('+idx+')">Remove</button></td></tr>';
+    }).join('');
+    body='<div class="card"><div class="tbl-wrap"><table><thead><tr><th scope="col">Name</th><th class="right" scope="col">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }
+  host.innerHTML=head+body;
+}
+function bdAddTeamMember(){
+  if(typeof openModal!=='function') return;
+  var bodyHtml=_section('Add person', _fld('Full name','name','text','',{full:true,ph:'e.g. Will Liddell'}));
+  openModal({
+    title:'Add person to BD',
+    sub:'They will appear in every assignment dropdown',
+    body:bodyHtml,
+    saveLabel:'Add',
+    onSave:function(){
+      var f=_readForm(); var name=String(f.name||'').trim();
+      if(!name){ if(typeof modalErr==='function') modalErr('Enter a full name.'); return; }
+      if(BD_TEAM.some(function(n){ return n.toLowerCase()===name.toLowerCase(); })){ if(typeof modalErr==='function') modalErr(name+' is already on the team.'); return; }
+      BD_TEAM.push(name); save();
+      if(typeof closeModal==='function') closeModal();
+      if(typeof toastSuccess==='function') toastSuccess('Added', name+' is now assignable in BD.');
+      renderTeam();
+    }
+  });
+}
+function bdRemoveTeamMember(idx){
+  var name=BD_TEAM[idx]; if(name==null) return;
+  openModal({
+    title:'Remove person',
+    sub:name,
+    body:'<div style="font-size:var(--fz-body);line-height:1.5">Remove <strong>'+_esc(name)+'</strong> from the BD team? They will no longer appear in assignment dropdowns. Existing records keep their current assignment.</div>',
+    saveLabel:'Remove',
+    onSave:function(){
+      BD_TEAM.splice(idx,1); save();
+      if(typeof closeModal==='function') closeModal();
+      if(typeof toastSuccess==='function') toastSuccess('Removed', name+' removed from the BD team.');
+      renderTeam();
+    }
+  });
+}
+
 /* ---- window.SMB_PARTNERS steward (BD owns CRUD per D-44) ----
    Marketing, CX, and CRM are readers. The array reference is stable so
    readers holding window.SMB_PARTNERS keep seeing live data. */
@@ -7475,6 +7896,7 @@ function loadState(){
       if(s.LOT_AGENT_KEYS) _fill(LOT_AGENT_KEYS,s.LOT_AGENT_KEYS);
       if(s.BD_GOALS) _fill(BD_GOALS,s.BD_GOALS);
       if(s.BD_EVENTS) _fill(BD_EVENTS,s.BD_EVENTS);
+      if(s.BD_TEAM&&s.BD_TEAM.length) _fill(BD_TEAM,s.BD_TEAM);
       if(s.teamsRegistry) teamsRegistry=s.teamsRegistry;
       if(s.BD_SC_PLANS) BD_SC_PLANS=s.BD_SC_PLANS;
       if(s.BD_SC_LOG) BD_SC_LOG=s.BD_SC_LOG;
@@ -7530,7 +7952,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM};
 }
 function save(){
   try{ localStorage.setItem(STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'), JSON.stringify(_statePayload())); }catch(e){ console.warn('BD state save failed:',e); }
@@ -7599,7 +8021,47 @@ function attachSearch(){
 }
 
 function openHelp(){ toastInfo('BD module','Outbound business development: partner and relationship directory, partner channels, follow-ups, market-leads prospecting, and the reach-out check-in cadence. Email runs through the shared mail contract and stays in stub/mailto mode until the provider is connected.'); }
-function openCoach(){ toastInfo('Coach','AI Coach Layer is planned. BD emits signals at window.SMB_SIGNALS.bd, including overdue partner outreach.'); }
+function _bdCoachData(){
+  var due=PARTNERS.filter(function(p){ var d=daysUntil(p.nextContact); return p.relStage!=='Dormant' && d!==null && d<0; })
+    .sort(function(a,b){ return (daysUntil(a.nextContact)||0)-(daysUntil(b.nextContact)||0); });
+  var soon=PARTNERS.filter(function(p){ var d=daysUntil(p.nextContact); return p.relStage!=='Dormant' && d!==null && d>=0 && d<=7; })
+    .sort(function(a,b){ return (daysUntil(a.nextContact)||0)-(daysUntil(b.nextContact)||0); });
+  var dormant=PARTNERS.filter(function(p){ return p.relStage==='Dormant' || daysSince(p.lastContact)>60; });
+  var noAsk=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active' && !p.isPartner && _pStage(p)==='Meeting' && (p.referralDiscussions||0)===0; });
+  var noContact=PARTNERS.filter(function(p){ return !p.email && !p.phone && !p.mobile; });
+  return { total:PARTNERS.length, due:due, soon:soon, dormant:dormant, noAsk:noAsk, noContact:noContact };
+}
+function openCoach(){
+  var c=_bdCoachData();
+  function _names(list){
+    var h=list.slice(0,6).map(function(p){
+      var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner');
+      return '<button class="btn btn-sm" style="margin:0 6px 6px 0" onclick="closeModal();openPartner('+p.id+')">'+_esc(nm)+'</button>';
+    }).join('');
+    if(list.length>6) h+='<span class="muted" style="font-size:var(--fz-body)">+'+(list.length-6)+' more</span>';
+    return h;
+  }
+  var blocks=[];
+  if(c.due.length) blocks.push({t:c.due.length+' overdue for follow-up',d:'Past their next-contact date. Reach out this week to keep these relationships warm.',list:c.due});
+  if(c.soon.length) blocks.push({t:c.soon.length+' due this week',d:'Scheduled touch-points coming up in the next 7 days.',list:c.soon});
+  if(c.dormant.length) blocks.push({t:c.dormant.length+' going dormant',d:'No contact in 60+ days. Decide whether to re-engage or mark them dormant.',list:c.dormant});
+  if(c.noAsk.length) blocks.push({t:c.noAsk.length+' at Meeting with no referral ask',d:'They have met with you but no referral discussion is logged. Plan a specific ask.',list:c.noAsk});
+  if(c.noContact.length) blocks.push({t:c.noContact.length+' missing contact details',d:'No email or phone on file. Add details so you can actually reach them.',list:c.noContact});
+  var body='<div class="coach-panel" style="margin:0">'+
+    '<div class="coach-panel-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg><span>BD Coach</span><span class="coach-panel-status">Preview</span></div>'+
+    '<div style="padding:4px 0;font-size:var(--fz-body)">Across '+c.total+' partners: '+c.due.length+' overdue and '+c.dormant.length+' going dormant. Here is where to focus.</div>';
+  if(!blocks.length){
+    body+='<div style="padding:8px 0;font-size:var(--fz-body)">Your partner cadence looks healthy. Keep the rhythm and look for a co-marketing opportunity.</div>';
+  } else {
+    blocks.forEach(function(b){
+      body+='<div style="margin-top:14px"><div style="font-weight:700;font-size:var(--fz-lg);color:var(--txt)">'+_esc(b.t)+'</div>'+
+        '<div class="muted" style="font-size:var(--fz-body);margin:2px 0 7px">'+_esc(b.d)+'</div>'+
+        '<div>'+_names(b.list)+'</div></div>';
+    });
+  }
+  body+='<div class="muted" style="font-size:var(--fz-xs);margin-top:14px">Preview built from your live BD data. The full AI Coach connects when the AI backend ships.</div></div>';
+  openModal({ title:'BD Coach', sub:'Where to focus this week', body:body, saveLabel:'Done', onSave:closeModal });
+}
 
 /* ---- BD dashboard ---- */
 /* ── Dashboard Card Grid v1 engine (ported from CRM reference) ── */
@@ -7631,19 +8093,19 @@ function clearDashLayout(){
 }
 
 // Post-process the rendered dashboard. Finds all .card elements outside the
-// locked header zone (.dash-metrics), assigns data-card-id from each card's
-// title text, hoists them out of any .grid-2 wrappers into a single grid
-// container, adds a resize-handle div to each, applies saved layout (order + span).
+// locked header zone (.pulse), assigns data-card-id from each card's title
+// text, hoists them out of any .grid-2 wrappers into a single grid container,
+// adds a resize-handle div to each, applies saved layout (order + span).
 function dashLayoutEnhance(){
   var container=document.getElementById('dash-content');
   if(!container)return;
   if(document.getElementById('dash-cards-grid'))return;
 
-  var headRow=container.querySelector('.dash-metrics');
-  if(!headRow)return;
+  var pulse=container.querySelector('.pulse');
+  if(!pulse)return;
 
   var allCards=Array.prototype.slice.call(container.querySelectorAll('.card'));
-  var moveCards=allCards.filter(function(card){return !headRow.contains(card);});
+  var moveCards=allCards.filter(function(card){return !pulse.contains(card);});
   if(!moveCards.length)return;
 
   var cardData=moveCards.map(function(card){
@@ -7712,11 +8174,11 @@ function dashLayoutEnhance(){
     if(g.children.length===0)g.remove();
   });
 
-  // Keep the pipeline-at-a-glance strip in the header (under the metric row,
-  // above the card grid). The strip is not a .card, so it is not swept into the
-  // grid; anchor the grid after it when present so it is not stranded below the cards.
-  var _hdrAnchor=headRow;
-  var _nx=headRow.nextElementSibling;
+  // Keep the pipeline-at-a-glance strip in the header (under the pulse, above
+  // the card grid). The strip is not a .card, so it is not swept into the grid;
+  // anchor the grid after it when present so it is not stranded below the cards.
+  var _hdrAnchor=pulse;
+  var _nx=pulse.nextElementSibling;
   while(_nx&&_nx.classList&&(_nx.classList.contains('dash-pipe')||_nx.classList.contains('kpi-row'))){_hdrAnchor=_nx;_nx=_nx.nextElementSibling;}
   _hdrAnchor.parentNode.insertBefore(grid,_hdrAnchor.nextSibling);
 
@@ -8018,6 +8480,14 @@ function _dashOnPointerUp(e){
 var _bdDashView='all';
 function _bdDashMine(){ return _bdDashView==='mine'; }
 function _bdDashSetView(v){ if(_bdDashView===v) return; _bdDashView=v; renderDash(); }
+function _bdDashCard(k,label,val,desc,onclick){
+  return '<div class="kpi-card '+k+'" onclick="'+onclick+'" style="cursor:pointer">'+
+    '<div class="kpi-card-top"><div class="kpi-card-lbl">'+label+'</div>'+
+    '<button class="info-icon" type="button" onclick="event.stopPropagation()" aria-label="About '+label+'">'+
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg>'+
+    '<span class="tip">'+desc+'</span></button></div>'+
+    '<div class="kpi-card-val">'+val+'</div></div>';
+}
 function renderDash(){
   var host=document.getElementById('dash-content'); if(!host) return;
   var _me=_curName().split(' ')[0]; var _mine=_bdDashMine();
@@ -8055,19 +8525,19 @@ function renderDash(){
   var refPartners=PARTNERS.filter(_isReferralPartner).length;
   var refVal=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(x){ refVal+=(Number(x.value)||0); }); });
   html+='<div class="kpi-cards dash-metrics">'+
-    kpiCard(num(actPartners),'Active Partners','k-blu','partners')+
-    kpiCard(num(refPartners),'Referral Partners','k-grn','partners')+
-    kpiCard(bdMoney(refVal),'Referred $','k-gold','partners')+
-    kpiCard(num(overdue.length),'Reach-out Overdue','k-red','followups')+
-    kpiCard(num(dueSoon.length),'Due Soon','k-amb','followups')+
+    _bdDashCard('k-blu','Active Partners',num(actPartners),'Partners with an active relationship stage (not Dormant). Click to view partners.','nav(&quot;partners&quot;)')+
+    _bdDashCard('k-blu','Referral Partners',num(refPartners),'Partners who have sent at least one referral. Click to view partners.','navPtn(&quot;referral&quot;)')+
+    _bdDashCard('k-blu','Referred $',bdMoney(refVal),'Total value of leads referred by partners, across pipeline and won. Click to view referrals.','setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)')+
+    _bdDashCard(overdue.length?'k-red':'k-grn','Reach-out Overdue',num(overdue.length),'Partners whose next reach-out date has passed. Click to view follow-ups.','nav(&quot;followups&quot;)')+
+    _bdDashCard(dueSoon.length?'k-amb':'k-blu','Due Soon',num(dueSoon.length),'Partners with a reach-out due in the next several days. Click to view follow-ups.','nav(&quot;followups&quot;)')+
   '</div>';
 
   html+='<div class="grid-2">';
   var byCat={};
   PARTNERS.forEach(function(p){ if(p.ownershipStatus!=='Active') return; byCat[p.cat]=(byCat[p.cat]||0)+1; });
   (function(){ var s=refStats(); var fc=refForecast();
-    html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Referral pipeline</span><button class="btn btn-sm" onclick="setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)">Open referrals</button></div><div class="card-body">'+
-      '<div style="display:flex;gap:24px;flex-wrap:wrap">'+
+    html+='<div class="card" style="margin-bottom:14px;align-self:start"><div class="card-hd"><span class="card-title">Referral pipeline</span><button class="btn btn-sm" onclick="setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)">Open referrals</button></div><div class="card-body">'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:16px">'+
       '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt)">'+num(s.logged+s.leads)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">In pipeline</div></div>'+
       '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--grn)">'+num(s.won)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">Won</div></div>'+
       '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--grn)">'+bdMoney(s.wonGP)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">GP sourced</div></div>'+
@@ -8627,7 +9097,7 @@ function bestLeads(n){
 }
 function bdBestLeadsCard(){
   var rows=bestLeads(10);
-  var html='<div class="card"><div class="card-hd"><span class="card-title">Best next leads to work</span><button class="btn btn-sm" onclick="nav(\'prospecting\')">Prospecting</button></div><div class="card-bd">';
+  var html='<div class="card"><div class="card-hd"><span class="card-title">Best next leads to work</span><button class="btn btn-sm" onclick="nav(\'prospecting\')">Market Leads</button></div><div class="card-bd">';
   if(!rows.length){ html+='<div class="muted">No unworked market leads. Import lot listings or permit pulls to surface new prospects.</div>'; }
   else {
     html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Lead</th><th scope="col">Type</th><th class="right" scope="col">Value</th><th scope="col">Fit</th></tr></thead><tbody>';
