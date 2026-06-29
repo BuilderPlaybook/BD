@@ -3944,24 +3944,16 @@ function _editSignature(){
 }
 function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
-  opts=opts||{}; _composeTokens=opts.tokens||{};
-  var _defT=null; if(opts.defaultTemplate){ for(var i=0;i<TEMPLATES.length;i++){ if(TEMPLATES[i].name===opts.defaultTemplate){ _defT=TEMPLATES[i]; break; } } }
-  var _tplOpts=TEMPLATES.filter(function(t){ return t.channel!=='sms'; });
-  var _picker=_tplOpts.length?('<div class="smb-fld full"><label>Start from a template</label><select onchange="_applyTemplateToCompose(this.value)"><option value="">Blank email</option>'+_tplOpts.map(function(t){ return '<option value="'+t.id+'"'+((_defT&&t.id===_defT.id)?' selected':'')+'>'+_esc(t.name)+'</option>'; }).join('')+'</select></div>'):'';
-  var subjInit=_defT?_mergeTokens(_defT.subject||''):'';
-  var bodyInit=_defT?_mergeTokens(_defT.body||''):'';
-  var body=_section('Compose', _picker+
-    _fld('Subject','subject','text',subjInit,{full:true})+
-    _fld('Message','body','textarea',bodyInit,{full:true,rows:8,autogrow:true}))+
-    '<div class="muted" style="font-size:var(--fz-body);margin-top:6px">Your signature is added automatically when the email is sent, so it shows the same on every computer. This logs the message and opens your mail app prefilled. Review and send from there. <a style="color:var(--blu);cursor:pointer" onclick="_editSignature()">Edit signature</a></div>';
-  openModal({title:'Email '+(name||''), sub:to, body:body, saveLabel:'Log and open mail', onSave:function(){
-    var f=_readForm(); var subject=String(f.subject||'').trim(); var msg=String(f.body||'');
-    if(!subject && !msg.trim()){ modalErr('Enter a subject or a message.'); return; }
-    var _sg=String(EMAIL_SIGNATURE||'').trim(); var full=_sg?(msg.replace(/\s+$/,'')+'\n\n'+_sg):msg;
-    onSend(subject,full);
-    try{ if(window.SMB_MAIL&&typeof window.SMB_MAIL.send==='function'){ window.SMB_MAIL.send({to:to,subject:subject,body:full}); } }catch(e){}
-    closeModal();
-  }});
+  /* Opens a blank email to the recipient so the user's own mail-app signature is
+     applied (a pre-filled body suppresses the mail-app signature). Logs a generic
+     email so the activity, count, and follow-up still record. Pre-written templates
+     and an injected signature return when the shared send backend is connected. */
+  to=String(to).trim();
+  try{
+    var a=document.createElement('a'); a.href='mailto:'+to;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }catch(e){}
+  try{ if(typeof onSend==='function') onSend('',''); }catch(e){}
 }
 function mleadComposeEmail(kind,id,tplName){
   if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach')}); }
