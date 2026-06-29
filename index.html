@@ -4151,7 +4151,7 @@ function _mktgActsCard(arr,kind,id){
       '<div class="act-dot">'+actIcon(a.type)+'</div>'+
       '<div class="act-text">'+_esc(a.type)+(a.inbound?' <span class="pill pill-grn" style="font-size:var(--fz-xs)">Reply</span>':'')+(a.subj?' &middot; '+_esc(a.subj):'')+'</div>'+
       (a.notes?'<div class="act-sub">'+_esc(a.notes)+'</div>':'')+
-      '<div class="act-meta">'+(a.loggedAt?fmtDateTime(a.loggedAt):fmtDate(a.d))+(a.by?' &middot; '+_esc(a.by):'')+nextLine+'</div></div></div>';
+      '<div class="act-meta">'+(a.loggedAt?fmtDateTime(a.loggedAt):fmtDate(a.d))+(a.by?' &middot; '+_esc(a.by):'')+nextLine+'</div></div>';
   });
   return h+'</div></div>';
 }
