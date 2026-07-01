@@ -49,7 +49,7 @@
 /* === SMB CANON v2.0 BEGIN === DO NOT EDIT - change canon source instead === */
 :root {
   /* ─── Type scale (locked) ────────────────────────────────────────── */
-  --fz-xs:    10px;
+  --fz-xs:    11px;
   --fz-sm:    12px;
   --fz-md:    13px;
   --fz-base:  14px;
@@ -58,7 +58,7 @@
   --fz-xl:    20px;
   --fz-2xl:   22px;
   --fz-3xl:   30px;
-  --fz-4xl:   28px;
+  --fz-4xl:   30px;
 
   /* ─── Status palette (reserved for health indicators ONLY) ───────── */
   --grn:   #16a34a;   --grnb: #dcfce7;   --grnt: #15803d;
@@ -69,7 +69,7 @@
   --txt:   #0f172a;
   --txb:   #334155;
   --txm:   #64748b;
-  --txd:   #94a3b8;
+  --txd:   #677082;
 
   /* ─── Surface palette ────────────────────────────────────────────── */
   --bg:    #f1f5f9;
@@ -251,6 +251,7 @@ table th, .card-body table th, .tbl-wrap table th {
   --sb-light: #f0d895;       /* light gold accent on sidebar             */
   --sb-gold-accent: #f0d895; /* shell chrome companion token             */
   --r-card: 8px;             /* shell chrome companion token             */
+  --module-accent: #8a6fb8;  /* shell chrome companion token (v2.25): BD sidebar accent */
   --cat-pnkb: #fce7f3;       /* category pink background                 */
   --overlay-light-04: rgba(255,255,255,.04);
   --overlay-dark-55: rgba(15,23,42,.55);
@@ -1091,7 +1092,7 @@ tr.clickable:hover .quick-actions{display:flex}
   --gpb: #FBF6E7;
   --gpd: #A8862F;
 }
-.sb{width:240px;background:var(--sb);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sb{width:240px;background:var(--sb);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-top:3px solid var(--module-accent)}
 .sb-logo{padding:14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sb-line);flex-shrink:0}
 .sb-mark{width:32px;height:32px;background:var(--gp);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:var(--fz-base);font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-.01em}
 /* Sidebar chrome (canon sets typography; HR adds layout/color) */ .sb-name{color:#fff;line-height:1.1}
@@ -1146,7 +1147,7 @@ tr.clickable:hover .quick-actions{display:flex}
 .kpi-card.k-blu::before{background:var(--blu)}
 .kpi-card.k-gold::before{background:var(--gp)}
 .kpi-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.kpi-card-lbl{color:var(--txm);font-weight:600;text-transform:uppercase;letter-spacing:.05em;line-height:1.2}
+.kpi-card-lbl{color:var(--txm);font-weight:600;font-size:var(--fz-sm);line-height:1.2}
 .kpi-card-ic{width:16px;height:16px;color:var(--txd);flex-shrink:0}
 .kpi-card-ic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
 .kpi-card-val{font-size:var(--fz-4xl);font-weight:700;color:var(--txt);line-height:1;letter-spacing:-.02em}
@@ -1168,6 +1169,21 @@ tr.clickable:hover .quick-actions{display:flex}
 .card.acc.k-red::before{background:var(--red)}
 .card.acc.k-blu::before{background:var(--blu)}
 .card.acc.k-gold::before{background:var(--gp)}
+
+/* Global keyboard focus ring. !important beats scattered outline:none. :focus-visible targets keyboard users, not mouse clicks. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+[onclick]:focus-visible{
+  outline:2px solid var(--blu) !important;
+  outline-offset:2px !important;
+  border-radius:6px;
+}
 /* === SHELL CHROME v1 END === */
 /* Nested collapsible sections: the locked chrome opens every .sb-children under an open group via a descendant rule. */
 /* These child-combinator rules (same/greater specificity, later in source) keep each mk-sec section closed until its own header is opened. */
@@ -1177,6 +1193,7 @@ tr.clickable:hover .quick-actions{display:flex}
 /* Compat shim so existing .card>.card-hd>.card-body markup renders correctly with the locked .card padding rule. */
 .card:has(> .card-hd){padding:0;overflow:hidden}
 /* Content Rhythm v1 (audit Section H): primary card content at 16px */
+.page{font-size:var(--fz-lg)}
 .card-body{font-size:var(--fz-lg)}
 .tbl-wrap{font-size:var(--fz-lg)}
 
@@ -1337,6 +1354,7 @@ td:hover > .sc-note-pop{display:block}
   </div>
   <div class="page" id="p-events"><div id="events-content"></div></div>
   <div class="page" id="p-templates"><div id="templates-content"></div></div>
+  <div class="page" id="p-outreach"><div id="outreach-content"></div></div>
   <div class="page" id="p-team"><div id="team-content"></div></div>
   </div><!-- /.main-body -->
 </div><!-- /.main -->
@@ -1557,6 +1575,7 @@ var RENDER_FOR = {
   scorecard:   function(){ renderScorecard(); },
   events:      function(){ renderEvents(); },
   templates:   function(){ renderTemplates(); },
+  outreach:    function(){ renderOutreach(); },
   team:        function(){ renderTeam(); }
 };
 
@@ -2199,10 +2218,11 @@ function _bdReportsTabBar(){
       return '<button class="bd-tab'+(_bdRepTab===t[0]?' active':'')+'" onclick="setBdRepTab(&quot;'+t[0]+'&quot;)">'+t[1]+'</button>';
     }).join('')+'</div>';
 }
-function _refStatCard(val,label,tone,desc){
+function _refStatCard(val,label,tone,desc,onclick){
   var k=tone?('k-'+tone):'k-blu';
-  var info=desc?('<button class="info-icon" type="button" aria-label="About '+label+'"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg><span class="tip">'+desc+'</span></button>'):'';
-  return '<div class="kpi-card '+k+'"><div class="kpi-card-top"><div class="kpi-card-lbl">'+label+'</div>'+info+'</div><div class="kpi-card-val">'+val+'</div></div>';
+  var info=desc?('<button class="info-icon" type="button"'+(onclick?' onclick="event.stopPropagation()"':'')+' aria-label="About '+label+'"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7.5" x2="8" y2="11.5"/><line x1="8" y1="5" x2="8" y2="5.01"/></svg><span class="tip">'+desc+'</span></button>'):'';
+  var attr=onclick?(' onclick="'+onclick+'" style="cursor:pointer"'):'';
+  return '<div class="kpi-card '+k+'"'+attr+'><div class="kpi-card-top"><div class="kpi-card-lbl">'+label+'</div>'+info+'</div><div class="kpi-card-val">'+val+'</div></div>';
 }
 function renderReferralsTab(){
   var s=refStats();
@@ -3224,6 +3244,7 @@ function chOverdueContacts(ch){
   return channelMembers(ch).filter(function(p){ var ds=daysSince(p.lastContact); return ds!=null && ds>(ch.overdueDays||90); });
 }
 function chEmailsSent(ch){ return CHANNEL_TOUCHES.filter(function(x){ return x.channelId===ch.id && x.kind==='email'; }).length; }
+function chScrollTo(id){ try{ var el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }
 function chReferrals(ch){
   return channelMembers(ch).reduce(function(a,p){ return a+((p.linkedLeads&&p.linkedLeads.length)||0); },0);
 }
@@ -3301,10 +3322,11 @@ function openChannel(id){
     '</div></div>';
 
   html+='<div class="kpi-cards" style="margin-bottom:14px">'+
-    '<div class="kpi-card k-blu"><div class="kpi-card-top"><div class="kpi-card-lbl">Members</div></div><div class="kpi-card-val">'+num(members.length)+'</div></div>'+
-    '<div class="kpi-card k-blu"><div class="kpi-card-top"><div class="kpi-card-lbl">Emails sent</div></div><div class="kpi-card-val">'+num(chEmailsSent(ch))+'</div></div>'+
-    '<div class="kpi-card '+(refs>=goal&&goal>0?'k-grn':'k-amb')+'"><div class="kpi-card-top"><div class="kpi-card-lbl">Referrals vs goal</div></div><div class="kpi-card-val">'+num(refs)+' / '+num(goal)+'</div></div>'+
-    '<div class="kpi-card '+(overdue.length?'k-red':'k-grn')+'"><div class="kpi-card-top"><div class="kpi-card-lbl">Contact overdue</div></div><div class="kpi-card-val">'+num(overdue.length)+'</div></div></div>';
+    _refStatCard(num(members.length),'Members','blu','Partners whose category matches this channel and who receive its cadence. Click to jump to the member list.',"chScrollTo('ch-sec-members')")+
+    _refStatCard(num(chEmailsSent(ch)),'Emails sent','blu','Total cadence emails sent to members through this channel. Click to jump to the email history.',"chScrollTo('ch-sec-emails')")+
+    _refStatCard(num(refs)+' / '+num(goal),'Referrals vs goal',(refs>=goal&&goal>0?'grn':'amb'),'Referrals generated by this channel\'s members against the channel goal.')+
+    _refStatCard(num(overdue.length),'Contact overdue',(overdue.length?'red':'grn'),'Members not contacted within the channel\'s overdue threshold.')+
+    '</div>';
 
   var cad=ch.cadence.map(function(step,i){
     var tpl=step.type==='email'?TEMPLATES.filter(function(t){ return t.id===step.templateId; })[0]:null;
@@ -3346,9 +3368,22 @@ function openChannel(id){
       '<td class="right">'+num((p.linkedLeads&&p.linkedLeads.length)||0)+'</td>'+
       '<td>'+(nd?'<span class="pill pill-amb">'+_esc(nd)+'</span>':'<span class="muted">current</span>')+'</td></tr>';
   }).join('');
-  html+='<div class="card" style="margin-top:14px"><div class="card-hd"><div class="card-title">Members ('+members.length+')</div></div>'+
+  html+='<div class="card" id="ch-sec-members" style="margin-top:14px"><div class="card-hd"><div class="card-title">Members ('+members.length+')</div></div>'+
     (members.length?('<div class="tbl-wrap"><table><thead><tr><th>Firm</th><th>Contact</th><th>Category</th><th>Stage</th><th>Last contact</th><th class="right">Referrals</th><th>Next email</th></tr></thead><tbody>'+mrows+'</tbody></table></div>')
       :'<div class="card-body"><div class="muted">No active partners match this channel category yet.</div></div>')+'</div>';
+
+  // email history (sent email touches for this channel; matches the Emails-sent count)
+  var touches=(CHANNEL_TOUCHES||[]).filter(function(t){ return t.channelId===ch.id && t.kind==='email'; }).slice().sort(function(a,b){ return String(b.at||'').localeCompare(String(a.at||'')); });
+  var trows=touches.map(function(t){
+    var p=_partnerFind(t.partnerId);
+    var st=null; (ch.cadence||[]).forEach(function(s){ if(s.id===t.stepId) st=s; });
+    return '<tr><td class="cell-firm">'+(p?'<span class="linkish" onclick="openPartner('+p.id+')">'+_esc(p.firm)+'</span>':'<span class="muted">Partner removed</span>')+'</td>'+
+      '<td>'+_esc(st?st.label:'Email touch')+'</td>'+
+      '<td class="nowrap">'+(t.at?fmtDate(String(t.at).slice(0,10)):'-')+'</td></tr>';
+  }).join('');
+  html+='<div class="card" id="ch-sec-emails" style="margin-top:14px"><div class="card-hd"><div class="card-title">Email history ('+touches.length+')</div></div>'+
+    (touches.length?('<div class="tbl-wrap"><table><thead><tr><th>Partner</th><th>Touch</th><th>Sent</th></tr></thead><tbody>'+trows+'</tbody></table></div>')
+      :'<div class="card-body"><div class="muted">No emails sent through this channel yet. Touches sent by the cadence appear here.</div></div>')+'</div>';
 
   document.getElementById('channel-detail').innerHTML=html;
   nav('channel');
@@ -4160,7 +4195,7 @@ function _logEmailReply(kind,id){
     var f=_readForm(); var subject=String(f.subject||'').trim(); var msg=String(f.body||'');
     if(!subject && !msg.trim()){ modalErr('Enter a subject or paste their message.'); return; }
     var a={d:_today(),type:'Email',subj:(subject||'Reply received'),notes:msg,na:'',nc:'',by:_curName().split(' ')[0],owner:'',inbound:true,loggedAt:new Date().toISOString()};
-    ctx.arr.unshift(a); ctx.applyLast(a.d); if(ctx.setReply) ctx.setReply(true,a.d); ctx.persist(); closeModal(); ctx.rerender();
+    ctx.arr.unshift(a); ctx.applyLast(a.d); if(ctx.setReply) ctx.setReply(true,a.d); ctx.persist(); try{ orFreezeFor(kind,id); }catch(e){} closeModal(); ctx.rerender();
   }});
 }
 function _emailThreadCard(kind,id,acts,name,email){
@@ -4728,6 +4763,137 @@ function prospectLogContact(id){
   }});
 }
 
+/* ============================================================
+   OUTREACH AUTOMATION v1 (write, lock, review, approve, release)
+   Drafts initial emails for market leads and partners with no prior
+   outreach, holds every draft in a Pending Approval lock, and only
+   moves approved emails to a release queue. Nothing sends from the
+   prototype: the release queue waits for the shared send backend
+   (window.SMB_MAIL, per D-45). Release rules (max per day, weekdays,
+   business hours) are stored in OUTREACH.settings for the backend.
+   ============================================================ */
+var OUTREACH={drafts:[],settings:{maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true},tplByCat:{}};
+var OR_DEFAULT_TPL={'Realtor':'Realtor Book Delivery','Architect':'Architect Book Delivery','Residential Designer':'Architect Book Delivery','Building Plan Designer':'Architect Book Delivery','Interior Designer':'Architect Book Delivery','Developer':'Partner Check-in','_mlead':'Lot Agent Outreach','_default':'Partner Check-in'};
+function _orValidEmail(e){ e=String(e||'').trim(); return e.indexOf('@')>0 && e.toUpperCase()!=='N/R'; }
+function _orOutbound(acts){ acts=acts||[]; for(var i=0;i<acts.length;i++){ if(acts[i]&&acts[i].type==='Email'&&!acts[i].inbound) return true; } return false; }
+function _orTplFor(cat){ var pick=OUTREACH.tplByCat[cat]||OR_DEFAULT_TPL[cat]||OR_DEFAULT_TPL._default; for(var i=0;i<TEMPLATES.length;i++){ var t=TEMPLATES[i]; if(t.channel!=='sms'&&(t.id===pick||t.name===pick)) return t; } return null; }
+function _orMerge(str,tok){ var s=String(str||''); for(var k in tok){ s=s.split('{{'+k+'}}').join(tok[k]==null?'':tok[k]); } return s; }
+function _orDraftFor(kind,refId){ for(var i=0;i<OUTREACH.drafts.length;i++){ var d=OUTREACH.drafts[i]; if(d.kind===kind&&d.refId===refId&&d.status!=='rejected') return d; } return null; }
+function _orNextId(){ var m=0; OUTREACH.drafts.forEach(function(d){ if(d.id>m)m=d.id; }); return m+1; }
+function orScanDraft(){
+  var made=0, skipped=0, seen={};
+  OUTREACH.drafts.forEach(function(d){ if(d.status!=='rejected'&&d.to) seen[d.to.toLowerCase()]=1; });
+  PARTNERS.forEach(function(p){
+    if(!_orValidEmail(p.email)) return;
+    var em=String(p.email).trim().toLowerCase();
+    if(seen[em]){ skipped++; return; }
+    if(p.relStage==='Dormant'||p.hasReply||String(p.dnf||'').trim()) { skipped++; return; }
+    if(p.initialContact||_orOutbound(p.act)) { skipped++; return; }
+    if(_orDraftFor('partner',p.id)) return;
+    var tpl=_orTplFor(p.cat||'_default'); if(!tpl) return;
+    var fn=String(p.cf||'').trim()||'there';
+    var tok={first_name:fn,area:p.city||'your area'};
+    OUTREACH.drafts.push({id:_orNextId(),kind:'partner',refId:p.id,to:String(p.email).trim(),name:((p.cf||'')+' '+(p.cl||'')).trim()||p.firm,firm:p.firm||'',cat:p.cat||'',subject:_orMerge(tpl.subject,tok),body:_orMerge(tpl.body,tok),status:'pending',createdAt:new Date().toISOString(),note:''});
+    seen[em]=1; made++;
+  });
+  PROSPECTS.forEach(function(p){
+    if(!_orValidEmail(p.contactEmail)) return;
+    var em=String(p.contactEmail).trim().toLowerCase();
+    if(seen[em]){ skipped++; return; }
+    if(p.hasReply||_orOutbound(p.act)) { skipped++; return; }
+    if(_orDraftFor('mlead',p.id)) return;
+    var tpl=_orTplFor('_mlead'); if(!tpl) return;
+    var nm=String(p.contactName||'').trim(); var fn=nm.split(/\s+/)[0]||'there';
+    var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||p.address||'your area';
+    OUTREACH.drafts.push({id:_orNextId(),kind:'mlead',refId:p.id,to:String(p.contactEmail).trim(),name:nm||p.contactFirm||'Lot agent',firm:p.contactFirm||'',cat:'Market Lead',subject:_orMerge(tpl.subject,{first_name:fn,area:area}),body:_orMerge(tpl.body,{first_name:fn,area:area}),status:'pending',createdAt:new Date().toISOString(),note:''});
+    seen[em]=1; made++;
+  });
+  save();
+  if(typeof toastSuccess==='function') toastSuccess('Scan complete', made+' new draft'+(made===1?'':'s')+' written and locked for your review.'+(skipped?' '+skipped+' record'+(skipped===1?'':'s')+' suppressed (already emailed, replied, dormant, do-not-contact, or duplicate email).':''));
+  renderOutreach();
+}
+function _orSweep(){
+  var now=new Date(), changed=false;
+  OUTREACH.drafts.forEach(function(d){
+    if((d.status==='pending'||d.status==='approved')){
+      var replied=false;
+      if(d.kind==='partner'){ var p=_partnerFind(d.refId); replied=!!(p&&p.hasReply); }
+      else { var m=_prospFind(d.refId); replied=!!(m&&m.hasReply); }
+      if(replied){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; changed=true; return; }
+    }
+    if(d.status==='approved'&&d.expiresAt&&new Date(d.expiresAt)<now){ d.status='pending'; d.note='Approval expired after '+(OUTREACH.settings.expiryDays||30)+' days. Please re-review.'; d.approvedAt=null; d.expiresAt=null; changed=true; }
+  });
+  if(changed) save();
+}
+function orFreezeFor(kind,id){ var hit=false; OUTREACH.drafts.forEach(function(d){ if(d.kind===kind&&d.refId===id&&(d.status==='pending'||d.status==='approved')){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; hit=true; } }); if(hit){ save(); } }
+function _orFind(id){ for(var i=0;i<OUTREACH.drafts.length;i++) if(OUTREACH.drafts[i].id===id) return OUTREACH.drafts[i]; return null; }
+function orEditDraft(id,field,val){ var d=_orFind(id); if(!d) return; if(field==='subject') d.subject=val; else if(field==='body') d.body=val; save(); }
+function orApprove(id){ var d=_orFind(id); if(!d||d.status!=='pending') return; d.status='approved'; d.approvedAt=new Date().toISOString(); d.approvedBy=_curName(); var ex=new Date(); ex.setDate(ex.getDate()+(Number(OUTREACH.settings.expiryDays)||30)); d.expiresAt=ex.toISOString(); d.note=''; save(); renderOutreach(); }
+function orReject(id){ var d=_orFind(id); if(!d) return; d.status='rejected'; d.decidedAt=new Date().toISOString(); save(); renderOutreach(); }
+function orRevoke(id){ var d=_orFind(id); if(!d) return; d.status='pending'; d.approvedAt=null; d.expiresAt=null; d.note=''; save(); renderOutreach(); }
+function orApproveAllPending(){ var n=0; OUTREACH.drafts.forEach(function(d){ if(d.status==='pending'){ d.status='approved'; d.approvedAt=new Date().toISOString(); d.approvedBy=_curName(); var ex=new Date(); ex.setDate(ex.getDate()+(Number(OUTREACH.settings.expiryDays)||30)); d.expiresAt=ex.toISOString(); d.note=''; n++; } }); save(); if(typeof toastSuccess==='function') toastSuccess('Approved', n+' draft'+(n===1?'':'s')+' moved to the release queue.'); renderOutreach(); }
+function orSetSetting(key,val){ var n=Math.max(1,Math.floor(Number(val)||0)); if(key==='maxPerDay'){ OUTREACH.settings.maxPerDay=Math.min(500,n||10); } else if(key==='expiryDays'){ OUTREACH.settings.expiryDays=Math.min(365,n||30); } save(); renderOutreach(); }
+function orSetTpl(cat,tplId){ if(tplId==='') delete OUTREACH.tplByCat[cat]; else OUTREACH.tplByCat[cat]=isNaN(Number(tplId))?tplId:Number(tplId); save(); }
+function _orCount(st){ return OUTREACH.drafts.filter(function(d){ return d.status===st; }).length; }
+function _orSentToday(){ var t=_today(); return OUTREACH.drafts.filter(function(d){ return d.status==='sent'&&String(d.sentAt||'').slice(0,10)===t; }).length; }
+function _orDraftCard(d){
+  var locked=d.status!=='pending';
+  var meta='<span class="stag stag-slate" style="margin-right:6px">'+_esc(d.cat||'')+'</span><span class="muted" style="font-size:var(--fz-body)">'+_esc(d.to)+'</span>';
+  var head='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><strong style="font-size:var(--fz-lg)">'+_esc(d.name||d.firm)+'</strong>'+(d.firm&&d.name!==d.firm?' <span class="muted">'+_esc(d.firm)+'</span>':'')+'</div><div>'+meta+'</div></div>';
+  var note=d.note?'<div class="muted" style="font-size:var(--fz-body);margin-top:4px">'+_esc(d.note)+'</div>':'';
+  var fields;
+  if(locked){
+    fields='<div style="margin-top:8px"><span class="muted" style="font-size:var(--fz-body)">Subject:</span> '+_esc(d.subject)+'</div>'+
+      '<div class="muted" style="font-size:var(--fz-body);margin-top:4px;white-space:pre-wrap">'+_esc(d.body).slice(0,400)+(d.body.length>400?'...':'')+'</div>';
+  } else {
+    fields='<div style="margin-top:8px"><input id="or-sub-'+d.id+'" type="text" value="'+_esc(d.subject)+'" onchange="orEditDraft('+d.id+',\'subject\',this.value)" style="width:100%"></div>'+
+      '<div style="margin-top:6px"><textarea id="or-bod-'+d.id+'" rows="6" onchange="orEditDraft('+d.id+',\'body\',this.value)" style="width:100%">'+_esc(d.body)+'</textarea></div>';
+  }
+  var btns='';
+  if(d.status==='pending') btns='<button class="btn btn-primary btn-sm" onclick="orApprove('+d.id+')">Approve</button> <button class="btn btn-sm" onclick="orReject('+d.id+')">Reject</button>';
+  else if(d.status==='approved') btns='<span class="pill pill-amb" style="margin-right:8px">Awaiting send backend</span><button class="btn btn-sm" onclick="orRevoke('+d.id+')">Pull back to review</button>';
+  else if(d.status==='frozen') btns='<span class="pill pill-gray" style="margin-right:8px">Frozen: contact replied</span><button class="btn btn-sm" onclick="orReject('+d.id+')">Discard</button>';
+  else if(d.status==='rejected') btns='<button class="btn btn-sm" onclick="orRevoke('+d.id+')">Restore to review</button>';
+  var when=d.status==='approved'&&d.approvedAt?('<div class="muted" style="font-size:var(--fz-body);margin-top:4px">Approved '+fmtDate(d.approvedAt.slice(0,10))+' by '+_esc(d.approvedBy||'')+(d.expiresAt?' | approval expires '+fmtDate(d.expiresAt.slice(0,10)):'')+'</div>'):'';
+  return '<div class="card" style="margin-bottom:10px"><div class="card-bd">'+head+note+fields+when+'<div style="margin-top:8px">'+btns+'</div></div></div>';
+}
+function renderOutreach(){
+  _orSweep();
+  var el=document.getElementById('outreach-content'); if(!el) return;
+  var pend=_orCount('pending'), appr=_orCount('approved'), froz=_orCount('frozen'), rej=_orCount('rejected');
+  var cap=Math.max(0,(Number(OUTREACH.settings.maxPerDay)||10)-_orSentToday());
+  var h='<div class="page-hd"><div><h1>Outreach</h1><div class="page-sub">Automated first-touch emails, written and locked until you approve their release</div></div>'+
+    '<div><button class="btn btn-primary" onclick="orScanDraft()">Scan and write drafts</button></div></div>';
+  h+='<div class="kpi-cards dash-metrics" style="margin-bottom:16px">'+
+    _refStatCard(num(pend),'Pending your approval','blu','Drafts written and locked, waiting for you to approve or reject. Click to review.',"chScrollTo('or-sec-pending')")+
+    _refStatCard(num(appr),'Approved, in release queue','blu','Approved drafts waiting for the send backend to release them at the daily limit.',"chScrollTo('or-sec-release')")+
+    _refStatCard(num(froz),'Frozen (replied)',(froz?'amb':'blu'),'Drafts automatically held because the contact replied. Nothing sends to a partner who has answered.')+
+    _refStatCard(num(cap),'Release capacity today','blu','Emails still allowed to go out today under your daily send limit.')+
+    '</div>';
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Release settings</span></div><div class="card-bd">'+
+    '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">'+
+    '<label style="font-size:var(--fz-body)">Max emails per day <input type="number" min="1" max="500" value="'+(Number(OUTREACH.settings.maxPerDay)||10)+'" onchange="orSetSetting(\'maxPerDay\',this.value)" style="width:70px;margin-left:6px"></label>'+
+    '<label style="font-size:var(--fz-body)">Approval expires after <input type="number" min="1" max="365" value="'+(Number(OUTREACH.settings.expiryDays)||30)+'" onchange="orSetSetting(\'expiryDays\',this.value)" style="width:70px;margin-left:6px"> days</label>'+
+    '<span class="muted" style="font-size:var(--fz-body)">Weekdays only, business hours, spread through the day</span></div>'+
+    '<div class="muted" style="font-size:var(--fz-body);margin-top:8px">Approved emails do not send from this prototype. They wait in the release queue until the shared email backend is connected, then release automatically at the daily limit above, from your address with your full signature. If a contact replies, everything queued to them freezes.</div>'+
+    '</div></div>';
+  var tplOpts=TEMPLATES.filter(function(t){ return t.channel!=='sms'; });
+  var cats=['Realtor','Architect','Residential Designer','Building Plan Designer','Interior Designer','Developer','_mlead'];
+  h+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Template per audience</span></div><div class="card-bd"><div style="display:flex;gap:16px;flex-wrap:wrap">'+
+    cats.map(function(c){ var cur=OUTREACH.tplByCat[c]||OR_DEFAULT_TPL[c]||OR_DEFAULT_TPL._default; return '<label style="font-size:var(--fz-body)">'+_esc(c==='_mlead'?'Market Leads':c)+'<br><select onchange="orSetTpl(\''+c+'\',this.value)">'+tplOpts.map(function(t){ var sel=(t.id===cur||t.name===cur)?' selected':''; return '<option value="'+t.id+'"'+sel+'>'+_esc(t.name)+'</option>'; }).join('')+'</select></label>'; }).join('')+
+    '</div><div class="muted" style="font-size:var(--fz-body);margin-top:8px">New drafts use the template mapped to the record\'s category. Edit any draft before approving.</div></div></div>';
+  var pending=OUTREACH.drafts.filter(function(d){ return d.status==='pending'; });
+  h+='<div id="or-sec-pending" style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px"><span class="card-title">Pending approval ('+pending.length+')</span>'+(pending.length?'<button class="btn btn-sm" onclick="orApproveAllPending()">Approve all pending</button>':'')+'</div>';
+  h+=pending.length?pending.map(_orDraftCard).join(''):emptyState('Nothing waiting on you','Run a scan to write first-touch drafts for every partner and market lead you have not emailed yet.','');
+  var approved=OUTREACH.drafts.filter(function(d){ return d.status==='approved'; });
+  if(approved.length){ h+='<div id="or-sec-release" class="card-title" style="margin:14px 0 8px;display:block">Release queue ('+approved.length+')</div>'+approved.map(_orDraftCard).join(''); }
+  var frozen=OUTREACH.drafts.filter(function(d){ return d.status==='frozen'; });
+  if(frozen.length){ h+='<div class="card-title" style="margin:14px 0 8px;display:block">Frozen ('+frozen.length+')</div>'+frozen.map(_orDraftCard).join(''); }
+  if(rej){ h+='<div class="muted" style="font-size:var(--fz-body);margin:14px 0 4px">'+rej+' rejected draft'+(rej===1?'':'s')+' kept for record.</div>'; }
+  el.innerHTML=h;
+  normalizeTableScope(el);
+}
+
 /* ---- init ---- */
 
 /* ---- top-level sidebar rendered from window.SMB_CATALOG (audit Section I) ---- */
@@ -4738,6 +4904,7 @@ var MK_SUBNAV=[
   ['scorecard','Scorecard'],
   ['events','Events'],
   ['reports','Reports'],
+  ['outreach','Outreach'],
   ['templates','Templates']
 ];
 function _mkActiveSec(){ return _curPage||'dashboard'; }
@@ -7872,6 +8039,7 @@ function loadState(){
   BD_GOALS=(typeof BD_GOALS_DEFAULT!=='undefined')?_seedCopy(BD_GOALS_DEFAULT):[];
   BD_EVENTS=[];
   BD_SC_PLANS={}; BD_SC_LOG={}; BD_MEAS_CFG={}; BD_MEAS_OV={};
+  OUTREACH.drafts=[]; OUTREACH.tplByCat={}; OUTREACH.settings={maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true};
   try{
     var raw=localStorage.getItem(_tkey(STORE_KEY));
     if(raw){
@@ -7893,6 +8061,7 @@ function loadState(){
       if(s.BD_SC_LOG) BD_SC_LOG=s.BD_SC_LOG;
       if(s.BD_MEAS_CFG) BD_MEAS_CFG=s.BD_MEAS_CFG;
       if(s.BD_MEAS_OV) BD_MEAS_OV=s.BD_MEAS_OV;
+      if(s.OUTREACH&&typeof s.OUTREACH==='object'){ OUTREACH.drafts=Array.isArray(s.OUTREACH.drafts)?s.OUTREACH.drafts:[]; if(s.OUTREACH.settings&&typeof s.OUTREACH.settings==='object'){ for(var _ok in s.OUTREACH.settings) OUTREACH.settings[_ok]=s.OUTREACH.settings[_ok]; } if(s.OUTREACH.tplByCat&&typeof s.OUTREACH.tplByCat==='object') OUTREACH.tplByCat=s.OUTREACH.tplByCat; }
     }
   }catch(e){ console.warn('BD state load failed:',e); }
   // one-time auto-pull from Marketing (overlays the outbound entries)
@@ -7943,7 +8112,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH};
 }
 function save(){
   try{ localStorage.setItem(STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'), JSON.stringify(_statePayload())); }catch(e){ console.warn('BD state save failed:',e); }
@@ -9440,7 +9609,7 @@ function bdEventsExceptions(){
   }catch(_){ return []; }
 }
 
-function emitBdSignal(){ try{ window.SMB_SIGNALS=window.SMB_SIGNALS||{}; var sig=buildBdSignals(); var ext=bdPipelineSignal(); for(var k in ext.metrics) sig.metrics[k]=ext.metrics[k]; sig.exceptions=(sig.exceptions||[]).concat(ext.exceptions||[]).concat(bdEventsExceptions()); window.SMB_SIGNALS.bd=sig; }catch(e){} try{ bdUpdateBell(); }catch(e){} }
+function emitBdSignal(){ try{ window.SMB_SIGNALS=window.SMB_SIGNALS||{}; var sig=buildBdSignals(); var ext=bdPipelineSignal(); for(var k in ext.metrics) sig.metrics[k]=ext.metrics[k]; sig.exceptions=(sig.exceptions||[]).concat(ext.exceptions||[]).concat(bdEventsExceptions()); try{ sig.metrics.outreachPendingApproval=OUTREACH.drafts.filter(function(d){ return d.status==='pending'; }).length; sig.metrics.outreachReleaseQueue=OUTREACH.drafts.filter(function(d){ return d.status==='approved'; }).length; }catch(e){} window.SMB_SIGNALS.bd=sig; }catch(e){} try{ bdUpdateBell(); }catch(e){} }
 
 /* ---- boot ---- */
 function init(){
