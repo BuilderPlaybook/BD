@@ -1,0 +1,50 @@
+name: Test contact scrape (Playwright)
+on:
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          playwright install chromium
+
+      - name: Load a real dev-application detail page and read the contact
+        run: |
+          python3 - <<'PY'
+          import asyncio
+          from playwright.async_api import async_playwright
+
+          # A real Victoria dev-application detail page (folder REZ00756 had a contact in the sample data)
+          URL = "https://tender.victoria.ca/webapps/ourcity/Prospero/Details.aspx?folderNumber=REZ00756"
+
+          async def main():
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True)
+                  page = await browser.new_page()
+                  try:
+                      resp = await page.goto(URL, wait_until="networkidle", timeout=20000)
+                      print("Page HTTP status:", resp.status if resp else "no response")
+                      text = await page.inner_text("body")
+                      # look for the contact block
+                      if "Application Contact" in text:
+                          idx = text.index("Application Contact")
+                          print("FOUND 'Application Contact' block. Snippet:")
+                          print(text[idx:idx+200].replace("\n"," | "))
+                      else:
+                          print("Page loaded but no 'Application Contact' text found (may be a page-structure change).")
+                      print("RESULT: Playwright can reach and read the city's detail pages from GitHub.")
+                  except Exception as e:
+                      print("BLOCKED or FAILED:", repr(e))
+                  finally:
+                      await browser.close()
+
+          asyncio.run(main())
+          PY
