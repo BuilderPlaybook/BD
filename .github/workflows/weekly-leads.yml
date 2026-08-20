@@ -1,0 +1,53 @@
+name: Weekly Victoria leads
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install httpx openpyxl playwright
+          playwright install chromium
+
+      - name: Pull building permits
+        run: python3 permit_monitor.py --lookback 60_days
+        continue-on-error: true
+
+      - name: Pull development applications
+        run: python3 dev_application_monitor.py
+        continue-on-error: true
+
+      - name: Enrich dev applications with contacts
+        run: python3 dev_application_scraper.py --limit 40
+        continue-on-error: true
+
+      - name: Publish JSON so BD can read it
+        run: |
+          mkdir -p leads
+          [ -f output/permit_leads.json ] && cp output/permit_leads.json leads/permit_leads.json || echo "no permit file"
+          [ -f output/dev_application_leads_enriched.json ] && cp output/dev_application_leads_enriched.json leads/dev_application_leads.json || { [ -f output/dev_application_leads.json ] && cp output/dev_application_leads.json leads/dev_application_leads.json || echo "no dev file"; }
+          echo "{\"updated\":\"$(date -u +%FT%TZ)\"}" > leads/last_updated.json
+
+      - name: Commit updated leads
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add leads/*.json
+          git commit -m "Weekly leads refresh $(date -u +%F)" || echo "no changes"
+          git push
