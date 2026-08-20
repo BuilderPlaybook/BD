@@ -1,0 +1,27 @@
+name: Test City of Victoria API access
+on:
+  workflow_dispatch:        # lets you run it manually from the Actions tab
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try the ArcGIS permit endpoint
+        run: |
+          echo "Probing City of Victoria ArcGIS API from a GitHub runner IP..."
+          echo "Runner public IP:"
+          curl -s https://api.ipify.org || true
+          echo ""
+          echo "--- Permits endpoint ---"
+          curl -s -o /tmp/permits.json -w "HTTP status: %{http_code}\n" \
+            "https://maps.victoria.ca/server/rest/services/OpenData/OpenData_PermitsAndLicences/MapServer/4/query?where=1%3D1&outFields=*&returnGeometry=false&f=json&resultRecordCount=5&resultOffset=0"
+          echo "First 400 chars of response:"
+          head -c 400 /tmp/permits.json || true
+          echo ""
+          echo "--- Dev applications endpoint ---"
+          curl -s -o /tmp/dev.json -w "HTTP status: %{http_code}\n" \
+            "https://maps.victoria.ca/server/rest/services/OpenData/OpenData_PlanningAndDevelopment/MapServer/3/query?where=1%3D1&outFields=*&returnGeometry=false&f=json&resultRecordCount=5&resultOffset=0"
+          echo "First 400 chars of response:"
+          head -c 400 /tmp/dev.json || true
+          echo ""
+          echo "Done. HTTP 200 with JSON = GitHub can reach it. 403 = blocked, automatic path won't work."
