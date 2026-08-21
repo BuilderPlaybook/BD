@@ -27,11 +27,19 @@
     - Follow-ups across partners and market leads.
     - Market Leads / prospecting: lots, building permits, development
       permits, active builders, with copy-forward Add to pipeline.
-    - Reach-out alert + cadence (native to BD): per-contact priority drives
-      a check-in cadence (Hot 30d / Warm 60d / Cool 90d, default Warm); due
-      = last contact + cadence; resets on any logged touch; green / amber
-      (final 7 days) / red (overdue); overdue rolls into a Reach-out count
-      with one-click check-in.
+    - Partner tiering v1 (A / B / C): the tier is the single lever that sets
+      how often a partner is due for a touch. A 30d / B 60d / C 90d; untiered
+      falls back to 60d. Legacy 'Tier 1/2/3' values migrate to A/B/C at boot
+      (_bdMigrateTiers, idempotent).
+    - Reach-out alert + cadence (native to BD): tier drives the check-in
+      cadence; the legacy Hot/Warm/Cool priority is retained as an explicit
+      per-contact override and wins when set. Due = last contact + cadence;
+      resets on any logged touch; green / amber (final 7 days) / red
+      (overdue); overdue rolls into a Reach-out count with one-click check-in.
+    - Partners is list-only. The kanban board was removed; Market Leads keeps
+      its own board.
+    - Dashboard leads with My Day (the queue) and then the Scoreboard (the
+      numbers), with Partner ROI in Reports ranked on won revenue.
 
   Contracts:
     - Stewards window.SMB_PARTNERS (full CRUD). Marketing, CX, CRM read-only.
@@ -535,33 +543,7 @@ tr.overdue td:first-child{padding-left:9px}
 .st-lbl.cur{color:var(--blu);font-weight:700}
 :root{--circle-col:var(--brd);--line-before:var(--brd);--line-after:var(--brd);--stage-col:var(--pg-slate-ink);--prev-col:var(--brd)}
 /* Connected-nodes progression strip (ported from CRM hero chrome; replaces retired .stage-track/.st-*) */
-.lead-pipe{display:flex;gap:0;margin-bottom:16px;background:var(--sur);border:1px solid var(--brd);border-radius:8px;padding:18px 12px 14px;overflow-x:auto;position:relative}
-.lp-stage{flex:1 0 0;min-width:96px;text-align:center;padding:0 4px;position:relative;transition:transform .12s;--circle-col:var(--brd);--line-after:var(--brd);--line-before:var(--brd)}
-.lp-stage.lp-click{cursor:pointer}
-.lp-stage::before, .lp-stage::after{content:'';position:absolute;top:28px;height:2px;z-index:0}
-.lp-stage::before{left:0;right:50%;background:var(--line-before)}
-.lp-stage::after{left:50%;right:0;background:var(--line-after)}
-.lp-stage:first-child::before{display:none}
-.lp-stage:last-child::after{display:none}
-.lp-circle{box-sizing:border-box;width:58px;height:58px;border-radius:50%;background:#fff;border:3px solid var(--brd);display:inline-flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:transform .12s, box-shadow .12s;color:var(--txd)}
-.lp-stage.lp-done .lp-circle{background:var(--circle-col);border-color:var(--circle-col);color:#fff}
-.lp-stage.lp-cur .lp-circle{background:var(--circle-col);border-color:var(--circle-col);color:#fff}
-.lp-stage.lp-lost .lp-circle{background:var(--red);border-color:var(--red);color:#fff}
-.lp-stage.lp-click:hover .lp-circle{transform:scale(1.06);box-shadow:0 2px 10px rgba(0,0,0,.10)}
-.lp-mark{font-size:22px;font-weight:700;line-height:1}
-.lp-name{font-size:var(--fz-xs);font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--txm);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
-.lp-stage.lp-done .lp-name{color:var(--txb)}
-.lp-stage.lp-cur .lp-name{color:var(--txt);font-weight:700}
-.lead-pipe.lp-dated .lp-stage{min-width:120px}
-.lp-date{margin-top:6px;display:flex;justify-content:center}
-.lp-date input[type=date]{font-size:var(--fz-xs);color:var(--txd);border:1px solid var(--brd);border-radius:4px;padding:2px 4px;background:var(--bg);font-family:inherit;cursor:pointer;width:110px;max-width:110px}
-.lp-date input[type=date]:hover{border-color:var(--blu)}
-.lp-date input[type=date]:focus{outline:none;border-color:var(--blu)}
-.lp-stage.lp-lost .lp-name{color:var(--red);font-weight:700}
-.lp-datechip{position:relative;display:inline-block;font-size:var(--fz-xs);line-height:1.7;color:var(--txd);cursor:pointer;border:1px solid var(--brd);border-radius:10px;padding:0 8px;background:var(--bg);white-space:nowrap}
-.lp-datechip:hover{border-color:var(--blu);color:var(--blu)}
-.lp-datechip input[type=date]{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
-.lead-pipe.lp-paused{opacity:.55}
+/* Strip CSS lives in the locked SMB STRIP v1 block below - module duplicate removed (drift). */
 .lp-atrisk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:9px 12px;background:var(--ambb);border:1px solid var(--amb);border-radius:8px;color:var(--ambt);font-size:var(--fz-body)}
 .lp-atrisk svg{color:var(--amb);flex-shrink:0}
 .lp-atrisk button{margin-left:auto}
@@ -938,19 +920,7 @@ tr.clickable:hover .quick-actions{display:flex}
    - Mobile (<=768px): single-column stacked, drag/resize disabled
    localStorage persistence is prototype-only.
    ═══════════════════════════════════════════════════════════════════════ */
-.dash-pipe{display:flex;gap:0;margin-bottom:16px;background:var(--sur);border:1px solid var(--brd);border-radius:8px;padding:18px 12px 14px;overflow-x:auto;position:relative}
-.dp-stage{flex:1 0 0;min-width:96px;text-align:center;cursor:pointer;padding:0 4px;position:relative;transition:transform .12s;--stage-col:var(--pg-slate-ink);--prev-col:var(--brd)}
-.dp-stage::before, .dp-stage::after{content:'';position:absolute;top:28px;height:2px;z-index:0;background:var(--brd)}
-.dp-stage::before{left:0;right:50%;background:var(--prev-col)}
-.dp-stage::after{left:50%;right:0;background:var(--stage-col)}
-.dp-stage:first-child::before{display:none}
-.dp-stage:last-child::after{display:none}
-.dp-circle{box-sizing:border-box;width:58px;height:58px;border-radius:50%;background:#fff;border:3px solid var(--stage-col);display:inline-flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:transform .12s, box-shadow .12s}
-.dp-stage:hover .dp-circle{transform:scale(1.06);box-shadow:0 2px 10px rgba(0,0,0,.10)}
-.dp-count{font-size:22px;font-weight:700;color:var(--txt);line-height:1}
-.dp-name{font-size:var(--fz-xs);font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--txm);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
-.dp-val{font-size:var(--fz-xs);color:var(--txd);margin-top:3px}
-.dp-div{flex:0 0 1px;align-self:stretch;background:var(--brd);margin:0 6px}
+/* Strip CSS lives in the locked SMB STRIP v1 block below - module duplicate removed (drift). */
 .sc-wrap{overflow-x:auto}
 .sc-table{width:100%;border-collapse:collapse;font-size:var(--fz-body)}
 .sc-table th,.sc-table td{padding:6px 8px;border-bottom:1px solid var(--brd);text-align:center;vertical-align:middle}
@@ -1383,6 +1353,17 @@ summary:focus-visible,
 .sc-note-pop{display:none;position:absolute;left:0;top:calc(100% + 2px);background:var(--sb);color:var(--sur);padding:6px 9px;border-radius:6px;font-size:var(--fz-body);line-height:1.4;white-space:normal;max-width:240px;min-width:140px;z-index:60;box-shadow:0 6px 18px var(--overlay-light-04);pointer-events:none;text-align:left;font-weight:400}
 td:hover > .sc-note-pop{display:block}
 
+/* Permit description / purpose cell: full wrapped text at 280px rather than a
+   clipped one-liner behind a hover title. Used by the building-permit list and
+   by the Permits table inside an applicant record. */
+.desc-cell{width:280px;min-width:280px;max-width:280px}
+.desc-cell > div{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+.desc-cell.desc-empty > div{color:var(--txm)}
+
+/* Reach-out cadence tier badges (A/B/C). Colour comes from the shared tag
+   palette; the tier letter itself carries the meaning. */
+.tier-badge{margin-right:4px}
+
 </style>
 </head>
 <body>
@@ -1445,9 +1426,10 @@ td:hover > .sc-note-pop{display:block}
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
       <span class="muted" style="align-self:center">Tier:</span>
       <button class="btn btn-sm" onclick="setPTNTier('')">All</button>
-      <button class="btn btn-sm" onclick="setPTNTier('Tier 1')">Tier 1</button>
-      <button class="btn btn-sm" onclick="setPTNTier('Tier 2')">Tier 2</button>
-      <button class="btn btn-sm" onclick="setPTNTier('Tier 3')">Tier 3</button>
+      <button class="btn btn-sm" onclick="setPTNTier('A')" title="A: 30-day reach-out cadence">A &middot; 30d</button>
+      <button class="btn btn-sm" onclick="setPTNTier('B')" title="B: 60-day reach-out cadence">B &middot; 60d</button>
+      <button class="btn btn-sm" onclick="setPTNTier('C')" title="C: 90-day reach-out cadence">C &middot; 90d</button>
+      <button class="btn btn-sm" onclick="setPTNTier('none')" title="Partners with no tier set; they follow the default 60-day cadence">Untiered</button>
     </div>
     <div class="filter-bar">
       <input id="ptn-q" type="text" placeholder="Search firm, contact, city..." oninput="_ptnFilterChanged()">
@@ -1459,7 +1441,7 @@ td:hover > .sc-note-pop{display:block}
   </div>
 
   <div class="page" id="p-partner-record">
-    <div class="back-link" onclick="nav('partners')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Partners</div>
+    <div class="back-link" onclick="partnerRecordBack()"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back</div>
     <div id="ptn-rec"></div>
   </div>
 
@@ -1658,6 +1640,14 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
+/* Storage Version Policy v1. The key itself carries the breaking version
+   (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
+   boot migration can tell what it is looking at. Bump only on a true
+   data-model break, and never wipe user data on a bump - migrate at load.
+   v3: partner tiering normalised from 'Tier 1/2/3' to 'A/B/C' (_bdMigrateTiers,
+       idempotent, runs every boot). Additive: the legacy Hot/Warm/Cool
+       priority field is retained as an explicit cadence override. */
+var BD_STORAGE_VERSION=3;
 
 function _seedCopy(a){ return JSON.parse(JSON.stringify(a)); }
 function _fill(arr,data){ arr.length=0; (data||[]).forEach(function(x){ arr.push(x); }); }
@@ -1762,9 +1752,19 @@ function _ensureTabBar(page, el){
   el.insertBefore(bar, el.firstChild);
 }
 var NAV_HIST=[];
+/* _funnelLast remembers the last funnel page visited. It is NO LONGER wired to
+   the sidebar Partners entry: doing so made that button land on Market Leads
+   whenever Market Leads had been opened more recently than Partners, which read
+   as "clicking a partner routes me to Market Leads". The sidebar entry now
+   always navigates to 'partners'; the in-page tab bar is how you cross between
+   Partners and Market Leads. navFunnel is retained for any caller that wants
+   last-visited behaviour explicitly. */
 var _funnelLast='partners';
 function navFunnel(){ nav(_funnelLast||'partners'); }
 function navBack(){ if(!NAV_HIST.length) return; var prev=NAV_HIST.pop(); nav(prev,true); }
+/* Partner records open from either the Partners list or a linked Market Leads
+   record. Back returns to wherever it was opened from, falling back to Partners. */
+function partnerRecordBack(){ if(NAV_HIST.length){ navBack(); return; } nav('partners'); }
 function _renderBackButton(el){
   if(!el) return;
   var olds=el.querySelectorAll('.nav-back'); for(var i=0;i<olds.length;i++) olds[i].parentNode.removeChild(olds[i]);
@@ -1780,6 +1780,9 @@ function nav(page,isBack){
   if(!isBack && _curPage && _curPage!==page) NAV_HIST.push(_curPage);
   _curPage=page;
   if(page==='prospecting'||page==='partners'){ _funnelLast=page; }
+  // Entering the Market Leads section from a tab/sidebar/link lands on the list,
+  // never a stale record. Back (isBack) preserves the record you were viewing.
+  if(page==='prospecting' && !isBack){ MLEAD_VIEW=null; }
   var pages=document.querySelectorAll('.page');
   for(var i=0;i<pages.length;i++) pages[i].classList.remove('active');
   var el=document.getElementById('p-'+page);
@@ -1801,8 +1804,51 @@ function nav(page,isBack){
 function setPTNView(v){ _ptnAList=false; _ptnView=v; renderPartners(); }
 function setPTNTier(t){ _ptnAList=false; _ptnTier=t; renderPartners(); }
 function _ptnFilterChanged(){ _ptnAList=false; renderPartners(); }
-function _tierRank(p){ var t=p.priorityTier||''; return t==='Tier 1'?1:(t==='Tier 2'?2:(t==='Tier 3'?3:4)); }
-function _tierBadge(p,full){ var t=p.priorityTier||''; if(!t) return ''; var c=t==='Tier 1'?'tag-green':(t==='Tier 2'?'tag-sky':'tag-slate'); return '<span class="tag '+c+'" style="margin-right:4px">'+(full?t:t.replace('Tier ','T'))+'</span>'; }
+/* ---- Partner tiering v1 (A / B / C) ----
+   The tier is the single lever that sets how often a partner gets touched.
+   A = closest relationships, 30-day cadence. B = the working majority,
+   60 days. C = keep-warm, 90 days. Legacy 'Tier 1/2/3' values map straight
+   onto A/B/C; an untiered partner behaves as B, which matches the old Warm
+   default so nobody's cadence silently changes.
+   The older per-contact Hot/Warm/Cool priority is kept as an explicit
+   override: when a partner carries one it wins over the tier, so any
+   hand-tuned cadence set before tiering existed survives untouched. */
+var TIER_LIST=['A','B','C'];
+var TIER_CADENCE={A:30,B:60,C:90};
+var TIER_DEFAULT='B';
+var TIER_LEGACY={'Tier 1':'A','Tier 2':'B','Tier 3':'C','1':'A','2':'B','3':'C'};
+function _tierNorm(v){
+  var t=String(v==null?'':v).trim();
+  if(!t) return '';
+  if(TIER_LEGACY[t]) return TIER_LEGACY[t];
+  t=t.toUpperCase();
+  return (TIER_LIST.indexOf(t)>=0)?t:'';
+}
+function partnerTier(p){ return _tierNorm(p&&p.priorityTier); }
+function partnerTierEff(p){ return partnerTier(p)||TIER_DEFAULT; }
+function partnerCadenceDays(p){
+  var ov=p&&p.priority;
+  if(ov&&PRIORITY_CADENCE[ov]) return PRIORITY_CADENCE[ov];
+  return TIER_CADENCE[partnerTierEff(p)]||TIER_CADENCE[TIER_DEFAULT];
+}
+function _tierRank(p){ var t=partnerTier(p); return t==='A'?1:(t==='B'?2:(t==='C'?3:4)); }
+function _tierCls(t){ return t==='A'?'tag-green':(t==='B'?'tag-sky':'tag-slate'); }
+function _tierBadge(p,full){
+  var t=partnerTier(p); if(!t) return '';
+  var lbl=full?('Tier '+t+' · '+TIER_CADENCE[t]+'d'):t;
+  return '<span class="tag tier-badge '+_tierCls(t)+'" title="Tier '+t+', '+TIER_CADENCE[t]+'-day reach-out cadence">'+lbl+'</span>';
+}
+/* One-time normalisation of stored tier values onto A/B/C. Idempotent. */
+function _bdMigrateTiers(){
+  var changed=false;
+  PARTNERS.forEach(function(p){
+    var raw=p.priorityTier;
+    if(raw==null||raw==='') return;
+    var t=_tierNorm(raw);
+    if(t!==raw){ p.priorityTier=t; changed=true; }
+  });
+  return changed;
+}
 
 /* debounced search wiring (Shell Standard v1.5 rule 14) */
 function mktgDebounce(fn,ms){ var t; return function(){ var a=arguments,self=this;
@@ -2002,7 +2048,8 @@ function ptnFiltered(){
     if(_ptnView==='architects' && ['Architect','Residential Designer','Interior Designer'].indexOf(p.cat)<0) return false;
     if(_ptnView==='realtors' && p.cat!=='Realtor') return false;
     if(_ptnView.indexOf('cat:')===0 && p.cat!==_ptnView.slice(4)) return false;
-    if(_ptnTier && (p.priorityTier||'')!==_ptnTier) return false;
+    if(_ptnTier==='none'){ if(partnerTier(p)) return false; }
+    else if(_ptnTier && partnerTier(p)!==_ptnTier) return false;
     if(_ptnView==='strong' && !(p.relScore>=8)) return false;
     if(_ptnView==='dormant' && !(p.relStage==='Dormant'||daysSince(p.lastContact)>60)) return false;
     return true;
@@ -2024,7 +2071,9 @@ var ACC_PARTNERS={
   last:function(p){return p.lastContact||'';},
   days:function(p){var d=daysSince(p.lastContact); return d===null?1e9:d;},
   health:function(p){return partnerHealth(p)||'';},
-  value:function(p){return p.estValue||0;}
+  value:function(p){return p.estValue||0;},
+  tier:function(p){return _tierRank(p);},
+  reach:function(p){var r=reachState(p); return (r&&r.dueIn!=null)?r.dueIn:1e9;}
 };
 var ACC_LOTS={
   agent:function(p){return p.contactName||p.contactFirm||'';},
@@ -2108,16 +2157,22 @@ function renderPartners(){
   var seg=_ptnSegBar();
   if(_ptnAList){ host.innerHTML=seg+_aListView(); return; }
   if(_ptnTab==='referral'){ host.innerHTML=seg+_referralPartnersView(referral); return; }
-  var _ptnToggle='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+seg+'<div class="crm-view-toggle">'+'<button class="'+(_ptnLayout!=='board'?'active':'')+'" onclick="_ptnSetLayout(\'table\')" aria-selected="'+(_ptnLayout!=='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>List</button>'+'<button class="'+(_ptnLayout==='board'?'active':'')+'" onclick="_ptnSetLayout(\'board\')" aria-selected="'+(_ptnLayout==='board'?'true':'false')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16"/><rect x="10" y="4" width="5" height="10"/><rect x="17" y="4" width="4" height="14"/></svg>Kanban</button>'+'</div></div>';
+  /* Partners is list-only. The kanban view was removed: partner work is driven
+     by tier and reach-out cadence, not by dragging cards between relationship
+     stages, and the board hid untouched directory contacts and dormant
+     partners from view. Stage is still editable inline and in bulk. */
+  var _ptnToggle='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">'+seg+'</div>';
   if(!prospects.length){ host.innerHTML=_ptnToggle+filteredEmpty('clearPtnFilters'); return; }
   _sortGet('partners','firm',1); prospects=_applySort(prospects,'partners',ACC_PARTNERS);
   prospects.sort(function(a,b){ return _tierRank(a)-_tierRank(b); });
   var body=prospects.map(function(p){
     var d=daysSince(p.lastContact);
     var ag=_partnerAging(p);
+    var tb=_tierBadge(p);
     return '<tr style="cursor:pointer" onclick="openPartner('+p.id+')">'+
       '<td onclick="event.stopPropagation()" style="width:28px"><input type="checkbox"'+(_ptnSel[p.id]?' checked':'')+' onclick="_ptnToggleSel('+p.id+',this.checked)" aria-label="Select row"></td>'+
-      '<td class="cell-firm">'+_aListStarBtn(p)+_tierBadge(p)+_esc(p.firm)+'</td>'+
+      '<td class="cell-firm">'+_aListStarBtn(p)+_esc(p.firm)+'</td>'+
+      '<td class="nowrap">'+(tb||'<span class="muted" title="No tier set; follows the default 60-day cadence">-</span>')+'</td>'+
       '<td>'+_esc(p.cf+' '+p.cl)+(p.hasReply?' <span class="chip c-grn">Replied</span>':'')+(ag.cls?' <span class="dr-badge '+ag.cls+'" title="'+_esc(ag.title)+'">!</span>':'')+'<div class="muted" style="font-size:var(--fz-xs)">'+_esc(p.title)+(p.contactCompleteness?' &middot; '+_esc(p.contactCompleteness):'')+'</div></td>'+
       '<td>'+catPill(p.cat)+'</td>'+
       '<td>'+_esc(p.city)+'</td>'+
@@ -2126,6 +2181,7 @@ function renderPartners(){
       '<td class="right">'+(p.relScore||0)+'</td>'+
       '<td class="nowrap">'+fmtDate(p.lastContact)+'</td>'+
       '<td class="right">'+(d===null?'-':d+'d')+'</td>'+
+      '<td class="nowrap" title="'+_esc(partnerCadenceLabel(p))+'">'+reachoutPill(p)+'</td>'+
       '<td>'+healthPill(partnerHealth(p))+'</td>'+
       '<td class="right nowrap">'+fmtM(p.estValue)+'</td>'+
       '<td>'+getPartnerStatusTag(p)+'</td>'+
@@ -2134,15 +2190,14 @@ function renderPartners(){
   var allSel=prospects.length>0 && prospects.every(function(p){ return _ptnSel[p.id]; });
   var PR={rerender:'renderPartners'},PRR={rerender:'renderPartners',right:true};
   var tableHtml='<div class="card"><div class="tbl-wrap"><table>'+
-    '<thead><tr><th style="width:28px"><input type="checkbox" aria-label="Select all"'+(allSel?' checked':'')+' onclick="_ptnToggleAll(this.checked)"></th>'+_sortTH('partners','firm','Firm',PR)+_sortTH('partners','contact','Contact',PR)+_sortTH('partners','cat','Category',PR)+_sortTH('partners','city','City',PR)+_sortTH('partners','assigned','Assigned',PR)+_sortTH('partners','stage','Stage',PR)+_sortTH('partners','score','Score',PRR)+_sortTH('partners','last','Last Contact',PR)+_sortTH('partners','days','Days',PRR)+_sortTH('partners','health','Health',PR)+_sortTH('partners','value','Est. Value',PRR)+'<th scope="col">Status</th></tr></thead>'+
+    '<thead><tr><th style="width:28px"><input type="checkbox" aria-label="Select all"'+(allSel?' checked':'')+' onclick="_ptnToggleAll(this.checked)"></th>'+_sortTH('partners','firm','Firm',PR)+_sortTH('partners','tier','Tier',PR)+_sortTH('partners','contact','Contact',PR)+_sortTH('partners','cat','Category',PR)+_sortTH('partners','city','City',PR)+_sortTH('partners','assigned','Assigned',PR)+_sortTH('partners','stage','Stage',PR)+_sortTH('partners','score','Score',PRR)+_sortTH('partners','last','Last Contact',PR)+_sortTH('partners','days','Days',PRR)+_sortTH('partners','reach','Reach-out',PR)+_sortTH('partners','health','Health',PR)+_sortTH('partners','value','Est. Value',PRR)+'<th scope="col">Status</th></tr></thead>'+
     '<tbody>'+body+'</tbody></table></div></div>';
   var selCount=0; for(var _sk in _ptnSel){ if(_ptnSel[_sk]) selCount++; }
-  var bar=(_ptnLayout!=='board'&&selCount>0)?('<div class="card" style="margin-bottom:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:600">'+selCount+' selected</span>'+'<button class="btn btn-sm" onclick="_ptnBulkAssign()">Assign to...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkStage()">Set stage...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkDormant()">Mark dormant</button>'+'<button class="btn btn-sm" onclick="_ptnClearSel()">Clear</button></div>'):'';
-  host.innerHTML=_ptnToggle+bar+(_ptnLayout==='board'?_partnerBoard(prospects):tableHtml);
+  var bar=selCount>0?('<div class="card" style="margin-bottom:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:600">'+selCount+' selected</span>'+'<button class="btn btn-sm" onclick="_ptnBulkTier()">Set tier...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkAssign()">Assign to...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkStage()">Set stage...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkDormant()">Mark dormant</button>'+'<button class="btn btn-sm" onclick="_ptnClearSel()">Clear</button></div>'):'';
+  host.innerHTML=_ptnToggle+bar+tableHtml;
 }
-var _ptnLayout='table';
-var _ptnDragId=null;
-function _ptnSetLayout(v){ _ptnLayout=v; renderPartners(); }
+/* Partners kanban removed: the page is list-only. Market Leads keeps its own
+   board (_leadBoard), which is unaffected. */
 var _ptnAList=false;
 function _ptnSetAList(on){ _ptnAList=!!on; renderPartners(); }
 function _aListStarIcon(on){ return '<svg width="13" height="13" viewBox="0 0 24 24" fill="'+(on?'var(--gp)':'none')+'" stroke="'+(on?'var(--gp)':'var(--txd)')+'" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><polygon points="12 2 15 9 22 9.3 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9.3 9 9"/></svg>'; }
@@ -2184,62 +2239,14 @@ function _partnerAging(p){
   if(d>60) return {cls:'amber',title:'No contact in '+d+' days'};
   return {cls:'',title:''};
 }
-function _partnerCard(p){
-  var ag=_partnerAging(p);
-  var init=(((p.cf||' ')[0]||'')+((p.cl||' ')[0]||'')).toUpperCase()||'?';
-  return '<div class="kb-card" draggable="true" data-id="'+p.id+'" ondragstart="_ptnDragStart(event)" ondragend="_ptnDragEnd(event)" onclick="openPartner('+p.id+')">'+
-    (ag.cls?'<span class="dr-badge '+ag.cls+'" title="'+_esc(ag.title)+'">!</span>':'')+
-    '<div class="kb-card-name">'+_aListStarBtn(p)+_esc(((p.cf||'')+' '+(p.cl||'')).trim()||'(no name)')+'</div>'+
-    '<div class="kb-card-meta">'+_esc(p.firm||'')+'</div>'+
-    '<div class="kb-card-foot"><span class="kb-card-meta-row">'+_esc(p.cat||'')+'</span><span class="kb-card-init">'+_esc(init)+'</span></div>'+
-  '</div>';
-}
 var BD_KB_CAP=25;
 var _bdKbExp={};
 function bdKbShowMore(key,rerender){ _bdKbExp[key]=true; if(rerender&&typeof window[rerender]==='function') window[rerender](); }
 function _bdKbMore(items,key,rerender){ return (items.length>BD_KB_CAP&&!_bdKbExp[key])?('<div style="text-align:center;padding:8px 0"><button class="btn btn-sm" onclick="bdKbShowMore(&quot;'+_esc(key)+'&quot;,&quot;'+rerender+'&quot;)">Show all '+items.length+'</button></div>'):''; }
 function _bdKbSlice(items,key){ return _bdKbExp[key]?items:items.slice(0,BD_KB_CAP); }
-function _partnerBoard(rows){
-  var stages=_partnerStageOrder();
-  function _colLabel(st){ return st; }
-  function _onBoard(p){ if(p.isPartner) return true; if(p.relStage==='Dormant') return false; if(_pStage(p)!=='New') return true; return p.source==='Prospecting' || (p.act&&p.act.length>0) || (p.meetings&&p.meetings.length>0); }
-  var boardRows=rows.filter(_onBoard);
-  var cols=stages.map(function(st){
-    var items=boardRows.filter(function(p){ return _pStage(p)===st && !p.isPartner; });
-    var _k='ptn:'+st; var cards=items.length?(_bdKbSlice(items,_k).map(_partnerCard).join('')+_bdKbMore(items,_k,'renderPartners')):'<div class="kb-empty">None</div>';
-    return '<div class="kb-col" data-stage="'+_esc(st)+'" ondragover="_ptnDragOver(event)" ondragleave="_ptnDragLeave(event)" ondrop="_ptnDrop(event)">'+
-      '<div class="kb-col-hd"><span style="font-weight:600;font-size:var(--fz-body)">'+_esc(_colLabel(st))+'</span><span class="kb-col-hd-count">'+items.length+'</span></div>'+
-      '<div class="kb-col-body">'+cards+'</div></div>';
-  }).join('');
-  var refItems=boardRows.filter(function(p){ return !!p.isPartner; });
-  var _rk='ptn:Partner'; var refCards=refItems.length?(_bdKbSlice(refItems,_rk).map(_partnerCard).join('')+_bdKbMore(refItems,_rk,'renderPartners')):'<div class="kb-empty">None</div>';
-  cols+='<div class="kb-col" data-stage="Partner" ondragover="_ptnDragOver(event)" ondragleave="_ptnDragLeave(event)" ondrop="_ptnDrop(event)">'+
-    '<div class="kb-col-hd"><span style="font-weight:600;font-size:var(--fz-body)">Referral Partner</span><span class="kb-col-hd-count">'+refItems.length+'</span></div>'+
-    '<div class="kb-col-body">'+refCards+'</div></div>';
-  var dormant=rows.filter(function(p){ return p.relStage==='Dormant'; }).length;
-  var hidden=rows.filter(function(p){ return !p.isPartner && p.relStage!=='Dormant' && _pStage(p)==='New' && !(p.source==='Prospecting'||(p.act&&p.act.length>0)); }).length;
-  var notes='';
-  if(hidden){ notes+='<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">'+hidden+' directory contact'+(hidden===1?'':'s')+' not yet worked '+(hidden===1?'is':'are')+' hidden from the board. Switch to List to see '+(hidden===1?'it':'them')+'.</div>'; }
-  if(dormant){ notes+='<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">'+dormant+' dormant partner'+(dormant===1?'':'s')+' not shown on the board. Switch to List to see them.</div>'; }
-  return '<div class="kb-board">'+cols+'</div>'+notes;
-}
-function _ptnDragStart(e){ _ptnDragId=Number(e.currentTarget.getAttribute('data-id')); e.currentTarget.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain',String(_ptnDragId)); e.dataTransfer.effectAllowed='move'; }catch(_){} }
-function _ptnDragEnd(e){ e.currentTarget.classList.remove('dragging'); }
-function _ptnDragOver(e){ e.preventDefault(); e.currentTarget.classList.add('drop-target'); try{ e.dataTransfer.dropEffect='move'; }catch(_){} }
-function _ptnDragLeave(e){ e.currentTarget.classList.remove('drop-target'); }
-function _ptnDrop(e){ e.preventDefault(); var col=e.currentTarget; col.classList.remove('drop-target'); var st=col.getAttribute('data-stage'); var id=_ptnDragId; if(id==null||isNaN(id)){ try{ id=Number(e.dataTransfer.getData('text/plain')); }catch(_){} } _ptnDragId=null; if(id==null||isNaN(id)||!st) return; _ptnBoardSetStage(id,st); }
-function _ptnBoardSetStage(id,stage){
-  var p=_partnerFind(id); if(!p) return;
-  if(stage==='Partner'){ if(p.isPartner){ renderPartners(); return; } partnerLogReferral(id); return; }
-  var demoted=false; if(p.isPartner){ p.isPartner=false; demoted=true; }
-  if(p.relStage===stage && !demoted){ renderPartners(); return; }
-  p.relStage=stage;
-  if(stage!=='Dormant' && p.ownershipStatus==='Dormant') p.ownershipStatus='Active';
-  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
-  save();
-  renderPartners();
-  if(typeof toastSuccess==='function') toastSuccess('Stage updated',(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner')+' moved to '+stage);
-}
+/* _partnerBoard, _partnerCard, the partner drag handlers, and
+   _ptnBoardSetStage were removed with the Partners kanban. Stage changes now
+   happen in the partner record and through the list bulk bar. */
 /* ===== BD Referral money loop (D-48) =====
    Rides on partner.crmLeads (already persisted via PARTNERS). Adds a lifecycle
    (logged -> lead -> won/lost -> fee paid), won contract value, gross profit,
@@ -2513,9 +2520,24 @@ function _ptnBulkStage(){
     body:_section('Stage','<div class="smb-fld full"><label for="bulk-stage">Stage</label><input id="bulk-stage" type="text" data-f="stage" list="bulk-stage-list" placeholder="Pick a stage"><datalist id="bulk-stage-list">'+dl+'</datalist></div>'),
     onSave:function(){ var f=_readForm(); var st=String(f.stage||'').trim(); if(STAGE_LIST.indexOf(st)<0){ modalErr('Pick a valid stage.'); return; } closeModal(); _ptnApplyBulk(function(p){ p.relStage=st; },'Stage'); }});
 }
+function _ptnBulkTier(){
+  var opts=[['A','A - every 30 days'],['B','B - every 60 days'],['C','C - every 90 days'],['','Untiered - 60 day default']];
+  var dl=opts.map(function(o){ return '<option value="'+_esc(o[1])+'"></option>'; }).join('');
+  openModal({title:'Set tier for selected partners', sub:'Tier sets how often each partner is due for a reach-out.', saveLabel:'Set tier',
+    body:_section('Tier','<div class="smb-fld full"><label for="bulk-tier">Tier</label><input id="bulk-tier" type="text" data-f="tier" list="bulk-tier-list" placeholder="Pick a tier"><datalist id="bulk-tier-list">'+dl+'</datalist></div>'),
+    onSave:function(){
+      var f=_readForm(); var raw=String(f.tier||'').trim();
+      var pick=null;
+      for(var i=0;i<opts.length;i++){ if(raw===opts[i][1]||raw===opts[i][0]||(raw&&raw.toUpperCase()===opts[i][0])){ pick=opts[i][0]; break; } }
+      if(pick===null && /^untiered/i.test(raw)) pick='';
+      if(pick===null){ modalErr('Pick a tier from the list.'); return; }
+      closeModal();
+      _ptnApplyBulk(function(p){ p.priorityTier=pick; }, pick?('Tier '+pick):'Untiered');
+    }});
+}
 function clearPtnFilters(){
   ['ptn-q','ptn-f-cat','ptn-f-stage','ptn-f-health'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
-  _ptnView='all'; renderPartners();
+  _ptnView='all'; _ptnTier=''; renderPartners();
 }
 
 /* ============================================================
@@ -2876,6 +2898,7 @@ function _partnerStageTrack(p,ro){
     } else if(sdCur){ var din=daysSince(sdCur); if(din!==null) bits.push('In <strong>'+_esc(curStage)+'</strong> '+din+' day'+(din===1?'':'s')); }
     if(p.lastContact) bits.push('last touch '+daysSince(p.lastContact)+'d ago');
     if(rs.state!=='none') bits.push('<span style="color:'+hcol+';font-weight:600">'+_esc(rs.label)+'</span>');
+    bits.push('<span class="muted">'+_esc(partnerCadenceLabel(p))+'</span>');
     if(bits.length) html+='<div style="margin-top:2px;font-size:var(--fz-body);color:var(--txm)">'+bits.join(' &middot; ')+'</div>';
     if(!ro) html+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
       (isPartner?('<button class="btn btn-sm" onclick="demotePartner('+p.id+')">Move back to pipeline</button>'):('<button class="btn btn-primary btn-sm" onclick="promotePartner('+p.id+')">Log referral</button>'))+
@@ -3216,9 +3239,9 @@ function openPartnerModal(id){
     _fld('Ownership status','ownershipStatus','select',e.ownershipStatus||'',{options:['Active','Inactive','Archived']}));
   body+=_section('Relationship',
     _fld('Stage','relStage','select',e.relStage||'',{options:STAGE_LIST})+
-    _fld('Priority tier','priorityTier','select',e.priorityTier||'',{options:['','Tier 1','Tier 2','Tier 3']})+
+    _fld('Tier (sets reach-out cadence)','priorityTier','select',partnerTier(e),{options:[{v:'',l:'Untiered - 60 day default'},{v:'A',l:'A - every 30 days'},{v:'B',l:'B - every 60 days'},{v:'C',l:'C - every 90 days'}]})+
     _fld('Contact completeness','contactCompleteness','select',e.contactCompleteness||'',{options:['','Complete','Complete enough','Usable - verify email','Needs verification','Needs exact agent']})+
-    _fld('Reach-out priority','priority','select',partnerPriority(e),{options:PRIORITY_LIST})+
+    _fld('Cadence override','priority','select',(partnerHasPriorityOverride(e)?e.priority:''),{options:[{v:'',l:'None - follow the tier'},{v:'Hot',l:'Hot - every 30 days'},{v:'Warm',l:'Warm - every 60 days'},{v:'Cool',l:'Cool - every 90 days'}]})+
     _fld('Relationship score (1-10)','relScore','number',e.relScore||1)+
     _fld('Initial contact','initialContact','date',e.initialContact||'')+
     _fld('Book delivered','bookDelivered','date',e.bookDelivered||'')+
@@ -3259,6 +3282,8 @@ function savePartner(existing){
    'dnf','personalNotes','interests','importantDates','priority',
    'keyAccount','nextStrategicTouch','decisionMakers','accountGoal','mutualValue'].forEach(function(k){ rec[k]=f[k]; });
   ['relScore','estValue','booksDelivered','eventsAttended','siteTours','referralDiscussions'].forEach(function(k){ rec[k]=Number(f[k])||0; });
+  rec.priorityTier=_tierNorm(rec.priorityTier);
+  if(['Hot','Warm','Cool'].indexOf(rec.priority)<0) rec.priority='';
   if(!rec.act) rec.act=[];
   if(!rec.linkedLeads) rec.linkedLeads=[];
   window.SMB_PARTNERS._upsert(rec);
@@ -3965,7 +3990,11 @@ function parseLotAgents(text){
     include:_laIdx(headers,['include_in_campaign'],['include','campaign']),
     sent:_laIdx(headers,['sent'],[]),
     profile:_laIdx(headers,['profile_url'],['profile']),
-    websites:_laIdx(headers,['websites','website'],['website'])
+    websites:_laIdx(headers,['websites','website'],['website']),
+    prices:_laIdx(headers,['listing_prices'],[]),
+    sizes:_laIdx(headers,['listing_sizes','lot_sizes'],[]),
+    lats:_laIdx(headers,['listing_latitudes','latitudes'],[]),
+    lons:_laIdx(headers,['listing_longitudes','longitudes'],[])
   };
   if(idx.name<0 && idx.email<0) return {ok:false,rows:[]};
   function cell(c,i){ return (i>=0 && i<c.length) ? String(c[i]==null?'':c[i]).trim() : ''; }
@@ -3976,8 +4005,21 @@ function parseLotAgents(text){
     if(!name && !email) continue;
     var addrs=cell(c,idx.addresses).split(';').map(function(x){ return x.trim(); }).filter(Boolean);
     var mls=cell(c,idx.mls).split(';').map(function(x){ return x.trim(); }).filter(Boolean);
-    var portfolio=[]; var n=Math.max(addrs.length,mls.length);
-    for(var pi=0;pi<n;pi++){ portfolio.push({address:addrs[pi]||'',mls:mls[pi]||''}); }
+    /* Optional detail columns. Semicolon-delimited and positionally aligned with
+       listing_addresses, so empties must be preserved rather than filtered out. */
+    var prices=idx.prices>=0?cell(c,idx.prices).split(';'):[];
+    var sizes=idx.sizes>=0?cell(c,idx.sizes).split(';'):[];
+    var lats=idx.lats>=0?cell(c,idx.lats).split(';'):[];
+    var lons=idx.lons>=0?cell(c,idx.lons).split(';'):[];
+    var portfolio=[]; var n=Math.max(addrs.length,mls.length,prices.length,sizes.length);
+    for(var pi=0;pi<n;pi++){
+      var _pe={address:addrs[pi]||'',mls:mls[pi]||''};
+      var _pp=String(prices[pi]||'').trim(); if(_pp) _pe.price=_pp;
+      var _ps=String(sizes[pi]||'').trim(); if(_ps) _pe.size=_ps;
+      var _pla=parseFloat(String(lats[pi]||'').trim()); if(!isNaN(_pla)) _pe.lat=_pla;
+      var _plo=parseFloat(String(lons[pi]||'').trim()); if(!isNaN(_plo)) _pe.lon=_plo;
+      portfolio.push(_pe);
+    }
     var cnt=parseInt(cell(c,idx.count),10); if(isNaN(cnt)) cnt=portfolio.length;
     var val=parseFloat(cell(c,idx.value).replace(/[^0-9.]/g,'')); if(isNaN(val)) val=0;
     rows.push({name:name,brokerage:cell(c,idx.brokerage),phone:cell(c,idx.phone),email:email,
@@ -3992,37 +4034,46 @@ function _partnerIdForLotKey(k){
   for(var i=0;i<P.length;i++){ var pk=_lotAgentKey(P[i].email,((P[i].cf||'')+' '+(P[i].cl||'')).trim(),P[i].firm); if(pk && pk===k) return P[i].id; }
   return null;
 }
+function _lotAgentMergeRows(rows){
+  /* Shared adopt path for lot-agent rows, used by the Import lot agents modal
+     and the lots feed refresh. Refreshes existing agents in place (portfolio,
+     counts, missing contact fields), adds genuinely new agents, links to a
+     matching partner when one exists, and never duplicates. */
+  var known=_knownLotAgentKeys(); var added=0,dupes=0,skipped=0,refreshed=0,linked=0,seen={};
+  rows.forEach(function(a){
+    var k=_lotAgentKey(a.email,a.name,a.brokerage);
+    if(!k){ skipped++; return; }
+    if(seen[k]){ dupes++; return; }
+    seen[k]=1;
+    var ex=null;
+    for(var ei=0;ei<PROSPECTS.length;ei++){ if(PROSPECTS[ei].type==='lot' && _lotAgentKey(PROSPECTS[ei].contactEmail,PROSPECTS[ei].contactName,PROSPECTS[ei].contactFirm)===k){ ex=PROSPECTS[ei]; break; } }
+    var pid=_partnerIdForLotKey(k);
+    if(ex){
+      ex.portfolio=a.portfolio; ex.listingCount=a.listingCount; ex.totalValue=a.totalValue; ex.value=a.totalValue;
+      if(a.phone && !ex.contactPhone) ex.contactPhone=a.phone;
+      if(a.email && !ex.contactEmail) ex.contactEmail=a.email;
+      if(a.profileUrl) ex.profileUrl=a.profileUrl;
+      if(a.websites) ex.websites=a.websites;
+      if(pid!=null && ex.linkedPartnerId==null) ex.linkedPartnerId=pid;
+      refreshed++; return;
+    }
+    if(known[k] && pid==null){ dupes++; return; }
+    PROSPECTS.push({id:_nextId(PROSPECTS),type:'lot',isAgent:true,address:'',desc:'',value:a.totalValue,ref:'',
+      contactName:a.name,contactRole:'Listing agent',contactFirm:a.brokerage,contactEmail:a.email,contactPhone:a.phone,
+      owner:'',note:'',portfolio:a.portfolio,listingCount:a.listingCount,totalValue:a.totalValue,act:[],linkedPartnerId:pid,
+      profileUrl:a.profileUrl,websites:a.websites,includeInCampaign:a.includeInCampaign,importSent:a.sent,listedDate:_today()});
+    registerLotAgentKey(a.email,a.name,a.brokerage); if(pid!=null) linked++; else added++;
+  });
+  return {added:added,dupes:dupes,skipped:skipped,refreshed:refreshed,linked:linked};
+}
 function lotAgentImport(){
   var body=_section('Paste lot-agent data', _fld('Paste rows including the header row (copy the cells from Excel)','paste','textarea','',{full:true}))+
-    '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Recognized columns: name, brokerage, phone, email, listing_count, total_value, listing_addresses, listing_mls_numbers, include_in_campaign, sent, profile_url, websites. Agents already in the module are skipped automatically, so re-importing never duplicates. When the listings API connects, this same data loads on its own.</div>';
+    '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Recognized columns: name, brokerage, phone, email, listing_count, total_value, listing_addresses, listing_mls_numbers, include_in_campaign, sent, profile_url, websites, and the optional listing_prices, listing_sizes, listing_latitudes, listing_longitudes. The four optional columns are semicolon-separated and line up position by position with listing_addresses; they fill the Price, Lot size and $/acre columns on the Listings view. Paste from Excel so the rows arrive tab-separated, otherwise a price like 1,200,000 splits into three cells. Agents already in the module are skipped automatically, so re-importing never duplicates. When the listings API connects, this same data loads on its own.</div>';
   openModal({title:'Import lot agents', body:body, saveLabel:'Import', onSave:function(){
     var f=_readForm(); var parsed=parseLotAgents(f.paste);
     if(!parsed.ok){ modalErr('Could not read the data. Paste the rows including the header row, copied straight from Excel.'); return; }
-    var known=_knownLotAgentKeys(); var added=0,dupes=0,skipped=0,refreshed=0,linked=0,seen={};
-    parsed.rows.forEach(function(a){
-      var k=_lotAgentKey(a.email,a.name,a.brokerage);
-      if(!k){ skipped++; return; }
-      if(seen[k]){ dupes++; return; }
-      seen[k]=1;
-      var ex=null;
-      for(var ei=0;ei<PROSPECTS.length;ei++){ if(PROSPECTS[ei].type==='lot' && _lotAgentKey(PROSPECTS[ei].contactEmail,PROSPECTS[ei].contactName,PROSPECTS[ei].contactFirm)===k){ ex=PROSPECTS[ei]; break; } }
-      var pid=_partnerIdForLotKey(k);
-      if(ex){
-        ex.portfolio=a.portfolio; ex.listingCount=a.listingCount; ex.totalValue=a.totalValue; ex.value=a.totalValue;
-        if(a.phone && !ex.contactPhone) ex.contactPhone=a.phone;
-        if(a.email && !ex.contactEmail) ex.contactEmail=a.email;
-        if(a.profileUrl) ex.profileUrl=a.profileUrl;
-        if(a.websites) ex.websites=a.websites;
-        if(pid!=null && ex.linkedPartnerId==null) ex.linkedPartnerId=pid;
-        refreshed++; return;
-      }
-      if(known[k] && pid==null){ dupes++; return; }
-      PROSPECTS.push({id:_nextId(PROSPECTS),type:'lot',isAgent:true,address:'',desc:'',value:a.totalValue,ref:'',
-        contactName:a.name,contactRole:'Listing agent',contactFirm:a.brokerage,contactEmail:a.email,contactPhone:a.phone,
-        owner:'',note:'',portfolio:a.portfolio,listingCount:a.listingCount,totalValue:a.totalValue,act:[],linkedPartnerId:pid,
-        profileUrl:a.profileUrl,websites:a.websites,includeInCampaign:a.includeInCampaign,importSent:a.sent,listedDate:_today()});
-      registerLotAgentKey(a.email,a.name,a.brokerage); if(pid!=null) linked++; else added++;
-    });
+    var r=_lotAgentMergeRows(parsed.rows);
+    var added=r.added,dupes=r.dupes,skipped=r.skipped,refreshed=r.refreshed,linked=r.linked;
     save(); closeModal(); renderProspecting();
     if(typeof toastSuccess==='function') toastSuccess('Lot agents imported', added+' added'+(linked?(', '+linked+' linked to a partner'):'')+(refreshed?(', '+refreshed+' refreshed'):'')+(dupes?(', '+dupes+' already tracked, skipped'):'')+(skipped?(', '+skipped+' row'+(skipped===1?'':'s')+' without name or email'):''));
   }});
@@ -4033,10 +4084,10 @@ function lotAgentAreas(p){
 }
 function lotAgentListings(id){
   var p=_prospFind(id); if(!p||!p.portfolio) return;
-  var rows=p.portfolio.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):''; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="event.stopPropagation();_setListingUrl('+id+',\''+_esc(mls)+'\',\'agent\')">'+(l.url?'edit link':'+ link')+'</a>'):''; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap muted">'+mc+lk+'</td></tr>'; }).join('');
+  var rows=p.portfolio.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):''; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="event.stopPropagation();_setListingUrl('+id+',\''+_esc(mls)+'\',\'agent\')">'+(l.url?'edit link':'+ link')+'</a>'):''; var lp=_lotPrice(l.price), la=_lotAcres(l.size); return '<tr><td>'+_esc(String(l.address||'-').replace(/\|/g,', '))+'</td><td class="nowrap">'+(lp==null?'<span class="muted">-</span>':fmtVal(lp,'$'))+'</td><td class="nowrap">'+_lotAcresCell(la)+'</td><td class="nowrap muted">'+mc+lk+'</td></tr>'; }).join('');
   var prof=p.profileUrl?(' &middot; <a href="'+_esc(p.profileUrl)+'" target="_blank" rel="noopener">profile</a>'):'';
   var body='<div class="muted" style="margin-bottom:8px;font-size:var(--fz-body)">'+num(p.listingCount||p.portfolio.length)+' listings &middot; '+fmtVal(p.totalValue||0,'$')+' total inventory'+prof+'</div>'+
-    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">MLS</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">Price</th><th scope="col">Lot size</th><th scope="col">MLS</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   openModal({title:p.contactName||'Lot agent', sub:p.contactFirm||'', body:body, saveLabel:'Close', onSave:function(){ closeModal(); }});
 }
 
@@ -4105,6 +4156,113 @@ function _bdWebLink(web, email, firm){
 function _mleadDistinct(arr,fn){ var s={}; arr.forEach(function(x){ var v=fn(x); if(v) s[String(v)]=1; }); return Object.keys(s).sort(); }
 function _lotCities(p){ var s={}; (p.portfolio||[]).forEach(function(l){ var a=l.address||'',bar=a.indexOf('|'); if(bar>=0){ var c=a.substring(bar+1).split(',')[0].trim(); if(c) s[c]=1; } }); return Object.keys(s); }
 function _allLotCities(){ var s={}; PROSPECTS.forEach(function(p){ if(p.isAgent||p.type==='lot'){ _lotCities(p).forEach(function(c){ s[c]=1; }); } }); return Object.keys(s).sort(); }
+
+var LOT_VIEW='listings';
+var GV_MUNIS=['Victoria','Saanich','Central Saanich','North Saanich','Sidney','Oak Bay','Esquimalt','View Royal','Colwood','Langford','Highlands','Metchosin','Sooke'];
+var GV_MUNIS_LONG=GV_MUNIS.slice().sort(function(a,b){ return b.length-a.length; });
+function lotSetView(v){ LOT_VIEW=(v==='agents')?'agents':'listings'; MLEAD_FILTER['lots']={q:'',f1:'',f2:'',f3:'',f4:''}; renderProspecting(); }
+function _numOrNull(v){ var n=Number(v); return (v===''||v==null||isNaN(n))?null:n; }
+function _lotMuniScan(s){
+  var low=String(s||'').toLowerCase(); if(!low) return '';
+  for(var i=0;i<GV_MUNIS_LONG.length;i++){ if(low.indexOf(GV_MUNIS_LONG[i].toLowerCase())>=0) return GV_MUNIS_LONG[i]; }
+  return '';
+}
+function _lotMuniCanon(s){ var hit=_lotMuniScan(s); return hit||String(s||'').trim(); }
+/* Municipality is read from the city segment of the address first (the part after
+   the pipe in a realtor-style AddressText, or the second comma field), and only
+   falls back to scanning the whole string. Street names carry municipality words
+   often enough that scanning first would misfile lots. */
+function _lotMuni(address){
+  var a=String(address||''); if(!a) return '';
+  var bar=a.indexOf('|');
+  if(bar>=0){ var c=a.substring(bar+1).split(',')[0].trim(); if(c) return _lotMuniCanon(c); }
+  var parts=a.split(',');
+  if(parts.length>1){ var c2=String(parts[1]||'').trim(); if(c2) return _lotMuniCanon(c2); }
+  return _lotMuniScan(a);
+}
+function _allLotMunis(){ var s={}; _lotListingRows().forEach(function(r){ if(r.muni) s[r.muni]=1; }); return Object.keys(s).sort(); }
+/* Accepts acres, square feet, square metres or hectares. A bare number over 1000
+   is read as square feet, under as acres; that is the split that matches how lot
+   sizes are actually written on listings. */
+function _lotAcres(size){
+  if(size==null||size==='') return null;
+  var s=String(size).toLowerCase().replace(/²/g,'2').replace(/,/g,'').trim();
+  if(!s) return null;
+  var m=s.match(/([\d.]+)\s*(?:ac\b|acre)/); if(m) return parseFloat(m[1]);
+  m=s.match(/([\d.]+)\s*(?:sq\.?\s*ft|sqft|square feet|ft2)/); if(m) return parseFloat(m[1])/43560;
+  m=s.match(/([\d.]+)\s*(?:m2|square met)/); if(m) return parseFloat(m[1])*10.7639/43560;
+  m=s.match(/([\d.]+)\s*(?:ha\b|hectare)/); if(m) return parseFloat(m[1])*2.47105;
+  m=s.match(/^([\d.]+)$/);
+  if(m){ var n=parseFloat(m[1]); if(isNaN(n)||n<=0) return null; return n>1000?(n/43560):n; }
+  return null;
+}
+function _lotPrice(v){ if(v==null||v==='') return null; var n=Number(String(v).replace(/[^0-9.]/g,'')); return (isNaN(n)||n<=0)?null:n; }
+function _median(arr){
+  var a=arr.filter(function(x){ return typeof x==='number'&&isFinite(x); }).sort(function(x,y){ return x-y; });
+  if(!a.length) return null;
+  var m=Math.floor(a.length/2);
+  return (a.length%2)?a[m]:((a[m-1]+a[m])/2);
+}
+function _lotListingRows(){
+  var out=[];
+  PROSPECTS.forEach(function(p){
+    if(!(p.isAgent||p.type==='lot')) return;
+    var agent=p.contactName||p.contactFirm||'';
+    var pf=p.portfolio||[];
+    if(pf.length){
+      pf.forEach(function(l,i){
+        var price=_lotPrice(l.price), acres=_lotAcres(l.size);
+        out.push({key:p.id+':'+i, agentId:p.id, agent:agent, firm:p.contactFirm||'',
+          address:String(l.address||'').replace(/\|/g,', '), muni:_lotMuni(l.address||''),
+          price:price, acres:acres, ppa:(price&&acres)?(price/acres):null,
+          mls:String(l.mls||'').trim(), url:l.url||'',
+          lat:_numOrNull(l.lat), lon:_numOrNull(l.lon), listed:p.listedDate||''});
+      });
+    } else if(!p.isAgent && String(p.address||'').trim()){
+      var pr=_lotPrice(p.value), ac=_lotAcres(p.lotSize);
+      out.push({key:p.id+':0', agentId:p.id, agent:agent, firm:p.contactFirm||'',
+        address:String(p.address||'').replace(/\|/g,', '), muni:_lotMuni(p.address||''),
+        price:pr, acres:ac, ppa:(pr&&ac)?(pr/ac):null,
+        mls:String(p.ref||'').trim(), url:p.listingUrl||'',
+        lat:_numOrNull(p.lat), lon:_numOrNull(p.lon), listed:p.listedDate||''});
+    }
+  });
+  return out;
+}
+var ACC_LOTLIST={
+  address:function(r){return r.address||'';},
+  muni:function(r){return r.muni||'';},
+  price:function(r){return r.price==null?-1:r.price;},
+  acres:function(r){return r.acres==null?-1:r.acres;},
+  ppa:function(r){return r.ppa==null?-1:r.ppa;},
+  agent:function(r){return r.agent||'';}
+};
+function _lotAcresCell(a){ return (a==null)?'<span class="muted">-</span>':(_esc((a<1?a.toFixed(2):a.toFixed(1))+' ac')); }
+function _lotMuniRollup(rows){
+  var by={};
+  rows.forEach(function(r){
+    var k=r.muni||'Unknown';
+    if(!by[k]) by[k]={muni:k,n:0,prices:[],ppas:[]};
+    by[k].n++;
+    if(r.price!=null) by[k].prices.push(r.price);
+    if(r.ppa!=null) by[k].ppas.push(r.ppa);
+  });
+  var arr=Object.keys(by).map(function(k){ var g=by[k]; return {muni:g.muni,n:g.n,medPrice:_median(g.prices),medPpa:_median(g.ppas)}; });
+  if(!arr.length) return '';
+  arr.sort(function(a,b){ return (b.n-a.n)||(a.muni<b.muni?-1:a.muni>b.muni?1:0); });
+  var body=arr.map(function(g){
+    return '<tr><td>'+(g.muni==='Unknown'?'<span class="muted">Unknown</span>':('<span class="tag tag-indigo">'+_esc(g.muni)+'</span>'))+'</td>'+
+      '<td class="nowrap">'+num(g.n)+'</td>'+
+      '<td class="nowrap">'+(g.medPrice==null?'<span class="muted">-</span>':fmtVal(g.medPrice,'$'))+'</td>'+
+      '<td class="nowrap">'+(g.medPpa==null?'<span class="muted">-</span>':fmtVal(Math.round(g.medPpa),'$'))+'</td></tr>';
+  }).join('');
+  return '<div class="card"><div class="card-hd"><span class="card-title">By municipality</span><span class="muted" style="font-size:var(--fz-body)">Medians across the filtered set</span></div>'+
+    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Municipality</th><th scope="col">Lots</th><th scope="col">Median ask</th><th scope="col">Median $/acre</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+}
+function _mleadNum(key,label,step){
+  var f=_mleadF();
+  return '<input id="mlead-'+key+'" type="number"'+(step?(' step="'+step+'" min="0"'):' min="0"')+' placeholder="'+_esc(label)+'" aria-label="'+_esc(label)+'" value="'+_esc(f[key]||'')+'" oninput="mleadOnSearch()" style="width:128px;padding:7px 10px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">';
+}
 
 function prospectSetTab(t){ MLEAD_VIEW=null; PROSPECT_TAB=t; renderProspecting(); }
 function mleadBack(){ MLEAD_VIEW=null; renderProspecting(); }
@@ -4421,6 +4579,21 @@ function _mleadDetailLot(p){
   return html;
 }
 
+/* What a permit is actually for. Building permits carry a free-text
+   description; development applications usually do not, so fall back to the
+   application type and then the project type. Returns '' when the record
+   says nothing useful, so callers can render their own empty state. */
+function _pullPurpose(pu){
+  if(!pu) return '';
+  var d=String(pu.description||'').trim();
+  if(d) return d;
+  var at=String(pu.applicationType||'').trim();
+  if(at) return at;
+  var pt=String(pu.projectType||'').trim();
+  if(pt && pt!=='Other') return pt;
+  return '';
+}
+
 function _mleadDetailPull(key){
   var pulls=PERMIT_PULLS.filter(function(x){ return (x.applicantKey||_pullKey(x.applicant,''))===key; });
   if(!pulls.length){ MLEAD_VIEW=null; return ''; }
@@ -4450,13 +4623,15 @@ function _mleadDetailPull(key){
   html+='</div>';
   var prows=pulls.slice().sort(function(a,b){ return new Date(b.pulledDate||0)-new Date(a.pulledDate||0); }).map(function(pu){
     var ref=pu.type==='development'&&pu.ref?('<a href="'+_esc(_dpTrackerUrl(pu.ref))+'" target="_blank" rel="noopener">'+_esc(pu.ref)+'</a>'):_esc(pu.ref||'-');
+    var purp=_pullPurpose(pu);
     return '<tr><td><span class="tag '+(pu.type==='development'?'tag-blue':'tag-indigo')+'">'+(pu.type==='development'?'Development':'Building')+'</span></td>'+
       '<td><div style="font-weight:600;color:var(--txt)">'+_esc(pu.address||'-')+'</div><div class="muted" style="font-size:var(--fz-body)">'+_esc(pu.neighbourhood||'')+'</div></td>'+
+      '<td class="desc-cell'+(purp?'':' desc-empty')+'"><div>'+_esc(purp||'Not stated')+'</div></td>'+
       '<td class="nowrap">'+ref+'</td><td class="nowrap">'+(pu.value?fmtVal(pu.value,'$'):'<span class="muted">-</span>')+'</td>'+
       '<td class="nowrap">'+(pu.pulledDate?fmtDate(pu.pulledDate):'-')+'</td></tr>';
   }).join('');
   html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Permits</span><span class="muted" style="font-size:var(--fz-body)">'+num(pulls.length)+'</span></div>'+
-    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Type</th><th scope="col">Property</th><th scope="col">Ref</th><th scope="col">Value</th><th scope="col">Date</th></tr></thead><tbody>'+prows+'</tbody></table></div></div>';
+    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Type</th><th scope="col">Property</th><th scope="col">Purpose</th><th scope="col">Ref</th><th scope="col">Value</th><th scope="col">Date</th></tr></thead><tbody>'+prows+'</tbody></table></div></div>';
   html+=_emailThreadCard('pull',first.id,(PULL_ACTIVITY[key]||[]),disp,email);
   html+=_mleadActsCard(PULL_ACTIVITY[key]||[],'pull',first.id);
   return html;
@@ -4499,10 +4674,28 @@ function pullRowLogContact(id){
   }});
 }
 
+function _lotViewToggle(){
+  return '<div style="display:flex;gap:6px;margin-bottom:10px">'+
+    '<button type="button" class="btn btn-sm'+(LOT_VIEW==='listings'?' btn-primary':'')+'" onclick="lotSetView(\'listings\')">Listings</button>'+
+    '<button type="button" class="btn btn-sm'+(LOT_VIEW==='agents'?' btn-primary':'')+'" onclick="lotSetView(\'agents\')">Agents</button></div>';
+}
 function _prospLotsShell(){
-  return '<div class="card"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'+
+  var actions='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button> <button class="btn btn-sm" onclick="prospectEdit(null)">Add market lead</button></div>';
+  if(LOT_VIEW==='listings'){
+    return _lotViewToggle()+
+      '<div class="card"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'+
+      '<div class="muted" style="font-size:var(--fz-body)">Every lot currently for sale across the imported inventory, one row per listing. Price per acre is derived wherever a price and a lot size are both present. Click a row to open its listing agent.</div>'+
+      actions+'</div></div>'+
+      '<div id="mlead-mini"></div>'+
+      _mleadBar('Search address, municipality, MLS, agent...',
+        _mleadSel('f1','All municipalities',_allLotMunis())+
+        _mleadNum('f2','Min price')+_mleadNum('f3','Max price')+_mleadNum('f4','Min acres','0.01'))+
+      '<div id="mlead-table"></div>';
+  }
+  return _lotViewToggle()+
+    '<div class="card"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'+
     '<div class="muted" style="font-size:var(--fz-body)">Listing agents with active lot inventory. Click a row to open the agent, see their listings, log activity, and move them into Partners.</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button> <button class="btn btn-sm" onclick="prospectEdit(null)">Add market lead</button></div></div></div>'+
+    actions+'</div></div>'+
     '<div id="mlead-mini"></div>'+
     _mleadBar('Search agent, firm, email, area...', _mleadSel('f1','All areas',_allLotCities())+_mleadSel('f2','Any contact',[{v:'yes',l:'Has contact'},{v:'no',l:'Missing contact'}]))+
     '<div id="mlead-table"></div>';
@@ -4613,12 +4806,57 @@ function _pullStatusCell(pu){
 
 function mleadRenderList(){
   var t=PROSPECT_TAB; var f=_mleadReadFilters(); var q=(f.q||'').toLowerCase();
-  var _sig=t+'|'+q+'|'+(f.f1||'')+'|'+(f.f2||'')+'|'+(f.f3||'')+'|'+(f.f4||'')+'|'+(f.f5||'');
+  var _sig=t+'|'+(t==='lots'?LOT_VIEW:'')+'|'+q+'|'+(f.f1||'')+'|'+(f.f2||'')+'|'+(f.f3||'')+'|'+(f.f4||'')+'|'+(f.f5||'');
   if(_sig!==_prospSig){ _prospShown=BD_PAGE; _prospSig=_sig; }
   var miniEl=document.getElementById('mlead-mini'), tblEl=document.getElementById('mlead-table');
   if(!tblEl) return;
   var mini='', table='';
-  if(t==='lots'){
+  if(t==='lots' && LOT_VIEW==='listings'){
+    var allL=_lotListingRows();
+    var rowsL=allL.filter(function(r){
+      if(q){ var hay=((r.address||'')+' '+(r.muni||'')+' '+(r.mls||'')+' '+(r.agent||'')+' '+(r.firm||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+      if(f.f1 && r.muni!==f.f1) return false;
+      var mn=parseFloat(f.f2), mx=parseFloat(f.f3), ma=parseFloat(f.f4);
+      if(!isNaN(mn) && (r.price==null || r.price<mn)) return false;
+      if(!isNaN(mx) && (r.price==null || r.price>mx)) return false;
+      if(!isNaN(ma) && (r.acres==null || r.acres<ma)) return false;
+      return true;
+    });
+    _sortGet('lotlist','price',-1); rowsL=_applySort(rowsL,'lotlist',ACC_LOTLIST);
+    var askTotal=rowsL.reduce(function(a,r){ return a+(r.price||0); },0);
+    var medAsk=_median(rowsL.map(function(r){ return r.price; }));
+    var medPpa=_median(rowsL.map(function(r){ return r.ppa; }));
+    var noSize=rowsL.filter(function(r){ return r.acres==null; }).length;
+    var nPriced=rowsL.filter(function(r){ return r.price!=null; }).length;
+    mini=_miniBar([['Lots',num(rowsL.length)],['Priced',num(nPriced)+' of '+num(rowsL.length),nPriced<rowsL.length],['Total ask',fmtVal(askTotal,'$')],['Median ask',(medAsk==null?'-':fmtVal(medAsk,'$'))],['Median $/acre',(medPpa==null?'-':fmtVal(Math.round(medPpa),'$'))],['Missing size',num(noSize),noSize>0]]);
+    if(!allL.length){
+      table=emptyState('No lot listings yet','Import your lot-agent list. Each agent row carries its listing addresses, and optionally the prices and lot sizes that drive the price-per-acre column.','<button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button>');
+    } else if(!rowsL.length){
+      table=filteredEmpty('mleadClearFilters');
+    } else {
+      var bodyL=rowsL.slice(0,_prospShown).map(function(r){
+        var mlsCell=r.mls?('<div class="muted" style="font-size:var(--fz-body)" onclick="event.stopPropagation()">'+_mlsLink(r.mls,r.address,r.url)+'</div>'):'';
+        return '<tr style="cursor:pointer" onclick="mleadOpenLot('+r.agentId+')">'+
+          '<td><div style="font-weight:600;color:var(--txt)">'+_esc(r.address||'-')+'</div>'+mlsCell+'</td>'+
+          '<td>'+(r.muni?('<span class="tag tag-indigo">'+_esc(r.muni)+'</span>'):'<span class="muted">-</span>')+'</td>'+
+          '<td class="nowrap">'+(r.price==null?'<span class="muted">-</span>':fmtVal(r.price,'$'))+'</td>'+
+          '<td class="nowrap">'+_lotAcresCell(r.acres)+'</td>'+
+          '<td class="nowrap">'+(r.ppa==null?'<span class="muted">-</span>':fmtVal(Math.round(r.ppa),'$'))+'</td>'+
+          '<td><div>'+_esc(r.agent||'-')+'</div>'+(r.firm?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(r.firm)+'</div>'):'')+'</td></tr>';
+      }).join('')+_prospMoreRow(rowsL.length,6);
+      var LL={rerender:'renderProspecting'};
+      table='<div class="card"><div class="card-hd"><span class="card-title">Lots for sale</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
+        '<div class="tbl-wrap"><table><thead><tr>'+
+          _sortTH('lotlist','address','Address',LL)+
+          _sortTH('lotlist','muni','Municipality',LL)+
+          _sortTH('lotlist','price','Price',LL)+
+          _sortTH('lotlist','acres','Lot size',LL)+
+          _sortTH('lotlist','ppa','$/acre',LL)+
+          _sortTH('lotlist','agent','Listing agent',LL)+
+        '</tr></thead><tbody>'+bodyL+'</tbody></table></div></div>'+
+        _lotMuniRollup(rowsL);
+    }
+  } else if(t==='lots'){
     var all=PROSPECTS.filter(function(p){ return p.isAgent||p.type==='lot'; });
     var listings=all.reduce(function(a,p){ return a+_numOr(p.listingCount,0); },0);
     var inv=all.reduce(function(a,p){ return a+_numOr(p.totalValue,0); },0);
@@ -4710,7 +4948,7 @@ function mleadRenderList(){
           '<td><div style="font-weight:600;color:var(--txt)">'+_esc(pu.address||'-')+'</div></td>'+
           '<td class="nowrap muted">'+_esc(pu.neighbourhood||'-')+'</td>'+
           '<td class="nowrap">'+_esc(pu.projectType||'-')+'</td>'+
-          '<td style="max-width:200px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(pu.description||'')+'">'+_esc(pu.description||'-')+'</div></td>'+
+          '<td class="desc-cell"><div>'+_esc(pu.description||'-')+'</div></td>'+
           '<td class="nowrap">'+(pu.value?fmtVal(pu.value,'$'):'<span class="muted">-</span>')+'</td>'+
           '<td>'+appl+'</td>'+
           '<td class="nowrap">'+_esc(pu.phone||'-')+'</td>'+
@@ -4923,6 +5161,89 @@ function _cityLeadsAutoRefresh(){
   refreshCityLeads(true);
 }
 
+/* ---- Lots feed (realtor.ca scraper output published to the same GitHub leads/ spot) ----
+   The upstream scraper runs locally and publishes leads/{region}_lot_agents.json
+   ({generated, region, agents:[...]}). BD reads it and adopts through the same
+   merge the Import lot agents modal uses, so links, notes, and logged activity
+   on existing agents are always preserved and re-pulls never duplicate. */
+var LOT_FEED_REGIONS=['victoria','nanaimo'];
+var LOT_FEED_LOADING=false;
+var LOT_FEED_UPDATED='';
+try{ LOT_FEED_UPDATED=localStorage.getItem(_tkey('bd_lot_feed_updated'))||''; }catch(e){}
+function _lotFeedStale(){
+  if(!LOT_FEED_UPDATED) return false;
+  var t=new Date(LOT_FEED_UPDATED+'T00:00:00').getTime();
+  return isFinite(t) && (Date.now()-t) > 7*24*3600*1000;
+}
+function _lotFeedRows(doc){
+  var out=[]; var agents=(doc&&doc.agents)||[];
+  agents.forEach(function(a){
+    var name=String(a.name||'').trim(), email=String(a.email||'').trim();
+    if(!name && !email) return;
+    var portfolio=[];
+    (a.listings||[]).forEach(function(l){
+      var e={address:String(l.address||''),mls:String(l.mls||'')};
+      var pr=(l.price==null||l.price==='')?NaN:Number(l.price); if(isFinite(pr)&&pr>0) e.price=pr;
+      var sz=String(l.size||'').trim(); if(sz) e.size=sz;
+      var la=parseFloat(l.lat); if(!isNaN(la)) e.lat=la;
+      var lo=parseFloat(l.lon); if(!isNaN(lo)) e.lon=lo;
+      portfolio.push(e);
+    });
+    var cnt=parseInt(a.listing_count,10); if(isNaN(cnt)) cnt=portfolio.length;
+    var val=Number(a.total_value); if(!isFinite(val)) val=0;
+    var webs=a.websites; if(Array.isArray(webs)) webs=webs.join('; ');
+    out.push({name:name,brokerage:String(a.brokerage||''),phone:String(a.phone||''),email:email,
+      listingCount:cnt,totalValue:val,portfolio:portfolio,
+      includeInCampaign:'',sent:'',profileUrl:String(a.profile_url||''),websites:String(webs||'')});
+  });
+  return out;
+}
+function refreshLotFeed(silent){
+  if(LOT_FEED_LOADING) return;
+  LOT_FEED_LOADING=true;
+  if(!silent && typeof renderProspecting==='function') renderProspecting();
+  Promise.all(LOT_FEED_REGIONS.map(function(rg){
+    return fetch(CITY_LEADS_BASE+rg+'_lot_agents.json',{cache:'no-store'}).then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
+  })).then(function(docs){
+    var rows=[]; var newest='';
+    docs.forEach(function(doc){
+      if(!doc) return;
+      rows=rows.concat(_lotFeedRows(doc));
+      var g=String(doc.generated||'').slice(0,10);
+      if(g && g>newest) newest=g;
+    });
+    if(!rows.length){
+      LOT_FEED_LOADING=false;
+      if(!silent && typeof toastInfo==='function') toastInfo('No lot data','Could not reach the lot listings feed. It updates when the scraper runs; try again after the next run.');
+      if(typeof renderProspecting==='function') renderProspecting();
+      return;
+    }
+    var res=_lotAgentMergeRows(rows);
+    if(newest){ LOT_FEED_UPDATED=newest; try{ localStorage.setItem(_tkey('bd_lot_feed_updated'), newest); }catch(e){} }
+    try{ localStorage.setItem(_tkey('bd_lot_feed_pulled'), new Date().toISOString()); }catch(e){}
+    try{ save(); }catch(e){}
+    LOT_FEED_LOADING=false;
+    if(typeof renderProspecting==='function') renderProspecting();
+    if(!silent && typeof toastSuccess==='function') toastSuccess('Lot listings refreshed', res.added+' agent'+(res.added===1?'':'s')+' added'+(res.refreshed?(', '+res.refreshed+' refreshed'):'')+(res.linked?(', '+res.linked+' linked to a partner'):'')+(res.dupes?(', '+res.dupes+' already tracked'):''));
+  }).catch(function(){
+    LOT_FEED_LOADING=false;
+    if(!silent && typeof toastInfo==='function') toastInfo('Refresh failed','Could not load the lot listings feed. Try again shortly.');
+    if(typeof renderProspecting==='function') renderProspecting();
+  });
+}
+function _lotFeedAutoRefresh(){
+  // auto-pull once per day if we have not pulled recently
+  try{
+    var last=localStorage.getItem(_tkey('bd_lot_feed_pulled'));
+    if(last){ var age=Date.now()-new Date(last).getTime(); if(age < 24*3600*1000) return; }
+  }catch(e){}
+  refreshLotFeed(true);
+}
+function refreshAllLeads(silent){
+  refreshCityLeads(silent);
+  refreshLotFeed(silent);
+}
+
 function renderProspecting(){
   var host=document.getElementById('prospecting-content'); if(!host) return;
   if(MLEAD_VIEW){
@@ -4937,8 +5258,10 @@ function renderProspecting(){
   var tabs=[['lots','Lots',nLot],['development','Development Permits',nDev],['building','Building Permits',nBld],['builders','Active Builders',distinctPullers()],['summary','Summary',null]];
   if(['lots','development','building','builders','summary'].indexOf(PROSPECT_TAB)<0) PROSPECT_TAB='lots';
   var _upd=CITY_LEADS_UPDATED?('Updated '+_esc(CITY_LEADS_UPDATED)):'Auto-updates weekly';
-  var _refreshBtn='<button class="btn btn-sm" onclick="refreshCityLeads(false)"'+(CITY_LEADS_LOADING?' disabled':'')+'>'+(CITY_LEADS_LOADING?'Refreshing…':'Refresh city leads')+'</button>'+
-    '<span style="font-size:var(--fz-xs);color:var(--txd);align-self:center;margin-left:2px">'+_upd+'</span>';
+  var _busy=CITY_LEADS_LOADING||LOT_FEED_LOADING;
+  var _lotsUpd=LOT_FEED_UPDATED?(' <span style="font-size:var(--fz-xs);color:var(--txd);align-self:center">Lots '+_esc(LOT_FEED_UPDATED)+'</span>'+(_lotFeedStale()?' <span class="chip c-amb" style="align-self:center">Lots stale</span>':'')):'';
+  var _refreshBtn='<button class="btn btn-sm" onclick="refreshAllLeads(false)"'+(_busy?' disabled':'')+'>'+(_busy?'Refreshing…':'Refresh leads')+'</button>'+
+    '<span style="font-size:var(--fz-xs);color:var(--txd);align-self:center;margin-left:2px">'+_upd+'</span>'+_lotsUpd;;
   var html='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">'+
     tabs.map(function(t){ var on=PROSPECT_TAB===t[0];
       return '<button class="btn btn-sm'+(on?' btn-primary':'')+'" onclick="prospectSetTab(\''+t[0]+'\')">'+_esc(t[1])+(t[2]!=null?(' <span style="opacity:.65">'+num(t[2])+'</span>'):'')+'</button>';
@@ -5173,7 +5496,7 @@ function renderOutreach(){
 /* ---- top-level sidebar rendered from window.SMB_CATALOG (audit Section I) ---- */
 var MK_SUBNAV=[
   ['dashboard','Dashboard'],
-  ['partners','Partners','funnel'],
+  ['partners','Partners'],
   ['scorecard','Scorecard'],
   ['reports','Reports'],
   ['templates','Templates']
@@ -5445,7 +5768,7 @@ var state={aiEnabled:false,collapsedSections:{},createMetricLink:null,createPane
 var SC_TITLE_W={};
 /* People come from HR (window.BOSHR / window.BOSPeople, same-reference alias),
    matching CRM and VSP. SC_OWNERS is the standalone fallback when HR is not loaded. */
-var SC_OWNERS={DS:{name:"Dave Stephens",color:"#2563eb"},TR:{name:"Terry Pearson",color:"#ec4899"},WL:{name:"Will Liddell",color:"#0d9488"},MK:{name:"Mika Nishimura",color:"#7c3aed"},LS:{name:"Lisa Stephens",color:"#b45309"},VC:{name:"Vanessa Chang",color:"#0891b2"},DT:{name:"Daniel Turgeon",color:"#475569"}};
+var SC_OWNERS={DS:{name:"Dave Stephens",color:"var(--cat-ind)"},TR:{name:"Terry Pearson",color:"var(--cat-pnk)"},WL:{name:"Will Liddell",color:"var(--cat-tea)"},MK:{name:"Mika Nishimura",color:"var(--cat-vio)"},LS:{name:"Lisa Stephens",color:"var(--cat-bro)"},VC:{name:"Vanessa Chang",color:"var(--cat-cyn)"},DT:{name:"Daniel Turgeon",color:"var(--cat-slate)"}};
 function _bosHR(){ try{ return (typeof window!=="undefined" && (window.BOSPeople||window.BOSHR)) || null; }catch(_){ return null; } }
 function _splitNm(n){ n=String(n||"").trim(); if(!n) return {first:"",last:""}; var i=n.indexOf(" "); return i<0?{first:n,last:""}:{first:n.slice(0,i),last:n.slice(i+1)}; }
 function _personName(p){ if(!p) return ""; if(p.name) return p.name; return ((p.first||"")+" "+(p.last||"")).trim(); }
@@ -5691,14 +6014,14 @@ function printScorecard(){
 }
 /* teams registry seed: one BD team, example leading/lagging/task rows (edit freely) */
 function _nulls(n){ var a=[]; for(var i=0;i<n;i++)a.push(null); return a; }
-var teamsRegistry={ bd:{ id:"bd", name:"BD Team", color:"#2563eb", quarter:"Q2 2026", members:["DS"], goals:[],archivedGoals:[],todos:[],privateTodos:[],issues:[],longTermIssues:[],resolvedIssues:[],headlines:[],scheduledMeetings:[],pastMeetings:[],
+var teamsRegistry={ bd:{ id:"bd", name:"BD Team", color:"var(--cat-ind)", quarter:"Q2 2026", members:["DS"], goals:[],archivedGoals:[],todos:[],privateTodos:[],issues:[],longTermIssues:[],resolvedIssues:[],headlines:[],scheduledMeetings:[],pastMeetings:[],
   scorecard:[
     {ownerId:"PR",ownerName:"Prospecting",seat:"Finding net-new",color:"var(--blu)",metrics:[
       {id:1,title:"New market leads logged",goal:10,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Net-new lots, permits, developers, and active builders found this week. Top-of-funnel fuel; if it dries up everything downstream starves in 6 to 12 months.",readings:_nulls(22)},
       {id:2,title:"Prospect outreach attempts",goal:15,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Net-new people actually contacted. Guards against a directory that gets logged but never worked.",readings:_nulls(22)},
       {id:3,title:"New relationships started",goal:3,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Prospects that became an active relationship we are nurturing. Conversion proof that prospecting is working.",readings:_nulls(22)}
     ]},
-    {ownerId:"PA",ownerName:"Partners",seat:"Building relationships into referral partners",color:"#0891b2",metrics:[
+    {ownerId:"PA",ownerName:"Partners",seat:"Building relationships into referral partners",color:"var(--cat-cyn)",metrics:[
       {id:4,title:"Relationship touches completed",goal:25,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"task",description:"Cadence reach-outs owed to each relationship this week. The most controllable measure of relationship discipline.",readings:_nulls(22)},
       {id:5,title:"Follow-ups on time",goal:90,goalType:"\u2265",unit:"%",cadence:"weekly",indicator:"leading",description:"Percentage of due follow-ups done on schedule. The reach-out alert clearing; when it slips, relationships go cold.",readings:_nulls(22)},
       {id:6,title:"Relationship meetings held",goal:5,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Actual sit-downs or calls, not just emails. Meetings are where referrals get made.",readings:_nulls(22)},
@@ -5706,12 +6029,12 @@ var teamsRegistry={ bd:{ id:"bd", name:"BD Team", color:"#2563eb", quarter:"Q2 2
       {id:8,title:"Referrals received",goal:2,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Deals or intros handed to us by a referral partner. The closest leading indicator to revenue a builder has.",readings:_nulls(22)},
       {id:9,title:"Active referral partners",goal:20,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"lagging",description:"Partners who actually referred in the trailing 90 days. The producing base; this is who the partner label really belongs to.",readings:_nulls(22)}
     ]},
-    {ownerId:"PI",ownerName:"Pipeline",seat:"Is work moving",color:"#7c3aed",metrics:[
+    {ownerId:"PI",ownerName:"Pipeline",seat:"Is work moving",color:"var(--cat-vio)",metrics:[
       {id:10,title:"New opportunities created",goal:3,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Relationships or prospects that became a named, workable opportunity. The handoff from relationship work into deals.",readings:_nulls(22)},
       {id:11,title:"Opportunities advanced a stage",goal:5,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Deals that actually moved forward this week. A pipeline that is not moving is just a list.",readings:_nulls(22)},
       {id:12,title:"Stalled opps (30d+ no move)",goal:3,goalType:"\u2264",unit:"#",cadence:"weekly",indicator:"task",description:"Lower is better. Catches deals rotting and stops the team gaming movement.",readings:_nulls(22)}
     ]},
-    {ownerId:"WO",ownerName:"Won",seat:"Signed work",color:"#0d9488",metrics:[
+    {ownerId:"WO",ownerName:"Won",seat:"Signed work",color:"var(--cat-tea)",metrics:[
       {id:13,title:"New projects won",goal:1,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"lagging",description:"BD-sourced deals signed. Lumpy; only meaningful across the rolling trend.",readings:_nulls(22)},
       {id:14,title:"Booked value, BD-sourced",goal:700000,goalType:"\u2265",unit:"$",cadence:"weekly",indicator:"lagging",description:"Dollars behind those wins. Judge the 13-week line, never a single week. The lagging number everything above exists to produce.",readings:_nulls(22)}
     ]}
@@ -5818,7 +6141,7 @@ if(state.newMeasurablePanel.open){
       h+='<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">'+col.sub+'</div></div>';
       h+='<label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;margin-top:1px">';
       h+='<input type="checkbox" id="'+col.id+'" '+(col.def?'checked':'')+' style="opacity:0;width:0;height:0;position:absolute">';
-      h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:#2563eb;border-radius:20px;transition:.15s"><span style="position:absolute;content:\'\';height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.15s"></span></span>';
+      h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:var(--blu);border-radius:20px;transition:.15s"><span style="position:absolute;content:\'\';height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.15s"></span></span>';
       h+='</label></div>';
     });
     h+='</div>';
@@ -5926,7 +6249,7 @@ if(state.newMeasurablePanel.open){
 
 function _scNewTeamOverlay(){
 if(state.newTeamPanel){
-    var presetColors=['#2563eb','var(--blu)','#7c3aed','#ec4899','#0891b2','#0d9488','#475569','var(--ambt)']; // Category palette only - Shell Standard v1.4
+    var presetColors=['var(--cat-pnk)','var(--cat-cyn)','var(--cat-vio)','var(--cat-ind)','var(--cat-tea)','var(--cat-bro)','var(--cat-slate)']; // Category palette only - Shell Standard v1.4
     var overlay=document.createElement('div');
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:400;backdrop-filter:blur(2px)';
     overlay.onclick=function(){state.newTeamPanel=false;renderPage();};
@@ -5974,7 +6297,7 @@ function _cadNulls(cad){ var a=[],N=_cadLen(cad); for(var i=0;i<N;i++)a.push(nul
 
 function _calcBadge(m){
   if(!m||!m.calc||!m.calc.op||m.calc.op==='none') return '';
-  return '<span title="Calculated - read only" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--brd);color:#475569;font-size:var(--fz-xs);font-weight:700;vertical-align:middle;white-space:nowrap">fx '+m.calc.op+'</span>';
+  return '<span title="Calculated - read only" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 6px;border-radius:10px;background:var(--brd);color:var(--txb);font-size:var(--fz-xs);font-weight:700;vertical-align:middle;white-space:nowrap">fx '+m.calc.op+'</span>';
 }
 
 function _calcFindMetric(id){ var f=null; scorecard.forEach(function(s){(s.metrics||[]).forEach(function(m){ if(String(m.id)===String(id)) f=m; });}); return f; }
@@ -6099,7 +6422,7 @@ function _scCellBg(h,strong,val){
 
 function _scCellTxt(h,val){
   if(val===null||val===undefined)return 'var(--txd)';
-  return h==='green'?'var(--grn)':h==='amber'?'#b45309':'var(--red)';
+  return h==='green'?'var(--grn)':h==='amber'?'var(--ambt)':'var(--red)';
 }
 
 function _scDateRanges(){
@@ -6196,7 +6519,7 @@ function _scTier(m,val){
   return Math.abs(v-g)<=band?'amber':'red';
 }
 
-function _tierColor(t){return t==='green'?'var(--grn)':t==='amber'?'#b45309':t==='red'?'var(--red)':'var(--txm)';}
+function _tierColor(t){return t==='green'?'var(--grn)':t==='amber'?'var(--ambt)':t==='red'?'var(--red)':'var(--txm)';}
 
 function aggReadings(readings, groups){
     // For each group of week indices, return the average (non-zero mean)
@@ -6433,7 +6756,7 @@ function handleCellKey(e){
 function indTag(m){
   if(!m.indicator) return '';
   var lead=m.indicator==='leading';
-  return '<span style="display:inline-block;margin-left:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;padding:1px 6px;border-radius:8px;'+(lead?'background:var(--blub);color:#2563eb':'background:var(--pg-slateb);color:var(--txm)')+'">'+(lead?'Leading':'Lagging')+'</span>';
+  return '<span style="display:inline-block;margin-left:6px;font-size:var(--fz-xs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;padding:1px 6px;border-radius:8px;'+(lead?'background:var(--blub);color:var(--blut)':'background:var(--pg-slateb);color:var(--txm)')+'">'+(lead?'Leading':'Lagging')+'</span>';
 }
 
 function isOnTrack(m,val){
@@ -6575,7 +6898,7 @@ function renderEditMeasurableOverlay(){
         h+='<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">'+col.sub+'</div></div>';
         h+='<label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;margin-top:1px">';
         h+='<input type="checkbox" id="'+col.id+'" '+(col.val?'checked':'')+' style="opacity:0;width:0;height:0;position:absolute">';
-        h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:'+(col.val?'#2563eb':'var(--brd2)')+';border-radius:20px"><span style="position:absolute;height:14px;width:14px;left:'+(col.val?'19':'3')+'px;bottom:3px;background:white;border-radius:50%"></span></span>';
+        h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:'+(col.val?'var(--blu)':'var(--brd2)')+';border-radius:20px"><span style="position:absolute;height:14px;width:14px;left:'+(col.val?'19':'3')+'px;bottom:3px;background:white;border-radius:50%"></span></span>';
         h+='</label></div>';
       });
       h+='</div>';
@@ -7671,7 +7994,7 @@ function scBuild(){
 
   // New Group slide-in panel
   if(state.newGroupPanel){
-    var presetColors=['#2563eb','var(--blu)','#7c3aed','#ec4899','#0891b2','#0d9488','#475569','var(--ambt)']; // Category palette only - Shell Standard v1.4
+    var presetColors=['var(--cat-pnk)','var(--cat-cyn)','var(--cat-vio)','var(--cat-ind)','var(--cat-tea)','var(--cat-bro)','var(--cat-slate)']; // Category palette only - Shell Standard v1.4
     h+='<div onclick="state.newGroupPanel=false;renderPage()" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;backdrop-filter:blur(2px)"></div>';
     h+='<div style="position:fixed;top:0;right:0;width:360px;height:100vh;background:var(--sur);border-left:1px solid var(--brd);z-index:201;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.12)">';
 
@@ -7714,7 +8037,7 @@ function scBuild(){
     h+='<div style="background:var(--sur2);border-radius:8px;border:1px solid var(--brd);padding:12px 14px;margin-bottom:4px">';
     h+='<div style="font-size:var(--fz-body);font-weight:600;color:var(--txm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Preview</div>';
     h+='<div style="display:flex;align-items:center;gap:8px">';
-    h+='<div id="ng-preview-avatar" style="width:28px;height:28px;border-radius:50%;background:#94a3b820;border:2px solid #94a3b850;display:flex;align-items:center;justify-content:center;font-size:var(--fz-body);font-weight:700;color:var(--pg-slate)">GRP</div>';
+    h+='<div id="ng-preview-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--sur2);border:2px solid var(--brd2);display:flex;align-items:center;justify-content:center;font-size:var(--fz-body);font-weight:700;color:var(--pg-slate)">GRP</div>';
     h+='<div>';
     h+='<div style="font-size:var(--fz-body);font-weight:500;color:var(--txm)" id="ng-preview-name">Group Name</div>';
     h+='<div style="font-size:var(--fz-body);color:var(--txd)" id="ng-preview-seat">Seat / Role</div>';
@@ -7807,7 +8130,7 @@ function scBuild(){
       h+='<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">'+col.sub+'</div></div>';
       h+='<label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;margin-top:1px">';
       h+='<input type="checkbox" id="'+col.id+'" '+(col.def?'checked':'')+' style="opacity:0;width:0;height:0;position:absolute">';
-      h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:#2563eb;border-radius:20px;transition:.15s"><span style="position:absolute;content:\'\';height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.15s"></span></span>';
+      h+='<span onclick="document.getElementById(\''+col.id+'\').click()" style="position:absolute;cursor:pointer;inset:0;background:var(--blu);border-radius:20px;transition:.15s"><span style="position:absolute;content:\'\';height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.15s"></span></span>';
       h+='</label></div>';
     });
     h+='</div>';
@@ -7942,19 +8265,29 @@ function renderScorecard(){ try{ syncTeamData(); }catch(e){} var el=document.get
    ============================================================ */
 
 /* ---- Reach-out cadence (native to BD) ----
-   Per-contact priority drives the check-in cadence. Due date is the
-   last logged contact plus the cadence; it resets automatically on any
-   logged touch (the activity log and partner email log both stamp
-   lastContact). Status: green when fresh, amber in the final 7 days,
-   red once overdue. */
+   Partner tier drives the check-in cadence (A 30d / B 60d / C 90d, see
+   Partner tiering v1 above). The legacy Hot/Warm/Cool priority remains as an
+   explicit per-contact override and wins when set. Due date is the last
+   logged contact plus the cadence; it resets automatically on any logged
+   touch (the activity log and partner email log both stamp lastContact).
+   Status: green when fresh, amber in the final 7 days, red once overdue. */
 var PRIORITY_CADENCE={Hot:30,Warm:60,Cool:90};
 var PRIORITY_LIST=['Hot','Warm','Cool'];
 function partnerPriority(p){ var v=p&&p.priority; return (v==='Hot'||v==='Warm'||v==='Cool')?v:'Warm'; }
+function partnerHasPriorityOverride(p){ var v=p&&p.priority; return v==='Hot'||v==='Warm'||v==='Cool'; }
+/* Human-readable source of a contact's cadence, for tooltips and the
+   dashboard cadence card. */
+function partnerCadenceLabel(p){
+  var d=partnerCadenceDays(p);
+  return partnerHasPriorityOverride(p)
+    ? (partnerPriority(p)+' override, '+d+'d')
+    : ('Tier '+partnerTierEff(p)+', '+d+'d');
+}
 function _reachDueDate(p){
   var lt=p&&p.lastContact; if(!lt) return null;
   var d=(/^\d{4}-\d{2}-\d{2}$/.test(lt))?new Date(lt+'T00:00:00'):new Date(lt);
   if(isNaN(d.getTime())) return null;
-  d.setDate(d.getDate()+(PRIORITY_CADENCE[partnerPriority(p)]||60));
+  d.setDate(d.getDate()+(partnerCadenceDays(p)||60));
   return d;
 }
 function reachState(p){
@@ -7984,6 +8317,18 @@ function _reachContacts(){ return PARTNERS.filter(function(p){ return !p.ownersh
 function reachOverdue(){ return _reachContacts().filter(function(p){ return reachState(p).state==='red'; }); }
 function reachDueSoon(){ return _reachContacts().filter(function(p){ return reachState(p).state==='amber'; }); }
 function reachByPriority(){ var o={Hot:0,Warm:0,Cool:0}; reachOverdue().forEach(function(p){ o[partnerPriority(p)]++; }); return o; }
+/* Overdue reach-outs split by tier, for the dashboard cadence card. */
+function reachByTier(list){
+  var o={A:0,B:0,C:0};
+  (list||reachOverdue()).forEach(function(p){ o[partnerTierEff(p)]++; });
+  return o;
+}
+/* How the active book is distributed across tiers. */
+function tierCounts(){
+  var o={A:0,B:0,C:0,none:0};
+  _reachContacts().forEach(function(p){ var t=partnerTier(p); if(t) o[t]++; else o.none++; });
+  return o;
+}
 function reachCheckin(id){
   var p=_partnerFind(id); if(!p) return;
   _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(),
@@ -8201,6 +8546,7 @@ function _overlayOutbound(s){
   return did;
 }
 var _bdMigratedNow=false;
+var _bdTiersMigratedNow=false;
 function _addDaysTo(s,n){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||''); var b=m?new Date(Number(m[1]),Number(m[2])-1,Number(m[3])):new Date(); b.setDate(b.getDate()+n); var mm=('0'+(b.getMonth()+1)).slice(-2),dd=('0'+b.getDate()).slice(-2); return b.getFullYear()+'-'+mm+'-'+dd; }
 var BD_IMPORT_V2={"enrichById":{"55":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://coastandbeam.ca/","title":"Architect AIBC / Owner","notes":"Victoria/Vancouver Island-based; strong custom West Coast modern homes/cabins fit."},"0":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.cascadiaarchitects.ca/","title":"Principal Architect","notes":"Victoria-based; custom homes, multi-family, high-performance and sustainability."},"2":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.cascadiaarchitects.ca/","title":"Principal Architect","notes":"Second principal contact at same firm."},"56":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.greenwaystudio.ca/about/contact","title":"Principal Architect","notes":"Custom residential and nature-inspired design; Greater Victoria/Vancouver Island fit."},"57":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.carolynnwilsonarchitect.com/contact","title":"Principal Architect","notes":"Victoria-based; custom residential, multi-unit residential, sustainable/Net Zero fit."},"59":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.daustudio.ca/","title":"Principal Architect","notes":"Second principal contact at same firm."},"60":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://kerrarchitect.ca/","title":"Principal Architect","notes":"Small/mid-sized residential, single-family, heritage, infill, Passive House-related work."},"61":{"priorityTier":"Tier 1","contactCompleteness":"Usable - phone/contact form","web":"https://waymarkarchitecture.com/the-team/","title":"Principal Architect","notes":"Victoria office; sustainability/passive-house/envelope focus. Direct public email not verified."},"62":{"priorityTier":"Tier 1","contactCompleteness":"Usable - phone/contact form","web":"https://waymarkarchitecture.com/the-team/","title":"Managing Director","notes":"Managing Director contact; direct public email not verified."},"17":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://studio531.ca/contact/","title":"Principal","notes":"Victoria-based; useful for urban residential, infill, and municipal coordination."},"63":{"priorityTier":"Tier 1","contactCompleteness":"Complete","web":"https://www.scottarchitecture.info/","title":"Principal Architect","notes":"Victoria-based; custom homes and vacation homes."},"24":{"priorityTier":"Tier 1","contactCompleteness":"Complete enough","web":"https://oneseed.ca/practice/","title":"Principal","notes":"Has Victoria studio presence; architecture + interiors; strong fit for sustainable custom homes/renovations."},"65":{"priorityTier":"Tier 2","contactCompleteness":"Usable - firm contact only","web":"https://oemarchitectureoffice.com/about/","title":"Firm Contact","notes":"Good technical/residential/passive-house fit; named principal not publicly verified."},"46":{"priorityTier":"Tier 2","contactCompleteness":"Complete enough","web":"https://iredale.ca/profile/","title":"Principal","notes":"Larger firm with Victoria office; stronger for complex residential/multi-residential/heritage/envelope."},"37":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.lhra.ca/contact/","title":"Principal","notes":"More complex/multi-family/community oriented but local and relevant."},"11":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.lhra.ca/contact/","title":"Principal","notes":"Second principal contact at same firm."},"66":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.lhra.ca/contact/","title":"Principal","notes":"Third principal contact at same firm."},"67":{"priorityTier":"Tier 2","contactCompleteness":"Complete enough","web":"https://www.dhk.ca/team","title":"Principal Architect","notes":"Vancouver Island firm; custom homes, multi-family, infill and complex residential fit."},"23":{"priorityTier":"Tier 2","contactCompleteness":"Complete enough","web":"https://www.dhk.ca/team","title":"Principal Architect","notes":"Second principal contact at same firm."},"68":{"priorityTier":"Tier 1","contactCompleteness":"Usable - phone/contact form","web":"https://mjmarchitect.ca/contact/","title":"Principal Architect AIBC, MRAIC, LEED AP","notes":"Victoria-based boutique firm; custom West Coast homes and residences. Direct public email not verified."},"69":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://lowegroup.ca/contact/","title":"Principal Architect","notes":"Victoria-based since 1990; Vancouver Island architectural services."},"70":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.finlaysonbonet.ca/about/","title":"Principal Architect","notes":"Greater Victoria/Saanichton firm; broad architectural services. Also lists Kyle Shick as Project Manager."},"54":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.finlaysonbonet.ca/contact/","title":"Project Manager","notes":"Project Manager contact at same firm."},"72":{"priorityTier":"Tier 2","contactCompleteness":"Usable - phone/contact form","web":"https://mgba.com/team/","title":"Associate / Architect AIBC","notes":"Victoria office contact; direct public email not verified from official site."},"73":{"priorityTier":"Tier 2","contactCompleteness":"Usable - phone/contact form","web":"https://www.dhmarchitect.ca/about","title":"Principal Architect AIBC","notes":"Residential new homes and renovations in Victoria, Gulf Islands and coastal BC; public email not captured in available snippet."},"71":{"priorityTier":"Tier 2","contactCompleteness":"Complete","web":"https://www.numberten.com/contact/","title":"Victoria Office","notes":"Integrated architecture/planning/interior design firm with Victoria office; more complex project fit than custom-home-only."},"1006":{"priorityTier":"Tier 1","contactCompleteness":"Usable - team contact","team":"The Neal Estate Group","web":"https://www.ronneal.com/","notes":"High-volume team; verify best individual email before mass upload if direct email is required."},"1087":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"","web":"https://bradmaclaren.com/","notes":"Luxury + long-term production signal."},"1005":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"Binab Group","web":"https://binabgroup.com/connect/","notes":"Luxury/Oak Bay/Uplands relationship target."},"1052":{"priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"LeBlanc Piercy Group","web":"https://jamesleblanc.ca/contact/","notes":"Waterfront and luxury-property target."},"1036":{"priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"LeBlanc Piercy Group","web":"https://jamesleblanc.ca/contact/","notes":"Waterfront and luxury-property target."},"1038":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"Love Real Estate Team","web":"https://www.karenlove.com/","notes":"Longstanding Victoria team / production."},"1037":{"priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"Briar Hill Group","web":"https://briarhillgroup.com/","notes":"High-volume / Briar Hill."},"1004":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"Mavrikos Collective","web":"https://mavrikoscollective.com/","notes":"Oak Bay and high-production relationship target."},"1069":{"priorityTier":"Tier 1","contactCompleteness":"Usable - verify email","team":"FarupScott Group","web":"https://farupscott.com/","notes":"Oak Bay/luxury/new-construction fit."},"1093":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"FarupScott Group","web":"https://farupscott.com/","notes":"Oak Bay/luxury/new-construction fit."},"1024":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"","web":"https://sothebysrealty.ca/","notes":"Sotheby’s / high-end fit."},"1132":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"The Neal Estate Group","web":"https://www.ronneal.com/","notes":"Neal team / production."},"1003":{"priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"Marc Owen-Flood & Associates","web":"https://www.owen-flood.com/","notes":"Newport / Oak Bay luxury relationship target."},"1202":{"priorityTier":"Tier 1","contactCompleteness":"Complete","team":"","web":"https://www.troypetersen.com/","notes":"Residential production / MLS Gold signal."},"1056":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"https://www.cherylbejcar.com/","notes":"Long-term Victoria production signal; verify current brokerage/contact."},"1223":{"priorityTier":"Tier 2","contactCompleteness":"Usable - verify email","team":"Red Hot Real Estate Team","web":"https://redhotrealestate.ca/","notes":"Oak Bay/Pemberton Holmes target."},"1146":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"","notes":"Name identified for research; verify before upload."},"1208":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"","notes":"Name identified for research; verify before upload."},"1156":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"","notes":"Name identified for research; verify before upload."},"1001":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"","notes":"Name identified for research; verify before upload."},"1153":{"priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","web":"","notes":"Luxury-market target; verify current contact."}},"newAgents":[{"id":1250,"firm":"DAU Studio / D'Ambrosio architecture + urbanism","cf":"Franc","cl":"D'Ambrosio","title":"Principal Architect","cat":"Architect","phone":"250-384-2400","mobile":"","email":"mail@daustudio.ca","web":"https://www.daustudio.ca/","li":"","city":"Victoria","province":"BC","officeStreet":"2960 Jutland Road","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Victoria-based design-led architecture; useful for custom, infill, and complex residential.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 1","contactCompleteness":"Complete","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1251,"firm":"Sotheby’s International Realty Canada","cf":"Logan","cl":"Wilson","title":"Realtor","cat":"Realtor","phone":"250-857-0609","mobile":"","email":"victorialuxurygroup@sothebysrealty.ca","web":"https://www.victorialuxurygroup.com/","li":"","city":"","province":"BC","officeStreet":"Victoria / Luxury","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Luxury and estate-property target.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"Victoria Luxury Group","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1252,"firm":"Sotheby’s International Realty Canada","cf":"Brayden","cl":"Klein","title":"Realtor","cat":"Realtor","phone":"250-588-2466","mobile":"","email":"victorialuxurygroup@sothebysrealty.ca","web":"https://www.victorialuxurygroup.com/","li":"","city":"","province":"BC","officeStreet":"Victoria / Luxury","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Luxury team contact.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"Victoria Luxury Group","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1253,"firm":"The Agency Victoria","cf":"Ryan","cl":"Cochrane","title":"Realtor","cat":"Realtor","phone":"250-661-2743","mobile":"","email":"website contact","web":"https://ryancochrane.ca/","li":"","city":"","province":"BC","officeStreet":"Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"High visibility; verify direct email.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 1","contactCompleteness":"Usable - verify email","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1254,"firm":"Newport Realty","cf":"Rob","cl":"Hosie","title":"Realtor","cat":"Realtor","phone":"250-385-2033","mobile":"","email":"rob@robhosie.com","web":"https://newportrealty.com/agents/rob-hosie/","li":"","city":"","province":"BC","officeStreet":"Victoria / Oak Bay","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Newport / long-term Victoria relationship target.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 1","contactCompleteness":"Complete enough","team":"The Coastal Group","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1255,"firm":"Coldwell Banker Oceanside","cf":"Robin","cl":"Scrimger","title":"Realtor","cat":"Realtor","phone":"Verify direct phone","mobile":"","email":"contact via newchapterrealty.ca","web":"https://newchapterrealty.ca/","li":"","city":"","province":"BC","officeStreet":"Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Production signal / luxury fit; verify direct phone/email.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"New Chapter Realty","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1256,"firm":"New homes / project sales","cf":"Colleen","cl":"Ferguson","title":"Realtor","cat":"Realtor","phone":"Verify direct phone","mobile":"","email":"contact via website","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"New homes/project sales target; verify details.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"Victoria New Homes Group","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1257,"firm":"The Agency Oak Bay","cf":"Rebecca","cl":"Barritt","title":"Realtor","cat":"Realtor","phone":"Verify direct phone","mobile":"","email":"website contact","web":"https://clcrealestate.ca/","li":"","city":"","province":"BC","officeStreet":"Oak Bay / Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Oak Bay / Agency relationship target.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"Coastal Living Collective","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1258,"firm":"The Agency Oak Bay","cf":"Rebecca","cl":"Mason","title":"Realtor","cat":"Realtor","phone":"250-514-9024","mobile":"","email":"website contact","web":"https://clcrealestate.ca/","li":"","city":"","province":"BC","officeStreet":"Oak Bay / Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Oak Bay / Agency relationship target.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Usable - verify email","team":"Coastal Living Collective","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1259,"firm":"Victoria-area team","cf":"None","cl":"Poole & Associates","title":"Realtor","cat":"Realtor","phone":"Verify direct phone","mobile":"","email":"website contact","web":"https://victoriarealestatepros.com/","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"General Greater Victoria residential team; verify exact agent/contact.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"Victoria Real Estate Pros","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1260,"firm":"Coldwell Banker Oceanside Real Estate","cf":"Marilyn","cl":"Ball","title":"Realtor","cat":"Realtor","phone":"250-818-6489","mobile":"","email":"contact by email through site","web":"https://marilynball.ca/","li":"","city":"","province":"BC","officeStreet":"Victoria / Sidney / Vancouver Island","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Victoria/Sidney network; verify direct email.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Usable - verify email","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1261,"firm":"Victoria-area REALTOR®","cf":"Lisa","cl":"Webster Johnston","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1262,"firm":"Victoria-area REALTOR®","cf":"Zoi","cl":"Livia","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1263,"firm":"Victoria-area REALTOR®","cf":"Amit","cl":"Saini","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1264,"firm":"Victoria-area REALTOR®","cf":"Rie","cl":"Takahashi","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1265,"firm":"Victoria-area REALTOR®","cf":"Deb","cl":"Shork","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1266,"firm":"Victoria-area REALTOR®","cf":"Krista","cl":"Lapp","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1267,"firm":"Victoria-area REALTOR®","cf":"Erik","cl":"Rapatz","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1268,"firm":"Victoria-area REALTOR®","cf":"Devin","cl":"Sorenson","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1269,"firm":"Victoria-area REALTOR®","cf":"Kimberly","cl":"Legeard","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1270,"firm":"Victoria-area REALTOR®","cf":"Stacey","cl":"English","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify email","web":"","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Name identified for research; verify before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 2","contactCompleteness":"Needs verification","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1271,"firm":"Newport Realty","cf":"Shelby","cl":"Donald","title":"Realtor","cat":"Realtor","phone":"250-385-2033 office","mobile":"","email":"contact via newport realty","web":"https://newportrealty.com/","li":"","city":"","province":"BC","officeStreet":"Victoria / Oak Bay","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Verify direct email/phone.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Usable - office contact","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1272,"firm":"Engel & Völkers","cf":"Jamie","cl":"MacDougall","title":"Realtor","cat":"Realtor","phone":"604-992-2282","mobile":"","email":"jamie.macdougall@evcanada.com","web":"https://www.evrealestate.com/","li":"","city":"","province":"BC","officeStreet":"Vancouver Island / verify Victoria fit","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Verify Greater Victoria relevance before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Complete enough","team":"","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1273,"firm":"Newport Realty","cf":"None","cl":"Newport Realty senior Oak Bay contact","title":"Realtor","cat":"Realtor","phone":"250-385-2033","mobile":"","email":"newport office contact","web":"https://newportrealty.com/","li":"","city":"","province":"BC","officeStreet":"Oak Bay / Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Identify exact senior Oak Bay agent before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Needs exact agent","team":"Newport Realty","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1274,"firm":"Sotheby’s International Realty Canada","cf":"None","cl":"Sotheby’s Victoria senior agent","title":"Realtor","cat":"Realtor","phone":"250-380-3933","mobile":"","email":"office contact","web":"https://sothebysrealty.ca/","li":"","city":"","province":"BC","officeStreet":"Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Identify exact senior Victoria agent before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Needs exact agent","team":"Sotheby’s International Realty Canada","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1275,"firm":"Engel & Völkers Vancouver Island","cf":"None","cl":"Engel & Völkers Oak Bay senior agent","title":"Realtor","cat":"Realtor","phone":"778-433-8885","mobile":"","email":"office contact","web":"https://vancouverisland.evrealestate.com/","li":"","city":"","province":"BC","officeStreet":"Oak Bay","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Identify exact senior Oak Bay agent before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Needs exact agent","team":"Engel & Völkers Vancouver Island","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1276,"firm":"RE/MAX Camosun","cf":"None","cl":"RE/MAX Camosun high-volume agent","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify exact agent","web":"https://www.remax-camosun-victoria-bc.com/","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Identify exact high-volume agent before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Needs exact agent","team":"RE/MAX Camosun","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]},{"id":1277,"firm":"Royal LePage Coast Capital","cf":"None","cl":"Royal LePage Coast Capital high-volume agent","title":"Realtor","cat":"Realtor","phone":"Verify phone","mobile":"","email":"verify exact agent","web":"https://www.rlpvictoria.com/","li":"","city":"","province":"BC","officeStreet":"Greater Victoria","officePostal":"","officeCountry":"Canada","assignedTo":"Dave","secondaryOwner":"","department":"Business Development","dateAssigned":"","ownershipStatus":"Active","initialContact":"","bookDelivered":"","firstMeeting":"","lastContact":"","nextContact":"","nextAction":"","relStage":"New","relScore":1,"personalNotes":"","interests":"","importantDates":"","partnerNotes":"Identify exact high-volume agent before upload.","strategic":"","dnf":"","prefContact":"","bestTime":"","potentialOpp":"","worksWithBuilder":"","priorityTier":"Tier 3","contactCompleteness":"Needs exact agent","team":"Royal LePage Coast Capital","estValue":0,"booksDelivered":0,"eventsAttended":0,"siteTours":0,"referralDiscussions":0,"linkedLeads":[],"act":[]}]};
 function _bdImportV2(){
@@ -8364,8 +8710,14 @@ function loadState(){
   try{ _bdBackfillFollowups(); }catch(e){}
   try{ _ensurePartnersSeed(); }catch(e){}
   try{ _ensureOutreachAssets(); }catch(e){}
-  if(_bdMigratedNow){ try{ save(); }catch(e){} }
+  /* Tier normalisation runs LAST. The enrichment importers above
+     (_bdImportV2, _bdImportDesigners, _bdSeedRealtors, _ensurePartnersSeed)
+     carry their own priorityTier values in the legacy 'Tier 1/2/3' form, so
+     migrating before them left those records un-migrated. */
+  try{ if(_bdMigrateTiers()) _bdTiersMigratedNow=true; }catch(e){}
+  if(_bdMigratedNow||_bdTiersMigratedNow){ try{ save(); }catch(e){} }
   try{ _cityLeadsAutoRefresh(); }catch(e){}
+  try{ _lotFeedAutoRefresh(); }catch(e){}
 }
 /* Manual re-pull from Marketing (dashboard button). Always allowed; overlays
    the latest Marketing entries over whatever BD currently holds. */
@@ -8390,7 +8742,7 @@ function pullFromMarketing(){
   }catch(e){ if(typeof toastError==='function') toastError('Import failed', e&&e.message?e.message:String(e)); }
 }
 function _statePayload(){
-  return {EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
+  return {_v:BD_STORAGE_VERSION,EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
     PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH};
 }
@@ -8940,8 +9292,7 @@ function renderDash(){
   var _own=function(p){ return !_mine || (p.assignedTo===_me); };
   var contacts=_reachContacts().filter(_own);
   var actPartners=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'&&_own(p); }).length;
-  var overdue=reachOverdue().filter(_own), dueSoon=reachDueSoon().filter(_own), byPri=reachByPriority();
-  if(_mine){ byPri={Hot:0,Warm:0,Cool:0}; overdue.forEach(function(p){ var pr=partnerPriority(p); byPri[pr]=(byPri[pr]||0)+1; }); }
+  var overdue=reachOverdue().filter(_own), dueSoon=reachDueSoon().filter(_own);
   var noTouch=contacts.filter(function(p){ return reachState(p).state==='none'; }).length;
   var activeChannels=CHANNELS.filter(function(c){ return c.status==='active'; });
   var channelEmailsDue=activeChannels.reduce(function(a,c){ return a+chEmailStepsDue(c).length; },0);
@@ -8949,15 +9300,20 @@ function renderDash(){
   var marketLeads=PROSPECTS.length;
   var html='<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><div class="crm-view-toggle"><button class="'+(_bdDashView!=='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;all&quot;)" aria-selected="'+(_bdDashView!=='mine'?'true':'false')+'">All team</button><button class="'+(_bdDashView==='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;mine&quot;)" aria-selected="'+(_bdDashView==='mine'?'true':'false')+'">Mine</button></div></div>';
 
+  /* Scoreboard band. Built here but rendered AFTER My Day: the queue is what
+     you act on, the scoreboard is what you check. */
   var refPartners=PARTNERS.filter(_isReferralPartner).length;
   var refVal=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(x){ refVal+=(Number(x.value)||0); }); });
-  html+='<div class="kpi-cards dash-metrics">'+
-    _bdDashCard('k-blu','Active Partners',num(actPartners),'Partners with an active relationship stage (not Dormant). Click to view partners.','nav(&quot;partners&quot;)',PARTNERS.length+' total partners')+
-    _bdDashCard('k-blu','Referral Partners',num(refPartners),'Partners who have sent at least one referral. Click to view partners.','navPtn(&quot;referral&quot;)','have sent a referral')+
-    _bdDashCard('k-blu','Referred $',bdMoney(refVal),'Total value of leads referred by partners, across pipeline and won. Click to view referrals.','setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)','pipeline + won value')+
-    _bdDashCard(overdue.length?'k-red':'k-grn','Reach-out Overdue',num(overdue.length),'Partners whose next reach-out date has passed. Click to view follow-ups.','nav(&quot;followups&quot;)','past reach-out date')+
-    _bdDashCard(dueSoon.length?'k-amb':'k-blu','Due Soon',num(dueSoon.length),'Partners with a reach-out due in the next several days. Click to view follow-ups.','nav(&quot;followups&quot;)','due within 7 days')+
-  '</div>';
+  var _refS=refStats();
+  var scoreboard='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Scoreboard</span>'+
+    '<span class="card-hd-meta">'+(_mine?'Your book':'All team')+'</span></div><div class="card-bd">'+
+    '<div class="kpi-cards dash-metrics">'+
+      _bdDashCard('k-blu','Active Partners',num(actPartners),'Partners with an active relationship stage (not Dormant). Click to view partners.','nav(&quot;partners&quot;)',PARTNERS.length+' total partners')+
+      _bdDashCard('k-blu','Referral Partners',num(refPartners),'Partners who have sent at least one referral. Click to view partners.','navPtn(&quot;referral&quot;)','have sent a referral')+
+      _bdDashCard('k-grn','Won Revenue',bdMoney(_refS.wonRevenue),'Signed revenue from partner-sourced referrals. This is the number partner effort is judged on. Click to view referrals.','setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)',num(_refS.won)+' won referral'+(_refS.won===1?'':'s'))+
+      _bdDashCard(overdue.length?'k-red':'k-grn','Reach-out Overdue',num(overdue.length),'Partners whose next reach-out date has passed, based on their tier cadence. Click to view follow-ups.','nav(&quot;followups&quot;)','past reach-out date')+
+      _bdDashCard(dueSoon.length?'k-amb':'k-blu','Due Soon',num(dueSoon.length),'Partners with a reach-out due in the next several days. Click to view follow-ups.','nav(&quot;followups&quot;)','due within 7 days')+
+    '</div></div></div>';
 
   // Working Queue v1 ("My Day") - urgency-ordered reach-out queue.
   // Rows ordered by urgency class: overdue reach-outs, then due today/soon,
@@ -8969,8 +9325,12 @@ function renderDash(){
   overdue.forEach(function(p){ _wqRows.push({p:p,rank:0}); });
   dueSoon.forEach(function(p){ _wqRows.push({p:p,rank:1}); });
   _wqNoTouch.forEach(function(p){ _wqRows.push({p:p,rank:2}); });
+  /* Urgency class first, then tier (an overdue A outranks an overdue C), then
+     how far past due. */
   _wqRows.sort(function(a,b){
     if(a.rank!==b.rank) return a.rank-b.rank;
+    var ta=_tierRank(a.p), tb=_tierRank(b.p);
+    if(ta!==tb) return ta-tb;
     var da=reachState(a.p).dueIn, db=reachState(b.p).dueIn;
     if(da==null) da=9999; if(db==null) db=9999;
     return da-db;
@@ -8981,14 +9341,16 @@ function renderDash(){
   if(!_wqRows.length){
     html+='<div class="card-bd"><div class="muted">Nothing needs a reach-out right now. Every active contact is fresh.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Contact</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
     _wqRows.slice(0,12).forEach(function(row){
       var p=row.p, r=reachState(p);
       var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
       var reasonCls=row.rank===0?'c-red':(row.rank===1?'c-amb':'c-gry');
       var reason=row.rank===0?_esc(r.label):(row.rank===1?_esc(r.label):'Never contacted');
       var action=row.rank===2?'Start outreach':'Check in';
+      var tb=_tierBadge(p);
       html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="openPartner('+p.id+')">'+_esc(nm)+(p.firm&&nm!==p.firm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
+        '<td class="nowrap" title="'+_esc(partnerCadenceLabel(p))+'">'+(tb||'<span class="muted">-</span>')+'</td>'+
         '<td>'+catPill(p.cat)+'</td>'+
         '<td><span class="chip '+reasonCls+'">'+reason+'</span></td>'+
         '<td class="muted">'+action+'</td>'+
@@ -9006,6 +9368,7 @@ function renderDash(){
   }
   html+='</div>';
 
+  html+=scoreboard;
 
   html+='<div class="grid-2">';
   var byCat={};
@@ -9031,13 +9394,16 @@ function renderDash(){
   });
   html+='</div></div>';
 
+  var _byTier=reachByTier(overdue);
+  var _tCount=tierCounts();
   html+='<div class="card"><div class="card-hd"><span class="card-title">Reach-out cadence</span>'+
-    '<span class="card-hd-meta">Hot 30d / Warm 60d / Cool 90d</span></div><div class="card-bd">'+
-    '<div class="kv"><span class="kv-k">Hot contacts overdue</span><span class="kv-v">'+byPri.Hot+'</span></div>'+
-    '<div class="kv"><span class="kv-k">Warm contacts overdue</span><span class="kv-v">'+byPri.Warm+'</span></div>'+
-    '<div class="kv"><span class="kv-k">Cool contacts overdue</span><span class="kv-v">'+byPri.Cool+'</span></div>'+
+    '<span class="card-hd-meta">Tier A 30d / B 60d / C 90d</span></div><div class="card-bd">'+
+    '<div class="kv"><span class="kv-k">Tier A overdue</span><span class="kv-v">'+_byTier.A+' <span class="muted">of '+_tCount.A+'</span></span></div>'+
+    '<div class="kv"><span class="kv-k">Tier B overdue</span><span class="kv-v">'+_byTier.B+' <span class="muted">of '+(_tCount.B+_tCount.none)+'</span></span></div>'+
+    '<div class="kv"><span class="kv-k">Tier C overdue</span><span class="kv-v">'+_byTier.C+' <span class="muted">of '+_tCount.C+'</span></span></div>'+
     '<div class="kv"><span class="kv-k">Due within 7 days</span><span class="kv-v">'+dueSoon.length+'</span></div>'+
     '<div class="kv"><span class="kv-k">Contacts with no touch logged</span><span class="kv-v">'+noTouch+'</span></div>'+
+    (_tCount.none?('<div class="kv"><span class="kv-k">Untiered, on the 60d default</span><span class="kv-v">'+_tCount.none+'</span></div>'):'')+
   '</div></div>';
   html+='</div>';
 
@@ -9247,7 +9613,7 @@ function renderGoals(){
   // ── LIST VIEW ─────────────────────────────────────────────
   // Summary stats
   h+='<div style="display:flex;gap:10px;margin-bottom:14px">';
-  [{k:"complete",c:"#2563eb",l:"Done"},{k:"on-track",c:"var(--grn)",l:"On Track"},{k:"off-track",c:"var(--red)",l:"Off Track"}].forEach(function(s){
+  [{k:"complete",c:"var(--blu)",l:"Done"},{k:"on-track",c:"var(--grn)",l:"On Track"},{k:"off-track",c:"var(--red)",l:"Off Track"}].forEach(function(s){
     h+='<div style="display:flex;align-items:center;gap:7px;padding:5px 13px;background:'+s.c+'10;border:1px solid '+s.c+'30;border-radius:6px;cursor:pointer" onclick="setGoalsFilter(&quot;'+(f===s.k?'all':s.k)+'&quot;)">';
     h+='<span style="font-size:var(--fz-xl);font-weight:600;color:'+s.c+'">'+counts[s.k]+'</span>';
     h+='<span style="font-size:var(--fz-body);color:'+s.c+';font-weight:500">'+s.l+'</span></div>';
@@ -9567,15 +9933,79 @@ function printGoals(){
 /* ============================================================
    ROI / attribution cards appended to Reports
    ============================================================ */
+/* Partner ROI, measured on WON revenue.
+   Referred-$ counts every lead a partner ever sent at its value on the day it
+   was logged, so it rewards volume and optimism equally. ROI here is anchored
+   to work that actually closed: won revenue, the gross profit inside it, and
+   what is left after the referral fee is paid. Referred pipeline is kept as a
+   secondary column so an early-stage relationship with nothing closed yet is
+   still visible rather than invisible. Effort (logged touches) sits alongside
+   so a partner costing a lot of attention for no closed work is obvious.
+   Sorted by won revenue, then won GP, then open pipeline. */
 function bdRoiReportCards(){
   var html='';
-  var pr=PARTNERS.map(function(p){
-    var d=(p.crmLeads||[]); if(!d.length) return null;
-    var val=d.reduce(function(a,x){ return a+(Number(x.value)||0); },0);
-    return {name:(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner'),firm:p.firm,refs:d.length,val:val};
-  }).filter(Boolean).sort(function(a,b){ return (b.val-a.val)||(b.refs-a.refs); }).slice(0,15);
-  var prBody=pr.map(function(r){ return '<tr><td class="cell-firm">'+_esc(r.name)+(r.firm&&r.firm!==r.name?' <span class="muted">'+_esc(r.firm)+'</span>':'')+'</td><td class="right">'+r.refs+'</td><td class="right nowrap">'+bdMoney(r.val)+'</td></tr>'; }).join('');
-  html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Referral attribution</span><span class="card-hd-meta">leads sent to CRM by each partner (value at referral)</span></div><div class="tbl-wrap"><table><thead><tr><th scope="col">Partner</th><th class="right" scope="col">Leads referred</th><th class="right" scope="col">Referred $</th></tr></thead><tbody>'+(prBody||'<tr><td colspan="3" class="muted">No partner referrals yet. When a partner sends a real lead it is recorded here.</td></tr>')+'</tbody></table></div></div>';
+  var rows=PARTNERS.map(function(p){
+    var d=(p.crmLeads||[]);
+    var touches=(p.act||[]).length;
+    if(!d.length && !touches) return null;
+    var prod=partnerProduction(p);
+    var pipeline=0;
+    d.forEach(function(x){ if(x.status!=='won'&&x.status!=='lost') pipeline+=(Number(x.value)||0); });
+    return {
+      p:p,
+      name:(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner'),
+      firm:p.firm,
+      touches:touches,
+      refs:d.length,
+      won:prod.won,
+      wonRevenue:prod.wonRevenue,
+      wonGP:prod.wonGP,
+      netGP:prod.wonGP-(prod.feesPaid+prod.feesOwed),
+      pipeline:pipeline
+    };
+  }).filter(Boolean).filter(function(r){ return r.wonRevenue>0 || r.refs>0; })
+    .sort(function(a,b){ return (b.wonRevenue-a.wonRevenue)||(b.wonGP-a.wonGP)||(b.pipeline-a.pipeline)||(b.refs-a.refs); })
+    .slice(0,15);
+
+  var tot={wonRevenue:0,wonGP:0,netGP:0,pipeline:0,won:0,refs:0,touches:0};
+  rows.forEach(function(r){ tot.wonRevenue+=r.wonRevenue; tot.wonGP+=r.wonGP; tot.netGP+=r.netGP; tot.pipeline+=r.pipeline; tot.won+=r.won; tot.refs+=r.refs; tot.touches+=r.touches; });
+
+  var body=rows.map(function(r){
+    var earned=r.wonRevenue>0;
+    return '<tr style="cursor:pointer" onclick="openPartner('+r.p.id+')">'+
+      '<td class="cell-firm">'+_tierBadge(r.p)+_esc(r.name)+(r.firm&&r.firm!==r.name?' <span class="muted">'+_esc(r.firm)+'</span>':'')+'</td>'+
+      '<td class="right">'+num(r.touches)+'</td>'+
+      '<td class="right">'+num(r.refs)+'</td>'+
+      '<td class="right">'+num(r.won)+'</td>'+
+      '<td class="right nowrap"'+(earned?' style="font-weight:700"':'')+'>'+(earned?bdMoney(r.wonRevenue):'<span class="muted">-</span>')+'</td>'+
+      '<td class="right nowrap">'+(r.wonGP?bdMoney(r.wonGP):'<span class="muted">-</span>')+'</td>'+
+      '<td class="right nowrap">'+(r.wonGP?bdMoney(r.netGP):'<span class="muted">-</span>')+'</td>'+
+      '<td class="right nowrap">'+(r.pipeline?bdMoney(r.pipeline):'<span class="muted">-</span>')+'</td></tr>';
+  }).join('');
+
+  var foot=rows.length?('<tfoot><tr><td style="font-weight:700">Total (top '+rows.length+')</td>'+
+    '<td class="right" style="font-weight:700">'+num(tot.touches)+'</td>'+
+    '<td class="right" style="font-weight:700">'+num(tot.refs)+'</td>'+
+    '<td class="right" style="font-weight:700">'+num(tot.won)+'</td>'+
+    '<td class="right nowrap" style="font-weight:700">'+bdMoney(tot.wonRevenue)+'</td>'+
+    '<td class="right nowrap" style="font-weight:700">'+bdMoney(tot.wonGP)+'</td>'+
+    '<td class="right nowrap" style="font-weight:700">'+bdMoney(tot.netGP)+'</td>'+
+    '<td class="right nowrap" style="font-weight:700">'+bdMoney(tot.pipeline)+'</td></tr></tfoot>'):'';
+
+  html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Partner ROI</span>'+
+    '<span class="card-hd-meta">ranked by won revenue, not by leads referred</span></div>'+
+    '<div class="tbl-wrap"><table><thead><tr>'+
+      '<th scope="col">Partner</th>'+
+      '<th class="right" scope="col">Touches</th>'+
+      '<th class="right" scope="col">Referrals</th>'+
+      '<th class="right" scope="col">Won</th>'+
+      '<th class="right" scope="col">Won revenue</th>'+
+      '<th class="right" scope="col">Won GP</th>'+
+      '<th class="right" scope="col">Net GP after fees</th>'+
+      '<th class="right" scope="col">Open pipeline</th>'+
+    '</tr></thead><tbody>'+
+    (body||'<tr><td colspan="8" class="muted">No partner activity yet. Once a partner sends a lead and it closes, the revenue lands here.</td></tr>')+
+    '</tbody>'+foot+'</table></div></div>';
   return html;
 }
 
@@ -9598,16 +10028,38 @@ function bestNextContacts(n){
 }
 function bdDashCards(){
   var html='';
-  // best next 10
-  var bn=bestNextContacts(10);
+  /* Tier coverage. The "best next to contact" table that used to sit here was
+     removed: My Day is the queue, and two ranked lists of the same partners on
+     one page is noise. This card answers the different question - is the book
+     tiered at all, and is each tier being kept to its cadence. */
+  var _tc=tierCounts();
+  var _ov=reachByTier();
   html+='<div class="grid-2" style="margin-top:14px">';
-  html+='<div class="card"><div class="card-hd"><span class="card-title">Best next 10 to contact</span><button class="btn btn-sm" onclick="nav(\'partners\')">All Partners</button></div><div class="card-bd">';
-  if(!bn.length){ html+='<div class="muted">No active partners yet.</div>'; }
-  else { html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Contact</th><th scope="col">Priority</th><th scope="col">Health</th><th></th></tr></thead><tbody>';
-    bn.forEach(function(r){ var nm=(((r.p.cf||'')+' '+(r.p.cl||'')).trim()||r.p.firm||'Contact');
-      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="openPartner('+r.p.id+')">'+_esc(nm)+'</td><td><span class="chip c-gry">'+_esc(r.pr)+'</span></td><td>'+healthPill(r.health)+'</td><td class="right"><button class="btn btn-sm" onclick="reachCheckin('+r.p.id+')">Check in</button></td></tr>';
+  html+='<div class="card"><div class="card-hd"><span class="card-title">Tier coverage</span><button class="btn btn-sm" onclick="nav(\'partners\')">All Partners</button></div><div class="card-bd">';
+  if(!_reachContacts().length){ html+='<div class="muted">No active partners yet.</div>'; }
+  else {
+    html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Tier</th><th scope="col">Cadence</th><th class="right" scope="col">Partners</th><th class="right" scope="col">Overdue</th><th scope="col">Health</th></tr></thead><tbody>';
+    TIER_LIST.forEach(function(t){
+      var n=_tc[t], od=_ov[t];
+      var cls=!n?'c-gry':(od?(od>=Math.ceil(n/2)?'c-red':'c-amb'):'c-grn');
+      var lbl=!n?'None tiered':(od?(od+' behind'):'On cadence');
+      html+='<tr onclick="setPTNTier(\''+t+'\');nav(\'partners\')" style="cursor:pointer">'+
+        '<td><span class="tag tier-badge '+_tierCls(t)+'">'+t+'</span></td>'+
+        '<td class="muted nowrap">every '+TIER_CADENCE[t]+' days</td>'+
+        '<td class="right">'+num(n)+'</td>'+
+        '<td class="right">'+num(od)+'</td>'+
+        '<td>'+_chip(cls,lbl)+'</td></tr>';
     });
-    html+='</tbody></table></div>'; }
+    if(_tc.none){
+      html+='<tr onclick="setPTNTier(\'none\');nav(\'partners\')" style="cursor:pointer">'+
+        '<td><span class="muted">Untiered</span></td>'+
+        '<td class="muted nowrap">every '+TIER_CADENCE[TIER_DEFAULT]+' days (default)</td>'+
+        '<td class="right">'+num(_tc.none)+'</td>'+
+        '<td class="right">-</td>'+
+        '<td>'+_chip('c-amb','Needs tiering')+'</td></tr>';
+    }
+    html+='</tbody></table></div>';
+  }
   html+='</div></div>';
   // goals progress
   html+='<div class="card"><div class="card-hd"><span class="card-title">BD goals</span><button class="btn btn-sm" onclick="nav(\'goals\')">All Goals</button></div><div class="card-bd">';
@@ -9795,7 +10247,7 @@ function buildBdSignals(){
   var needsResearch=(typeof needsContactResearchCount==='function')?needsContactResearchCount():0;
 
   var exceptions=[];
-  overdue.forEach(function(p){ exceptions.push({type:'partner_reachout_overdue',severity:(partnerPriority(p)==='Hot'?'high':'medium'),label:'Reach-out overdue: '+((((p.cf||'')+' '+(p.cl||'')).trim())||p.firm||'Contact'),ref:p.id}); });
+  overdue.forEach(function(p){ exceptions.push({type:'partner_reachout_overdue',severity:(partnerTierEff(p)==='A'?'high':'medium'),label:'Reach-out overdue: '+((((p.cf||'')+' '+(p.cl||'')).trim())||p.firm||'Contact')+' (Tier '+partnerTierEff(p)+')',ref:p.id}); });
   if(dueSoon.length) exceptions.push({type:'partner_reachout_due_soon',severity:'low',label:dueSoon.length+' contact'+(dueSoon.length===1?'':'s')+' due for a check-in within 7 days',ref:'partners'});
   if(channelEmailsDue>0) exceptions.push({type:'channel_emails_due',severity:'low',label:channelEmailsDue+' partner-channel email touch'+(channelEmailsDue===1?'':'es')+' due',ref:'channels'});
   if(overduePersonalTouches>0) exceptions.push({type:'partner_touch_overdue',severity:'medium',label:overduePersonalTouches+' partner'+(overduePersonalTouches===1?'':'s')+' need a personal touch',ref:'channels'});
