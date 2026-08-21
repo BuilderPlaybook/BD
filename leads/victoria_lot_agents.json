@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-21T20:23:51Z",
+  "generated": "2026-08-21T20:29:49Z",
   "region": "victoria",
   "source": "realtor.ca vacant land scraper",
   "agents": [
@@ -134,7 +134,9 @@
         }
       ],
       "total_value": 12691797.0,
-      "listing_count": 15
+      "listing_count": 15,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Thomas Kala",
@@ -160,12 +162,12 @@
           "lon": "-123.49820695"
         },
         {
-          "address": "632 Madrona Ridge|Langford, British Columbia V9B6C6",
-          "mls": "1039102",
+          "address": "702 Madrona Ridge|Langford, British Columbia V9B6C6",
+          "mls": "1039146",
           "price": 499000.0,
-          "size": "5448 sqft",
-          "lat": "48.4704348",
-          "lon": "-123.49799237"
+          "size": "5729 sqft",
+          "lat": "48.47063397",
+          "lon": "-123.4980782"
         },
         {
           "address": "696 Madrona Ridge|Langford, British Columbia V9B6C6",
@@ -176,12 +178,12 @@
           "lon": "-123.49805674"
         },
         {
-          "address": "702 Madrona Ridge|Langford, British Columbia V9B6C6",
-          "mls": "1039146",
+          "address": "632 Madrona Ridge|Langford, British Columbia V9B6C6",
+          "mls": "1039102",
           "price": 499000.0,
-          "size": "5729 sqft",
-          "lat": "48.47063397",
-          "lon": "-123.4980782"
+          "size": "5448 sqft",
+          "lat": "48.4704348",
+          "lon": "-123.49799237"
         },
         {
           "address": "690 Madrona Ridge|Langford, British Columbia V9B6C6",
@@ -265,7 +267,9 @@
         }
       ],
       "total_value": 10083000.0,
-      "listing_count": 14
+      "listing_count": 14,
+      "email": "thomas@pinnaclehomesgroup.com",
+      "email_source": "website"
     },
     {
       "name": "Courtney Kala",
@@ -289,12 +293,12 @@
           "lon": "-123.49820695"
         },
         {
-          "address": "632 Madrona Ridge|Langford, British Columbia V9B6C6",
-          "mls": "1039102",
+          "address": "702 Madrona Ridge|Langford, British Columbia V9B6C6",
+          "mls": "1039146",
           "price": 499000.0,
-          "size": "5448 sqft",
-          "lat": "48.4704348",
-          "lon": "-123.49799237"
+          "size": "5729 sqft",
+          "lat": "48.47063397",
+          "lon": "-123.4980782"
         },
         {
           "address": "696 Madrona Ridge|Langford, British Columbia V9B6C6",
@@ -305,12 +309,12 @@
           "lon": "-123.49805674"
         },
         {
-          "address": "702 Madrona Ridge|Langford, British Columbia V9B6C6",
-          "mls": "1039146",
+          "address": "632 Madrona Ridge|Langford, British Columbia V9B6C6",
+          "mls": "1039102",
           "price": 499000.0,
-          "size": "5729 sqft",
-          "lat": "48.47063397",
-          "lon": "-123.4980782"
+          "size": "5448 sqft",
+          "lat": "48.4704348",
+          "lon": "-123.49799237"
         },
         {
           "address": "690 Madrona Ridge|Langford, British Columbia V9B6C6",
@@ -394,7 +398,9 @@
         }
       ],
       "total_value": 10083000.0,
-      "listing_count": 14
+      "listing_count": 14,
+      "email": "thomas@pinnaclehomesgroup.com",
+      "email_source": "website"
     },
     {
       "name": "Devin Hawes",
@@ -448,20 +454,20 @@
           "lon": "-123.56876781"
         },
         {
-          "address": "Lot 29 Goldstream Heights Dr|Shawnigan Lake, British Columbia V0R2L0",
-          "mls": "1022960",
-          "price": 512000.0,
-          "size": "5.29 ac",
-          "lat": "48.50327871",
-          "lon": "-123.56886504"
-        },
-        {
           "address": "Lot 24 Eagle Dr|Shawnigan Lake, British Columbia V8H2J1",
           "mls": "1020328",
           "price": 512000.0,
           "size": "5.02 ac",
           "lat": "48.5046472",
           "lon": "-123.56214392"
+        },
+        {
+          "address": "Lot 29 Goldstream Heights Dr|Shawnigan Lake, British Columbia V0R2L0",
+          "mls": "1022960",
+          "price": 512000.0,
+          "size": "5.29 ac",
+          "lat": "48.50327871",
+          "lon": "-123.56886504"
         },
         {
           "address": "LOT 35 Goldstream Heights Dr|Shawnigan Lake, British Columbia V0R2W3",
@@ -505,7 +511,9 @@
         }
       ],
       "total_value": 6128999.0,
-      "listing_count": 12
+      "listing_count": 12,
+      "email": "support@moxiworks.com",
+      "email_source": "website"
     },
     {
       "name": "Deana Provencher",
@@ -614,7 +622,9 @@
         }
       ],
       "total_value": 10491899.0,
-      "listing_count": 12
+      "listing_count": 12,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Matt Peulen",
@@ -696,7 +706,9 @@
         }
       ],
       "total_value": 46735600.0,
-      "listing_count": 8
+      "listing_count": 8,
+      "email": "matt@mattpeulen.com",
+      "email_source": "website"
     },
     {
       "name": "Guy Crozier",
@@ -776,7 +788,9 @@
         }
       ],
       "total_value": 46735600.0,
-      "listing_count": 8
+      "listing_count": 8,
+      "email": "Guy@GuyCrozier.com",
+      "email_source": "website"
     },
     {
       "name": "Scott Marchant",
@@ -856,7 +870,9 @@
         }
       ],
       "total_value": 46735600.0,
-      "listing_count": 8
+      "listing_count": 8,
+      "email": "Guy@GuyCrozier.com",
+      "email_source": "website"
     },
     {
       "name": "Ron Neal",
@@ -929,7 +945,9 @@
         }
       ],
       "total_value": 10863000.0,
-      "listing_count": 7
+      "listing_count": 7,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jaideep Pannu",
@@ -998,7 +1016,9 @@
         }
       ],
       "total_value": 19158000.0,
-      "listing_count": 7
+      "listing_count": 7,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Austin Cope",
@@ -1069,7 +1089,74 @@
         }
       ],
       "total_value": 26189000.0,
-      "listing_count": 7
+      "listing_count": 7,
+      "email": "",
+      "email_source": "not found"
+    },
+    {
+      "name": "Sandra Hoff",
+      "brokerage": "Macdonald Realty",
+      "phone": "250-818-5775",
+      "brokerage_address": "104-1910 Sooke Rd|Victoria, British Columbia V9B1V7",
+      "websites": [
+        "http://www.sandrahoff.com/"
+      ],
+      "profile_url": "https://www.realtor.ca/agent/1520184/sandra-hoff-104-1910-sooke-rd-victoria-british-columbia-v9b1v7",
+      "emails": [],
+      "listings": [
+        {
+          "address": "3645 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1020578",
+          "price": 450000.0,
+          "size": "4455 sqft",
+          "lat": "48.41139674",
+          "lon": "-123.51965409"
+        },
+        {
+          "address": "3629 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1020514",
+          "price": 499900.0,
+          "size": "4455 sqft",
+          "lat": "48.41098369",
+          "lon": "-123.51888161"
+        },
+        {
+          "address": "3633 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1020566",
+          "price": 525000.0,
+          "size": "5445 sqft",
+          "lat": "48.41111188",
+          "lon": "-123.51922493"
+        },
+        {
+          "address": "3636 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1017814",
+          "price": 550000.0,
+          "size": "3503 sqft",
+          "lat": "48.41155342",
+          "lon": "-123.51948242"
+        },
+        {
+          "address": "3640 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1018579",
+          "price": 550000.0,
+          "size": "3501 sqft",
+          "lat": "48.41148852",
+          "lon": "-123.51944363"
+        },
+        {
+          "address": "3644 Autumn Lane|Langford, British Columbia V9C0S3",
+          "mls": "1020408",
+          "price": 550000.0,
+          "size": "3502 sqft",
+          "lat": "48.4115819",
+          "lon": "-123.5195468"
+        }
+      ],
+      "total_value": 3124900.0,
+      "listing_count": 6,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mike Hartshorne",
@@ -1125,7 +1212,9 @@
         }
       ],
       "total_value": 2294797.0,
-      "listing_count": 5
+      "listing_count": 5,
+      "email": "info@southislandhometeam.com",
+      "email_source": "website"
     },
     {
       "name": "Jenn Raappana",
@@ -1182,7 +1271,9 @@
         }
       ],
       "total_value": 2294797.0,
-      "listing_count": 5
+      "listing_count": 5,
+      "email": "info@southislandhometeam.com",
+      "email_source": "website"
     },
     {
       "name": "Tara Hearn",
@@ -1238,7 +1329,9 @@
         }
       ],
       "total_value": 3108600.0,
-      "listing_count": 5
+      "listing_count": 5,
+      "email": "support@moxiworks.com",
+      "email_source": "website"
     },
     {
       "name": "Tania Delmonico",
@@ -1293,62 +1386,68 @@
         }
       ],
       "total_value": 2488000.0,
-      "listing_count": 5
+      "listing_count": 5,
+      "email": "",
+      "email_source": "not found"
     },
     {
-      "name": "Sandra Hoff",
-      "brokerage": "Macdonald Realty",
-      "phone": "250-818-5775",
-      "brokerage_address": "104-1910 Sooke Rd|Victoria, British Columbia V9B1V7",
+      "name": "Nancy Vieira",
+      "brokerage": "Pemberton Holmes - Sooke",
+      "phone": "250-514-4750",
+      "brokerage_address": "2-6716 West Coast Rd|P.O. Box 189|Sooke, British Columbia V9Z0P7",
       "websites": [
-        "http://www.sandrahoff.com/"
+        "http://www.nancyvieira.com/",
+        "https://www.facebook.com/Nancy-Vieira-Pemberton-Holmes-Ltd-REALTOR-337416996376410/",
+        "https://www.linkedin.com/in/nancy-vieira-21999330"
       ],
-      "profile_url": "https://www.realtor.ca/agent/1520184/sandra-hoff-104-1910-sooke-rd-victoria-british-columbia-v9b1v7",
+      "profile_url": "https://www.realtor.ca/agent/1437528/nancy-vieira-2-6716-west-coast-rd-po-box-189-sooke-british-columbia-v9z0p7",
       "emails": [],
       "listings": [
         {
-          "address": "3629 Autumn Lane|Langford, British Columbia V9C0S3",
-          "mls": "1020514",
-          "price": 499900.0,
-          "size": "4455 sqft",
-          "lat": "48.41098369",
-          "lon": "-123.51888161"
+          "address": "B 7095 Richview Dr|Sooke, British Columbia V9Z0T3",
+          "mls": "1039306",
+          "price": 450000.0,
+          "size": "10019 sqft",
+          "lat": "48.35478731",
+          "lon": "-123.73407655"
         },
         {
-          "address": "3633 Autumn Lane|Langford, British Columbia V9C0S3",
-          "mls": "1020566",
-          "price": 525000.0,
-          "size": "5445 sqft",
-          "lat": "48.41111188",
-          "lon": "-123.51922493"
+          "address": "Lot 12 Cains Way|Sooke, British Columbia V9Z1C5",
+          "mls": "1047430",
+          "price": 475000.0,
+          "size": "1.8 ac",
+          "lat": "48.35934124",
+          "lon": "-123.60963135"
         },
         {
-          "address": "3640 Autumn Lane|Langford, British Columbia V9C0S3",
-          "mls": "1018579",
+          "address": "2585 Sooke River Rd|Sooke, British Columbia V9Z0X8",
+          "mls": "1047396",
           "price": 550000.0,
-          "size": "3501 sqft",
-          "lat": "48.41148852",
-          "lon": "-123.51944363"
+          "size": "5.49 ac",
+          "lat": "48.4021175",
+          "lon": "-123.69894767"
         },
         {
-          "address": "3636 Autumn Lane|Langford, British Columbia V9C0S3",
-          "mls": "1017814",
-          "price": 550000.0,
-          "size": "3503 sqft",
-          "lat": "48.41155342",
-          "lon": "-123.51948242"
+          "address": "2076 Otter Point Rd|Sooke, British Columbia V9Z1A5",
+          "mls": "1027186",
+          "price": 595000.0,
+          "size": "10266 sqft",
+          "lat": "48.37864787",
+          "lon": "-123.7250203"
         },
         {
-          "address": "3644 Autumn Lane|Langford, British Columbia V9C0S3",
-          "mls": "1020408",
-          "price": 550000.0,
-          "size": "3502 sqft",
-          "lat": "48.4115819",
-          "lon": "-123.5195468"
+          "address": "Lot B Rocky Point Rd|Metchosin, British Columbia V9C4G6",
+          "mls": "1033226",
+          "price": 1300000.0,
+          "size": "2.84 ac",
+          "lat": "48.36917773",
+          "lon": "-123.55060731"
         }
       ],
-      "total_value": 2674900.0,
-      "listing_count": 5
+      "total_value": 3370000.0,
+      "listing_count": 5,
+      "email": "info@nancyvieira.com",
+      "email_source": "website"
     },
     {
       "name": "Marc Foucher",
@@ -1401,7 +1500,9 @@
         }
       ],
       "total_value": 30758000.0,
-      "listing_count": 5
+      "listing_count": 5,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Madison Allen",
@@ -1448,7 +1549,9 @@
         }
       ],
       "total_value": 1146000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Julia Abraham",
@@ -1495,7 +1598,9 @@
         }
       ],
       "total_value": 1139800.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "julia@juliaabraham.ca",
+      "email_source": "website"
     },
     {
       "name": "Sarabdeep Sethi",
@@ -1547,7 +1652,9 @@
         }
       ],
       "total_value": 1749600.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "sarabdeepsethi@gmail.com",
+      "email_source": "website"
     },
     {
       "name": "Rhys Duch",
@@ -1595,7 +1702,9 @@
         }
       ],
       "total_value": 1769897.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@southislandhometeam.com",
+      "email_source": "website"
     },
     {
       "name": "Craig Moir",
@@ -1645,7 +1754,9 @@
         }
       ],
       "total_value": 2874000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@lawlessmoir.com",
+      "email_source": "website"
     },
     {
       "name": "Mark Lawless",
@@ -1692,56 +1803,9 @@
         }
       ],
       "total_value": 2874000.0,
-      "listing_count": 4
-    },
-    {
-      "name": "Nancy Vieira",
-      "brokerage": "Pemberton Holmes - Sooke",
-      "phone": "250-514-4750",
-      "brokerage_address": "2-6716 West Coast Rd|P.O. Box 189|Sooke, British Columbia V9Z0P7",
-      "websites": [
-        "http://www.nancyvieira.com/",
-        "https://www.facebook.com/Nancy-Vieira-Pemberton-Holmes-Ltd-REALTOR-337416996376410/",
-        "https://www.linkedin.com/in/nancy-vieira-21999330"
-      ],
-      "profile_url": "https://www.realtor.ca/agent/1437528/nancy-vieira-2-6716-west-coast-rd-po-box-189-sooke-british-columbia-v9z0p7",
-      "emails": [],
-      "listings": [
-        {
-          "address": "B 7095 Richview Dr|Sooke, British Columbia V9Z0T3",
-          "mls": "1039306",
-          "price": 450000.0,
-          "size": "10019 sqft",
-          "lat": "48.35478731",
-          "lon": "-123.73407655"
-        },
-        {
-          "address": "Lot 12 Cains Way|Sooke, British Columbia V9Z1C5",
-          "mls": "1047430",
-          "price": 475000.0,
-          "size": "1.8 ac",
-          "lat": "48.35934124",
-          "lon": "-123.60963135"
-        },
-        {
-          "address": "2076 Otter Point Rd|Sooke, British Columbia V9Z1A5",
-          "mls": "1027186",
-          "price": 595000.0,
-          "size": "10266 sqft",
-          "lat": "48.37864787",
-          "lon": "-123.7250203"
-        },
-        {
-          "address": "Lot B Rocky Point Rd|Metchosin, British Columbia V9C4G6",
-          "mls": "1033226",
-          "price": 1300000.0,
-          "size": "2.84 ac",
-          "lat": "48.36917773",
-          "lon": "-123.55060731"
-        }
-      ],
-      "total_value": 2820000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@lawlessmoir.com",
+      "email_source": "website"
     },
     {
       "name": "Karl Leong",
@@ -1789,7 +1853,9 @@
         }
       ],
       "total_value": 3743900.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@PreferredHomes.ca",
+      "email_source": "website"
     },
     {
       "name": "Grant Walker",
@@ -1837,7 +1903,9 @@
         }
       ],
       "total_value": 3743900.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@PreferredHomes.ca",
+      "email_source": "website"
     },
     {
       "name": "Mark Roozendaal",
@@ -1886,7 +1954,9 @@
         }
       ],
       "total_value": 3743900.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@PreferredHomes.ca",
+      "email_source": "website"
     },
     {
       "name": "Greg Killip",
@@ -1934,7 +2004,9 @@
         }
       ],
       "total_value": 3899997.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "gregkillip@gmail.com",
+      "email_source": "website"
     },
     {
       "name": "Chace Whitson",
@@ -1981,7 +2053,9 @@
         }
       ],
       "total_value": 3523900.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mike Thompson",
@@ -2030,7 +2104,9 @@
         }
       ],
       "total_value": 3854000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "mgt@shaw.ca",
+      "email_source": "website"
     },
     {
       "name": "Logan E. Wilson",
@@ -2080,7 +2156,9 @@
         }
       ],
       "total_value": 62480000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@victorialuxurygroup.com",
+      "email_source": "website"
     },
     {
       "name": "Brayden Klein",
@@ -2132,7 +2210,9 @@
         }
       ],
       "total_value": 62480000.0,
-      "listing_count": 4
+      "listing_count": 4,
+      "email": "info@victorialuxurygroup.com",
+      "email_source": "website"
     },
     {
       "name": "Cheryl Barnes",
@@ -2174,7 +2254,9 @@
         }
       ],
       "total_value": 650000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "info@cherylbarnes.ca",
+      "email_source": "website"
     },
     {
       "name": "April Spackman",
@@ -2213,7 +2295,9 @@
         }
       ],
       "total_value": 1473000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Nicholas Bardon",
@@ -2252,7 +2336,9 @@
         }
       ],
       "total_value": 1516999.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sari Ringma",
@@ -2293,7 +2379,9 @@
         }
       ],
       "total_value": 2368900.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jessica Wageman",
@@ -2334,7 +2422,9 @@
         }
       ],
       "total_value": 2368900.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Alex Hughes",
@@ -2375,7 +2465,9 @@
         }
       ],
       "total_value": 1347000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Steven Reilander",
@@ -2414,7 +2506,9 @@
         }
       ],
       "total_value": 1347000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ricki-Lee Jewell",
@@ -2454,7 +2548,9 @@
         }
       ],
       "total_value": 1347000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dean Innes",
@@ -2494,7 +2590,9 @@
         }
       ],
       "total_value": 1847900.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Lea Cathcart",
@@ -2533,7 +2631,9 @@
         }
       ],
       "total_value": 3345000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Steve Nguyen",
@@ -2572,7 +2672,9 @@
         }
       ],
       "total_value": 3345000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dez Mahal",
@@ -2613,7 +2715,9 @@
         }
       ],
       "total_value": 9800000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Matt Pettinger",
@@ -2656,7 +2760,9 @@
         }
       ],
       "total_value": 11599000.0,
-      "listing_count": 3
+      "listing_count": 3,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Esbati",
@@ -2685,7 +2791,9 @@
         }
       ],
       "total_value": 300000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mark Rice",
@@ -2716,7 +2824,9 @@
         }
       ],
       "total_value": 973900.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Christopher Andrews",
@@ -2747,7 +2857,9 @@
         }
       ],
       "total_value": 778000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Langdon",
@@ -2776,7 +2888,9 @@
         }
       ],
       "total_value": 1067000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jason Kahl",
@@ -2808,7 +2922,9 @@
         }
       ],
       "total_value": 4460000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sarah Doyle",
@@ -2820,24 +2936,26 @@
       "emails": [],
       "listings": [
         {
-          "address": "3 Courtney Way|Shawnigan Lake, British Columbia V0R2W2",
-          "mls": "1036605",
-          "price": 479000.0,
-          "size": "20909 sqft",
-          "lat": "48.64811728",
-          "lon": "-123.60746565"
-        },
-        {
           "address": "2 Courtney Way|Shawnigan Lake, British Columbia V0R2W0",
           "mls": "1036604",
           "price": 479000.0,
           "size": "20909 sqft",
           "lat": "48.64813013",
           "lon": "-123.60758367"
+        },
+        {
+          "address": "3 Courtney Way|Shawnigan Lake, British Columbia V0R2W2",
+          "mls": "1036605",
+          "price": 479000.0,
+          "size": "20909 sqft",
+          "lat": "48.64811728",
+          "lon": "-123.60746565"
         }
       ],
       "total_value": 958000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Darya Pfund",
@@ -2868,7 +2986,9 @@
         }
       ],
       "total_value": 1015000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Roger Levesque",
@@ -2899,7 +3019,9 @@
         }
       ],
       "total_value": 1049800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sean Levesque",
@@ -2932,7 +3054,9 @@
         }
       ],
       "total_value": 1049800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Michael Coburn",
@@ -2961,7 +3085,9 @@
         }
       ],
       "total_value": 1058000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mike Giordano",
@@ -2996,7 +3122,9 @@
         }
       ],
       "total_value": 1445000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Josh Kube",
@@ -3010,24 +3138,26 @@
       "emails": [],
       "listings": [
         {
-          "address": "3160 Glen Lake Rd|Langford, British Columbia V9B4B6",
-          "mls": "997773",
-          "price": 549900.0,
-          "size": "6736 sqft",
-          "lat": "48.43670365",
-          "lon": "-123.52648678"
-        },
-        {
           "address": "3158 Glen Lake Rd|Langford, British Columbia V9B4B6",
           "mls": "997775",
           "price": 549900.0,
           "size": "6722 sqft",
           "lat": "48.43675748",
           "lon": "-123.52665983"
+        },
+        {
+          "address": "3160 Glen Lake Rd|Langford, British Columbia V9B4B6",
+          "mls": "997773",
+          "price": 549900.0,
+          "size": "6736 sqft",
+          "lat": "48.43670365",
+          "lon": "-123.52648678"
         }
       ],
       "total_value": 1099800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Amanda Earle",
@@ -3041,24 +3171,57 @@
       "emails": [],
       "listings": [
         {
-          "address": "3160 Glen Lake Rd|Langford, British Columbia V9B4B6",
-          "mls": "997773",
-          "price": 549900.0,
-          "size": "6736 sqft",
-          "lat": "48.43670365",
-          "lon": "-123.52648678"
-        },
-        {
           "address": "3158 Glen Lake Rd|Langford, British Columbia V9B4B6",
           "mls": "997775",
           "price": 549900.0,
           "size": "6722 sqft",
           "lat": "48.43675748",
           "lon": "-123.52665983"
+        },
+        {
+          "address": "3160 Glen Lake Rd|Langford, British Columbia V9B4B6",
+          "mls": "997773",
+          "price": 549900.0,
+          "size": "6736 sqft",
+          "lat": "48.43670365",
+          "lon": "-123.52648678"
         }
       ],
       "total_value": 1099800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
+    },
+    {
+      "name": "Mandy Lee",
+      "brokerage": "Fair Realty",
+      "phone": "250-818-6688",
+      "brokerage_address": "301-1321 Blanshard St|Victoria, British Columbia V8W0B6",
+      "websites": [],
+      "profile_url": "https://www.realtor.ca/agent/1980181/mandy-lee-301-1321-blanshard-st-victoria-british-columbia-v8w0b6",
+      "emails": [],
+      "listings": [
+        {
+          "address": "7170 Sea Cliff Rd|Sooke, British Columbia V9Z1A8",
+          "mls": "1039449",
+          "price": 550000.0,
+          "size": "14810 sqft",
+          "lat": "48.35422119",
+          "lon": "-123.71118284"
+        },
+        {
+          "address": "DL-130 Trans Canada Hwy|Malahat, British Columbia V0V0V0",
+          "mls": "1030829",
+          "price": 2888000.0,
+          "size": "64.99 ac",
+          "lat": "48.56662067",
+          "lon": "-123.54295717"
+        }
+      ],
+      "total_value": 3438000.0,
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Quinn van Gylswyk",
@@ -3087,7 +3250,9 @@
         }
       ],
       "total_value": 1200000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Gill",
@@ -3120,7 +3285,9 @@
         }
       ],
       "total_value": 1200000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Richard Osborne",
@@ -3149,7 +3316,9 @@
         }
       ],
       "total_value": 1429000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Conrad Nyren",
@@ -3178,7 +3347,9 @@
         }
       ],
       "total_value": 2194000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Matt Loken",
@@ -3209,7 +3380,9 @@
         }
       ],
       "total_value": 1364000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Peter Gaby",
@@ -3243,7 +3416,9 @@
         }
       ],
       "total_value": 1599800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jilly Yang",
@@ -3274,7 +3449,9 @@
         }
       ],
       "total_value": 1599800.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mitchel Doherty",
@@ -3308,7 +3485,9 @@
         }
       ],
       "total_value": 1650000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jerry Bola",
@@ -3341,7 +3520,9 @@
         }
       ],
       "total_value": 1800000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Troke",
@@ -3374,7 +3555,9 @@
         }
       ],
       "total_value": 1890000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Crystal Hao",
@@ -3403,7 +3586,9 @@
         }
       ],
       "total_value": 1848000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Shane King",
@@ -3436,7 +3621,9 @@
         }
       ],
       "total_value": 2424900.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Alli Munro",
@@ -3465,7 +3652,9 @@
         }
       ],
       "total_value": 2424900.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Paul Greenwood",
@@ -3498,7 +3687,9 @@
         }
       ],
       "total_value": 4298000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jasmine Greenwood",
@@ -3527,7 +3718,9 @@
         }
       ],
       "total_value": 4298000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Markham",
@@ -3558,7 +3751,9 @@
         }
       ],
       "total_value": 2875000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris James Markham",
@@ -3587,7 +3782,9 @@
         }
       ],
       "total_value": 2875000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Marlene Arden",
@@ -3618,7 +3815,9 @@
         }
       ],
       "total_value": 9249900.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Karie Seiss",
@@ -3652,7 +3851,9 @@
         }
       ],
       "total_value": 7500000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dave Bornhold",
@@ -3685,7 +3886,9 @@
         }
       ],
       "total_value": 10049000.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Robert Woodland",
@@ -3716,7 +3919,9 @@
         }
       ],
       "total_value": 9958980.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Karen Love",
@@ -3749,7 +3954,9 @@
         }
       ],
       "total_value": 9958980.0,
-      "listing_count": 2
+      "listing_count": 2,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Larry Pistell",
@@ -3770,7 +3977,9 @@
         }
       ],
       "total_value": 99000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jarett Merkal",
@@ -3796,7 +4005,9 @@
         }
       ],
       "total_value": 199000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ruby Youngman",
@@ -3822,7 +4033,9 @@
         }
       ],
       "total_value": 285900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Scott Loughton",
@@ -3847,7 +4060,9 @@
         }
       ],
       "total_value": 299900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Andrew Maxwell",
@@ -3870,7 +4085,9 @@
         }
       ],
       "total_value": 340000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dana Hahn",
@@ -3891,7 +4108,9 @@
         }
       ],
       "total_value": 348888.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Robert Hahn",
@@ -3914,7 +4133,9 @@
         }
       ],
       "total_value": 348888.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Manbir Samra",
@@ -3939,7 +4160,9 @@
         }
       ],
       "total_value": 379900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ryan Zailo",
@@ -3963,7 +4186,9 @@
         }
       ],
       "total_value": 389000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Michelle Plach",
@@ -3984,7 +4209,9 @@
         }
       ],
       "total_value": 419900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ray Little",
@@ -4010,7 +4237,9 @@
         }
       ],
       "total_value": 435000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Errik Ferreira",
@@ -4036,7 +4265,9 @@
         }
       ],
       "total_value": 435000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Melinda Banfield",
@@ -4061,7 +4292,9 @@
         }
       ],
       "total_value": 435000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Joanna Manning",
@@ -4082,7 +4315,9 @@
         }
       ],
       "total_value": 449000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Heidi Stieg",
@@ -4107,7 +4342,9 @@
         }
       ],
       "total_value": 449000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Candace Keeling",
@@ -4128,7 +4365,9 @@
         }
       ],
       "total_value": 460000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jack Feng",
@@ -4149,7 +4388,57 @@
         }
       ],
       "total_value": 469900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
+    },
+    {
+      "name": "Kimberly Ashton",
+      "brokerage": "Royal LePage Coast Capital - Sooke",
+      "phone": "250-327-2827",
+      "brokerage_address": "6739 West Coast Rd|P.O. Box 369|Sooke, British Columbia V9Z1G1",
+      "websites": [
+        "https://www.facebook.com/sellingsooke"
+      ],
+      "profile_url": "https://www.realtor.ca/agent/2151820/kimberly-ashton-6739-west-coast-rd-po-box-369-sooke-british-columbia-v9z1g1",
+      "emails": [],
+      "listings": [
+        {
+          "address": "2191 Renfrew Rd|Shawnigan Lake, British Columbia V0R2W1",
+          "mls": "1043798",
+          "price": 499000.0,
+          "size": "1 ac",
+          "lat": "48.65148342",
+          "lon": "-123.65060337"
+        }
+      ],
+      "total_value": 499000.0,
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
+    },
+    {
+      "name": "Molly Marland",
+      "brokerage": "Royal LePage Coast Capital - Chatterton",
+      "phone": "250-857-6978",
+      "brokerage_address": "110 - 4460 Chatterton Way|Victoria, British Columbia V8X5J2",
+      "websites": [],
+      "profile_url": "https://www.realtor.ca/agent/2235779/molly-marland-110-4460-chatterton-way-victoria-british-columbia-v8x5j2",
+      "emails": [],
+      "listings": [
+        {
+          "address": "2191 Renfrew Rd|Shawnigan Lake, British Columbia V0R2W1",
+          "mls": "1043798",
+          "price": 499000.0,
+          "size": "1 ac",
+          "lat": "48.65148342",
+          "lon": "-123.65060337"
+        }
+      ],
+      "total_value": 499000.0,
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Craig Toker",
@@ -4173,51 +4462,9 @@
         }
       ],
       "total_value": 499000.0,
-      "listing_count": 1
-    },
-    {
-      "name": "Kimberly Ashton",
-      "brokerage": "Royal LePage Coast Capital - Sooke",
-      "phone": "250-327-2827",
-      "brokerage_address": "6739 West Coast Rd|P.O. Box 369|Sooke, British Columbia V9Z1G1",
-      "websites": [
-        "https://www.facebook.com/sellingsooke"
-      ],
-      "profile_url": "https://www.realtor.ca/agent/2151820/kimberly-ashton-6739-west-coast-rd-po-box-369-sooke-british-columbia-v9z1g1",
-      "emails": [],
-      "listings": [
-        {
-          "address": "2191 Renfrew Rd|Shawnigan Lake, British Columbia V0R2W1",
-          "mls": "1043798",
-          "price": 499000.0,
-          "size": "1 ac",
-          "lat": "48.65148342",
-          "lon": "-123.65060337"
-        }
-      ],
-      "total_value": 499000.0,
-      "listing_count": 1
-    },
-    {
-      "name": "Molly Marland",
-      "brokerage": "Royal LePage Coast Capital - Chatterton",
-      "phone": "250-857-6978",
-      "brokerage_address": "110 - 4460 Chatterton Way|Victoria, British Columbia V8X5J2",
-      "websites": [],
-      "profile_url": "https://www.realtor.ca/agent/2235779/molly-marland-110-4460-chatterton-way-victoria-british-columbia-v8x5j2",
-      "emails": [],
-      "listings": [
-        {
-          "address": "2191 Renfrew Rd|Shawnigan Lake, British Columbia V0R2W1",
-          "mls": "1043798",
-          "price": 499000.0,
-          "size": "1 ac",
-          "lat": "48.65148342",
-          "lon": "-123.65060337"
-        }
-      ],
-      "total_value": 499000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kerry Marshall",
@@ -4243,28 +4490,9 @@
         }
       ],
       "total_value": 524900.0,
-      "listing_count": 1
-    },
-    {
-      "name": "Victoria Cao",
-      "brokerage": "Coldwell Banker Oceanside Real Estate",
-      "phone": "250-891-8578",
-      "brokerage_address": "3194 Douglas St|Victoria, British Columbia V8Z3K6",
-      "websites": [],
-      "profile_url": "https://www.realtor.ca/agent/1966645/victoria-cao-3194-douglas-st-victoria-british-columbia-v8z3k6",
-      "emails": [],
-      "listings": [
-        {
-          "address": "Lot 37 Goldstream Heights Dr|Shawnigan Lake, British Columbia V0R2W3",
-          "mls": "1037713",
-          "price": 549000.0,
-          "size": "6.1 ac",
-          "lat": "48.49961292",
-          "lon": "-123.56947583"
-        }
-      ],
-      "total_value": 549000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mike McCulloch",
@@ -4285,7 +4513,32 @@
         }
       ],
       "total_value": 549000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
+    },
+    {
+      "name": "Victoria Cao",
+      "brokerage": "Coldwell Banker Oceanside Real Estate",
+      "phone": "250-891-8578",
+      "brokerage_address": "3194 Douglas St|Victoria, British Columbia V8Z3K6",
+      "websites": [],
+      "profile_url": "https://www.realtor.ca/agent/1966645/victoria-cao-3194-douglas-st-victoria-british-columbia-v8z3k6",
+      "emails": [],
+      "listings": [
+        {
+          "address": "Lot 37 Goldstream Heights Dr|Shawnigan Lake, British Columbia V0R2W3",
+          "mls": "1037713",
+          "price": 549000.0,
+          "size": "6.1 ac",
+          "lat": "48.49961292",
+          "lon": "-123.56947583"
+        }
+      ],
+      "total_value": 549000.0,
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Elizabeth C. Biberger",
@@ -4310,7 +4563,9 @@
         }
       ],
       "total_value": 549900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Megan O'Leary",
@@ -4334,7 +4589,9 @@
         }
       ],
       "total_value": 565000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Cathy Travis",
@@ -4357,7 +4614,9 @@
         }
       ],
       "total_value": 569900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Bo Hyun Park",
@@ -4381,7 +4640,9 @@
         }
       ],
       "total_value": 569900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Munir Shah",
@@ -4402,7 +4663,9 @@
         }
       ],
       "total_value": 574999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Pasha Beigi",
@@ -4425,7 +4688,9 @@
         }
       ],
       "total_value": 574999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Janie Chandler",
@@ -4449,7 +4714,9 @@
         }
       ],
       "total_value": 574999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Bruce Gibson",
@@ -4472,7 +4739,9 @@
         }
       ],
       "total_value": 599000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Govender Sahota",
@@ -4496,7 +4765,9 @@
         }
       ],
       "total_value": 629000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Rod Macintosh",
@@ -4517,7 +4788,9 @@
         }
       ],
       "total_value": 649900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Colleen Ferguson",
@@ -4543,7 +4816,9 @@
         }
       ],
       "total_value": 650000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Connor Braid",
@@ -4564,7 +4839,9 @@
         }
       ],
       "total_value": 650000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Harry Jones",
@@ -4587,7 +4864,9 @@
         }
       ],
       "total_value": 650000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Alex Robertson",
@@ -4608,7 +4887,9 @@
         }
       ],
       "total_value": 650000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Cochrane",
@@ -4635,7 +4916,9 @@
         }
       ],
       "total_value": 679900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Derek Braaten",
@@ -4659,7 +4942,9 @@
         }
       ],
       "total_value": 685000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Michael McMullen",
@@ -4682,7 +4967,9 @@
         }
       ],
       "total_value": 695000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Tammy Marcoux",
@@ -4708,7 +4995,9 @@
         }
       ],
       "total_value": 695000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Taylor McMullen",
@@ -4731,7 +5020,9 @@
         }
       ],
       "total_value": 695000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Michele F. Holmes",
@@ -4756,7 +5047,9 @@
         }
       ],
       "total_value": 699000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Eric Smith",
@@ -4779,7 +5072,9 @@
         }
       ],
       "total_value": 699000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Adam Ball",
@@ -4804,7 +5099,9 @@
         }
       ],
       "total_value": 699900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "David Silletta",
@@ -4827,7 +5124,9 @@
         }
       ],
       "total_value": 699900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Agustin Torres",
@@ -4852,7 +5151,9 @@
         }
       ],
       "total_value": 699900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Gunnar Stephenson",
@@ -4873,7 +5174,9 @@
         }
       ],
       "total_value": 699998.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jerry Du",
@@ -4894,7 +5197,9 @@
         }
       ],
       "total_value": 700000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sandy Yoachim",
@@ -4918,7 +5223,9 @@
         }
       ],
       "total_value": 739000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Seb Kaiser",
@@ -4943,7 +5250,9 @@
         }
       ],
       "total_value": 749000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mikko Ikonen",
@@ -4968,7 +5277,9 @@
         }
       ],
       "total_value": 749800.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Hardip Johal",
@@ -4993,7 +5304,9 @@
         }
       ],
       "total_value": 749999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Layne Britton",
@@ -5019,7 +5332,9 @@
         }
       ],
       "total_value": 749999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kory Wagstaff",
@@ -5040,7 +5355,9 @@
         }
       ],
       "total_value": 749999.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Patrick Hossack",
@@ -5066,7 +5383,9 @@
         }
       ],
       "total_value": 799000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kate Gray",
@@ -5092,7 +5411,9 @@
         }
       ],
       "total_value": 799000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Gavin Holland",
@@ -5113,7 +5434,9 @@
         }
       ],
       "total_value": 799000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jeff Bryan",
@@ -5134,7 +5457,9 @@
         }
       ],
       "total_value": 799000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kristie Haz",
@@ -5157,7 +5482,9 @@
         }
       ],
       "total_value": 825000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Matthew Larkey",
@@ -5178,7 +5505,9 @@
         }
       ],
       "total_value": 850000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sandy Berry",
@@ -5205,7 +5534,9 @@
         }
       ],
       "total_value": 850000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Karen Carter",
@@ -5226,7 +5557,9 @@
         }
       ],
       "total_value": 850000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Sean Janzer",
@@ -5249,7 +5582,9 @@
         }
       ],
       "total_value": 869900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Joshua Prowse",
@@ -5275,7 +5610,9 @@
         }
       ],
       "total_value": 898000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Andrea Prowse",
@@ -5300,7 +5637,9 @@
         }
       ],
       "total_value": 898000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ellie Matheson",
@@ -5323,7 +5662,9 @@
         }
       ],
       "total_value": 899000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Paul Cooper",
@@ -5347,7 +5688,9 @@
         }
       ],
       "total_value": 899000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "James Bridge",
@@ -5368,7 +5711,9 @@
         }
       ],
       "total_value": 899900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Tammi Dimock",
@@ -5392,7 +5737,9 @@
         }
       ],
       "total_value": 900000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jacob Dimock",
@@ -5417,7 +5764,9 @@
         }
       ],
       "total_value": 900000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Hailey Dimock",
@@ -5438,7 +5787,9 @@
         }
       ],
       "total_value": 900000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Shawn Dubois",
@@ -5462,7 +5813,9 @@
         }
       ],
       "total_value": 925000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Cathy Duncan",
@@ -5485,7 +5838,9 @@
         }
       ],
       "total_value": 949900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ed G. Sing",
@@ -5508,7 +5863,9 @@
         }
       ],
       "total_value": 975000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "David Beswick",
@@ -5534,7 +5891,9 @@
         }
       ],
       "total_value": 995000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dane Kingsbury",
@@ -5557,7 +5916,9 @@
         }
       ],
       "total_value": 995000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Randi MacMurchy",
@@ -5578,7 +5939,9 @@
         }
       ],
       "total_value": 995000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Lisa Williams",
@@ -5601,7 +5964,9 @@
         }
       ],
       "total_value": 998000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Johnny Vernon",
@@ -5626,7 +5991,9 @@
         }
       ],
       "total_value": 1049000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chad Kruper",
@@ -5649,7 +6016,9 @@
         }
       ],
       "total_value": 1049000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "John Vernon",
@@ -5674,7 +6043,9 @@
         }
       ],
       "total_value": 1049000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Darren Day",
@@ -5697,7 +6068,9 @@
         }
       ],
       "total_value": 1099900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ry Innes",
@@ -5722,7 +6095,9 @@
         }
       ],
       "total_value": 1099900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kate Bell",
@@ -5745,7 +6120,9 @@
         }
       ],
       "total_value": 1125000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Blair Veenstra",
@@ -5770,7 +6147,9 @@
         }
       ],
       "total_value": 1125000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Glynis MacLeod",
@@ -5797,7 +6176,9 @@
         }
       ],
       "total_value": 1149000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kirsten MacLeod",
@@ -5818,7 +6199,9 @@
         }
       ],
       "total_value": 1149000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Lewis Ratcliff",
@@ -5839,7 +6222,9 @@
         }
       ],
       "total_value": 1149900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mitch McMichael",
@@ -5862,7 +6247,9 @@
         }
       ],
       "total_value": 1149900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Jackie Ngai",
@@ -5885,7 +6272,9 @@
         }
       ],
       "total_value": 1175000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ingrid Jarisz",
@@ -5911,7 +6300,9 @@
         }
       ],
       "total_value": 1198000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Clive Townley",
@@ -5932,7 +6323,9 @@
         }
       ],
       "total_value": 1300000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Brad Neufeld",
@@ -5955,7 +6348,9 @@
         }
       ],
       "total_value": 1495000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dariya Langille",
@@ -5978,7 +6373,9 @@
         }
       ],
       "total_value": 1620000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Stephen Foster",
@@ -6004,7 +6401,9 @@
         }
       ],
       "total_value": 1650000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Brad MacLaren",
@@ -6027,7 +6426,9 @@
         }
       ],
       "total_value": 1790000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Kyle Kerr",
@@ -6048,7 +6449,9 @@
         }
       ],
       "total_value": 1850000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Harrison Siemens",
@@ -6069,7 +6472,9 @@
         }
       ],
       "total_value": 1950000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Corey Lister",
@@ -6092,7 +6497,9 @@
         }
       ],
       "total_value": 1950000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Colevin Crause",
@@ -6117,7 +6524,9 @@
         }
       ],
       "total_value": 1999000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Quinn Liberatore",
@@ -6138,7 +6547,9 @@
         }
       ],
       "total_value": 1999000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Dan Robbins",
@@ -6159,7 +6570,9 @@
         }
       ],
       "total_value": 2100000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Cassie Kangas",
@@ -6182,7 +6595,9 @@
         }
       ],
       "total_value": 2100000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Cameron Doyle",
@@ -6205,7 +6620,9 @@
         }
       ],
       "total_value": 2100000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Mike Doughty",
@@ -6231,7 +6648,9 @@
         }
       ],
       "total_value": 2150000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "mdoughty@remax.net",
+      "email_source": "website"
     },
     {
       "name": "Terry Stockus",
@@ -6254,7 +6673,9 @@
         }
       ],
       "total_value": 2595000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "David Parry",
@@ -6275,7 +6696,9 @@
         }
       ],
       "total_value": 2595000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Nick Wise",
@@ -6298,7 +6721,9 @@
         }
       ],
       "total_value": 2699000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "mike@garryoakgroup.com",
+      "email_source": "website"
     },
     {
       "name": "Michael Colwill",
@@ -6322,7 +6747,9 @@
         }
       ],
       "total_value": 2699000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "mike@garryoakgroup.com",
+      "email_source": "website"
     },
     {
       "name": "Kevin Pirie",
@@ -6345,28 +6772,9 @@
         }
       ],
       "total_value": 2850000.0,
-      "listing_count": 1
-    },
-    {
-      "name": "Mandy Lee",
-      "brokerage": "Fair Realty",
-      "phone": "250-818-6688",
-      "brokerage_address": "301-1321 Blanshard St|Victoria, British Columbia V8W0B6",
-      "websites": [],
-      "profile_url": "https://www.realtor.ca/agent/1980181/mandy-lee-301-1321-blanshard-st-victoria-british-columbia-v8w0b6",
-      "emails": [],
-      "listings": [
-        {
-          "address": "DL-130 Trans Canada Hwy|Malahat, British Columbia V0V0V0",
-          "mls": "1030829",
-          "price": 2888000.0,
-          "size": "64.99 ac",
-          "lat": "48.56662067",
-          "lon": "-123.54295717"
-        }
-      ],
-      "total_value": 2888000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Tom Brailsford",
@@ -6389,7 +6797,9 @@
         }
       ],
       "total_value": 2900000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "admin@cboceanside.com",
+      "email_source": "website"
     },
     {
       "name": "Kenny Hundal",
@@ -6410,7 +6820,9 @@
         }
       ],
       "total_value": 3236000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Cheryl Laidlaw",
@@ -6433,7 +6845,9 @@
         }
       ],
       "total_value": 3888800.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "CherylLaidlaw@shaw.ca",
+      "email_source": "website"
     },
     {
       "name": "Ken Kiers",
@@ -6456,7 +6870,9 @@
         }
       ],
       "total_value": 4695000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Marcus Degroot",
@@ -6479,7 +6895,9 @@
         }
       ],
       "total_value": 4959000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "jaclyn@karenlove.com",
+      "email_source": "website"
     },
     {
       "name": "May Liu",
@@ -6500,7 +6918,9 @@
         }
       ],
       "total_value": 5099900.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Chris Rust",
@@ -6525,7 +6945,9 @@
         }
       ],
       "total_value": 12500000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "Ross Marshall",
@@ -6548,7 +6970,9 @@
         }
       ],
       "total_value": 12500000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     },
     {
       "name": "James Liu",
@@ -6569,7 +6993,9 @@
         }
       ],
       "total_value": 13860000.0,
-      "listing_count": 1
+      "listing_count": 1,
+      "email": "",
+      "email_source": "not found"
     }
   ]
 }
