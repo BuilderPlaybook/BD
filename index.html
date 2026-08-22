@@ -1388,7 +1388,6 @@ td:hover > .sc-note-pop{display:block}
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
     <div class="tb-r">
       <span class="tb-save" id="tb-save" title="Your work is saved in this browser"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span>Saved &middot; this device</span></span>
-      <button type="button" class="tb-switch" id="tb-backup" onclick="exportBackup()" title="Download a backup file of this module's data" aria-label="Back up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span>Back up</span></button>
       <button class="tb-icon-btn" id="bd-bell" onclick="bdNotifToggle()" title="Notifications" aria-label="Notifications"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="bd-bell-badge" id="bd-bell-badge"></span></button><div class="bd-pop" id="bd-notif-pop"></div><button class="help-btn" id="bd-settings-btn" onclick="openBdSettings()" title="Settings" style="background:transparent;border:1px solid var(--brd);border-radius:6px;padding:5px 9px;cursor:pointer;color:var(--txm)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="help-btn" id="help-btn" onclick="openHelp()" title="Help" style="background:transparent;border:1px solid var(--brd);border-radius:6px;padding:5px 9px;cursor:pointer;color:var(--txm)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
       <button class="coach-btn" id="coach-btn" onclick="openCoach()" title="Coach"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg><span>Coach</span></button>
       <button class="tb-switch" onclick="toastInfo('Switch org','Available once the master shell ships multi-tenant routing.')">
@@ -1713,8 +1712,7 @@ var RENDER_FOR = {
   reports:     function(){ renderReports(); },
   prospecting: function(){ renderProspecting(); },
   followups:   function(){ renderFollowups(); },
-  scorecard:   function(){ renderScorecard(); },
-  templates:   function(){ renderTemplates(); }
+  scorecard:   function(){ renderScorecard(); }
 };
 
 /* Accessibility v1: stamp scope="col" on every table header (direct or
@@ -2545,6 +2543,77 @@ function clearPtnFilters(){
    PARTNERS -> CRM HANDOFF + DATA BACKUP
    ============================================================ */
 function _partnerFind(id){ for(var i=0;i<PARTNERS.length;i++) if(PARTNERS[i].id===id) return PARTNERS[i]; return null; }
+/* Same human is stored as both a Partner and a Market Lead (lot agent), each
+   with its own activity log. On the partner record, pull in the matching lot
+   agent's logged emails/notes so the full history shows in one place. Read-only
+   display merge: does not modify stored data or sync. Match on email (primary)
+   or name+firm (fallback). Deduped by loggedAt, newest first. */
+function _combinedActsForPartner(p){
+  var own=(p&&p.act)?p.act.slice():[];
+  if(!p||typeof PROSPECTS==='undefined'||!PROSPECTS.length) return own;
+  var pe=String(p.email||'').trim().toLowerCase();
+  var pae=String(p.altEmail||'').trim().toLowerCase();
+  var pn=(typeof _ptnNormText==='function')?_ptnNormText(((p.cf||'')+' '+(p.cl||'')).trim()):'';
+  var pf=(typeof _ptnNormText==='function')?_ptnNormText(p.firm||''):'';
+  var seen={};
+  own.forEach(function(a){ if(a){ var k=a.loggedAt||('x:'+(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')); seen[k]=1; } });
+  var extra=[];
+  PROSPECTS.forEach(function(pr){
+    if(!pr||pr.type!=='lot'||!pr.act||!pr.act.length) return;
+    var ce=String(pr.contactEmail||'').trim().toLowerCase();
+    var cae=String(pr.altEmail||'').trim().toLowerCase();
+    var cn=(typeof _ptnNormText==='function')?_ptnNormText(pr.contactName||''):'';
+    var cf=(typeof _ptnNormText==='function')?_ptnNormText(pr.contactFirm||''):'';
+    var emailMatch=(pe&&(ce===pe||cae===pe))||(pae&&(ce===pae||cae===pae));
+    var nameMatch=(pn&&cn&&pn===cn&&pf&&cf&&pf===cf);
+    if(!emailMatch&&!nameMatch) return;
+    pr.act.forEach(function(a){
+      if(!a) return;
+      var k=a.loggedAt||('x:'+(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||''));
+      if(seen[k]) return;
+      seen[k]=1; extra.push(a);
+    });
+  });
+  if(!extra.length) return own;
+  var all=own.concat(extra);
+  all.sort(function(a,b){ var ta=(a&&(a.loggedAt||a.d))||'', tb=(b&&(b.loggedAt||b.d))||''; return ta<tb?1:(ta>tb?-1:0); });
+  return all;
+}
+/* Mirror of _combinedActsForPartner for the Market Leads (lot-agent) record:
+   pull in the matching Partner's logged emails/notes so the same full history
+   shows here too. Read-only display merge; does not modify stored data or sync.
+   Match on email (primary) or name+firm (fallback). Deduped, newest first. */
+function _combinedActsForLead(pr){
+  var own=(pr&&pr.act)?pr.act.slice():[];
+  if(!pr||typeof PARTNERS==='undefined'||!PARTNERS.length) return own;
+  var ce=String(pr.contactEmail||'').trim().toLowerCase();
+  var cae=String(pr.altEmail||'').trim().toLowerCase();
+  var cn=(typeof _ptnNormText==='function')?_ptnNormText(pr.contactName||''):'';
+  var cf=(typeof _ptnNormText==='function')?_ptnNormText(pr.contactFirm||''):'';
+  var seen={};
+  own.forEach(function(a){ if(a){ var k=a.loggedAt||('x:'+(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')); seen[k]=1; } });
+  var extra=[];
+  PARTNERS.forEach(function(p){
+    if(!p||!p.act||!p.act.length) return;
+    var pe=String(p.email||'').trim().toLowerCase();
+    var pae=String(p.altEmail||'').trim().toLowerCase();
+    var pn=(typeof _ptnNormText==='function')?_ptnNormText(((p.cf||'')+' '+(p.cl||'')).trim()):'';
+    var pf=(typeof _ptnNormText==='function')?_ptnNormText(p.firm||''):'';
+    var emailMatch=(ce&&(pe===ce||pae===ce))||(cae&&(pe===cae||pae===cae));
+    var nameMatch=(cn&&pn&&cn===pn&&cf&&pf&&cf===pf);
+    if(!emailMatch&&!nameMatch) return;
+    p.act.forEach(function(a){
+      if(!a) return;
+      var k=a.loggedAt||('x:'+(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||''));
+      if(seen[k]) return;
+      seen[k]=1; extra.push(a);
+    });
+  });
+  if(!extra.length) return own;
+  var all=own.concat(extra);
+  all.sort(function(a,b){ var ta=(a&&(a.loggedAt||a.d))||'', tb=(b&&(b.loggedAt||b.d))||''; return ta<tb?1:(ta>tb?-1:0); });
+  return all;
+}
 
 /* Shared push: writes the lead to CRM when the leads steward is present,
    fires the cross-module intake event, and records the push on the partner
@@ -3034,8 +3103,9 @@ function openPartner(id){
     '</div>'+
   '</div>';
 
-  main+=_mktgActsCard(p.act,'partner',p.id);
-  main+=_emailThreadCard('partner',p.id,p.act,((p.cf||'')+' '+(p.cl||'')).trim(),p.email);
+  var _combActs=_combinedActsForPartner(p);
+  main+=_mktgActsCard(_combActs,'partner',p.id);
+  main+=_emailThreadCard('partner',p.id,_combActs,((p.cf||'')+' '+(p.cl||'')).trim(),p.email);
 
   html+='<div class="rec-layout"><div class="rec-side">'+rail+'</div><div class="rec-main">'+main+'</div></div>';
 
@@ -3070,6 +3140,17 @@ function connectIntegrationPlaceholder(name){
 function openBdSettings(){
   if(typeof openModal!=='function')return;
   var body=''+
+    '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Data</div>'+
+    '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
+      'BD pulls your existing entries from the Marketing module automatically the first time it opens in this browser. Use Pull entries from Marketing to re-pull at any time. Export a backup file to keep or move to another machine, or restore from one. Importing replaces everything currently in this browser. Merge duplicate agents collapses duplicate partner and lot-agent records into one record per person.'+
+    '</p>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">'+
+      '<button type="button" class="btn btn-primary btn-sm" onclick="pullFromMarketing()">Pull entries from Marketing</button>'+
+      '<button type="button" class="btn btn-sm" onclick="exportBackup()">Export backup</button>'+
+      '<button type="button" class="btn btn-sm" onclick="importBackupPick()">Import backup</button>'+
+      '<button type="button" class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
+      '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
+    '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
       'Connect your work inbox to sync sent and received emails to each partner automatically. '+
@@ -4594,8 +4675,9 @@ function _mleadDetailLot(p){
   var prows=port.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):'<span class="muted">-</span>'; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="_setListingUrl('+p.id+',\''+_esc(mls)+'\',\'lot\')">'+(l.url?'edit link':'+ link')+'</a>'):''; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap">'+mc+lk+'</td></tr>'; }).join('');
   html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Listings</span><span class="muted" style="font-size:var(--fz-body)">'+num(port.length)+' lot'+(port.length===1?'':'s')+'</span></div>'+
     (port.length?('<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">MLS</th></tr></thead><tbody>'+prows+'</tbody></table></div>'):'<div class="card-body"><div class="muted">No listings on record.</div></div>')+'</div>';
-  html+=_emailThreadCard('lot',p.id,p.act,p.contactName,p.contactEmail);
-  html+=_mleadActsCard(p.act,'lot',p.id);
+  var _leadActs=_combinedActsForLead(p);
+  html+=_emailThreadCard('lot',p.id,_leadActs,p.contactName,p.contactEmail);
+  html+=_mleadActsCard(_leadActs,'lot',p.id);
   return html;
 }
 
@@ -5518,8 +5600,7 @@ var MK_SUBNAV=[
   ['dashboard','Dashboard'],
   ['partners','Partners'],
   ['scorecard','Scorecard'],
-  ['reports','Reports'],
-  ['templates','Templates']
+  ['reports','Reports']
 ];
 function _mkActiveSec(){ return _curPage||'dashboard'; }
 
@@ -8849,6 +8930,17 @@ function mergeDuplicateAgents(){
 // still requires the full name to match, so different people at the same firm
 // never merge. On a stage conflict the furthest-along pipeline stage wins.
 function _ptnNormText(s){ return String(s||'').toLowerCase().replace(/[\u2018\u2019\u02bc\u00b4'`]/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim(); }
+function _ptnDedupeNameKey(s){
+  // Normalize a partner name for dedupe grouping, dropping single-letter middle
+  // initials so "Logan E. Wilson" and "Logan Wilson" at the same firm collapse
+  // to one person. First and last name tokens (length 2+) must still match, so
+  // "Logan Wilson" and "Logan Baker" never merge. If stripping would leave the
+  // key empty (an all-initials name), fall back to the full normalized form.
+  var nm=_ptnNormText(s);
+  if(!nm) return '';
+  var toks=nm.split(' ').filter(function(t){ return t.length>1; });
+  return toks.length ? toks.join(' ') : nm;
+}
 function _ptnName(p){ return ((p.cf||'')+' '+(p.cl||'')).trim(); }
 function _ptnStageRank(p){ var o=_partnerStageOrder(); var canon=STAGE_MAP[(p&&p.relStage)||'']||'New'; return o.indexOf(canon); }
 function _ptnDedupeScore(p){
@@ -8868,7 +8960,7 @@ function _ptnDedupeScore(p){
 function mergeDuplicatePartners(){
   var groups={};
   PARTNERS.forEach(function(p){
-    var nm=_ptnNormText(_ptnName(p));
+    var nm=_ptnDedupeNameKey(_ptnName(p));
     if(!nm) return; // a real name is required to dedupe a partner
     var k=nm+'|'+_ptnNormText(p.firm);
     (groups[k]=groups[k]||[]).push(p);
@@ -8932,7 +9024,7 @@ function mergeDuplicateAgentsPrompt(){
   PROSPECTS.forEach(function(p){ if(p.type!=='lot') return; var k=_lotDedupeNormName(p.contactName)+'|'+_lotDedupeNormName(p.contactFirm); if(!k.replace(/[| ]/g,'')) return; (lg[k]=lg[k]||[]).push(p); });
   Object.keys(lg).forEach(function(k){ if(lg[k].length>1) lotDup += lg[k].length-1; });
   var ptnDup=0, pg={};
-  PARTNERS.forEach(function(p){ var nm=_ptnNormText(_ptnName(p)); if(!nm) return; var k=nm+'|'+_ptnNormText(p.firm); (pg[k]=pg[k]||[]).push(p); });
+  PARTNERS.forEach(function(p){ var nm=_ptnDedupeNameKey(_ptnName(p)); if(!nm) return; var k=nm+'|'+_ptnNormText(p.firm); (pg[k]=pg[k]||[]).push(p); });
   Object.keys(pg).forEach(function(k){ if(pg[k].length>1) ptnDup += pg[k].length-1; });
   var total=lotDup+ptnDup;
   if(!total){ if(typeof toastSuccess==='function') toastSuccess('No duplicates','Every lot agent and partner is already a single record.'); return; }
@@ -9493,11 +9585,6 @@ function renderDash(){
   var contacts=_reachContacts().filter(_own);
   var actPartners=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'&&_own(p); }).length;
   var overdue=reachOverdue().filter(_own), dueSoon=reachDueSoon().filter(_own);
-  var noTouch=contacts.filter(function(p){ return reachState(p).state==='none'; }).length;
-  var activeChannels=CHANNELS.filter(function(c){ return c.status==='active'; });
-  var channelEmailsDue=activeChannels.reduce(function(a,c){ return a+chEmailStepsDue(c).length; },0);
-  var channelReferrals=activeChannels.reduce(function(a,c){ return a+chReferrals(c); },0);
-  var marketLeads=PROSPECTS.length;
   var html='<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><div class="crm-view-toggle"><button class="'+(_bdDashView!=='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;all&quot;)" aria-selected="'+(_bdDashView!=='mine'?'true':'false')+'">All team</button><button class="'+(_bdDashView==='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;mine&quot;)" aria-selected="'+(_bdDashView==='mine'?'true':'false')+'">Mine</button></div></div>';
 
   /* Scoreboard band. Built here but rendered AFTER My Day: the queue is what
@@ -9569,77 +9656,6 @@ function renderDash(){
   html+='</div>';
 
   html+=scoreboard;
-
-  html+='<div class="grid-2">';
-  var byCat={};
-  PARTNERS.forEach(function(p){ if(p.ownershipStatus!=='Active') return; byCat[p.cat]=(byCat[p.cat]||0)+1; });
-  (function(){ var s=refStats(); var fc=refForecast();
-    html+='<div class="card" style="margin-bottom:14px;align-self:start"><div class="card-hd"><span class="card-title">Referral pipeline</span><button class="btn btn-sm" onclick="setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)">Open referrals</button></div><div class="card-body">'+
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:16px">'+
-      '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt)">'+num(s.logged+s.leads)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">In pipeline</div></div>'+
-      '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--grn)">'+num(s.won)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">Won</div></div>'+
-      '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--grn)">'+bdMoney(s.wonGP)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">GP sourced</div></div>'+
-      '<div><div style="font-size:var(--fz-lg);font-weight:700;color:'+(s.feesOwed?'var(--amb)':'var(--txt)')+'">'+bdMoney(s.feesOwed)+'</div><div style="font-size:var(--fz-body);color:var(--txm)">Fees owed</div></div>'+
-      '<div><div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt)">'+bdMoney(Math.round(fc.expGP))+'</div><div style="font-size:var(--fz-body);color:var(--txm)">Forecast GP</div></div>'+
-      '</div></div></div>';
-  })();
-  html+='<div class="card"><div class="card-hd"><span class="card-title">Partner mix</span>'+
-    '<button class="btn btn-sm" onclick="nav(\'partners\')">All Partners</button></div><div class="card-bd">';
-  var cats=Object.keys(byCat).sort(function(a,b){ return byCat[b]-byCat[a]; });
-  if(!cats.length){ html+='<div class="muted">No active partners yet.</div>'; }
-  cats.forEach(function(c){
-    var w=Math.round((byCat[c]/Math.max(actPartners,1))*100);
-    html+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>'+catPill(c)+'</span><span class="muted">'+byCat[c]+'</span></div>'+
-      '<div class="bar"><span style="width:'+w+'%"></span></div></div>';
-  });
-  html+='</div></div>';
-
-  var _byTier=reachByTier(overdue);
-  var _tCount=tierCounts();
-  html+='<div class="card"><div class="card-hd"><span class="card-title">Reach-out cadence</span>'+
-    '<span class="card-hd-meta">Tier A 30d / B 60d / C 90d</span></div><div class="card-bd">'+
-    '<div class="kv"><span class="kv-k">Tier A overdue</span><span class="kv-v">'+_byTier.A+' <span class="muted">of '+_tCount.A+'</span></span></div>'+
-    '<div class="kv"><span class="kv-k">Tier B overdue</span><span class="kv-v">'+_byTier.B+' <span class="muted">of '+(_tCount.B+_tCount.none)+'</span></span></div>'+
-    '<div class="kv"><span class="kv-k">Tier C overdue</span><span class="kv-v">'+_byTier.C+' <span class="muted">of '+_tCount.C+'</span></span></div>'+
-    '<div class="kv"><span class="kv-k">Due within 7 days</span><span class="kv-v">'+dueSoon.length+'</span></div>'+
-    '<div class="kv"><span class="kv-k">Contacts with no touch logged</span><span class="kv-v">'+noTouch+'</span></div>'+
-    (_tCount.none?('<div class="kv"><span class="kv-k">Untiered, on the 60d default</span><span class="kv-v">'+_tCount.none+'</span></div>'):'')+
-  '</div></div>';
-  html+='</div>';
-
-  var _fuAll=_fuItems().sort(function(a,b){ return String(a.due).localeCompare(String(b.due)); });
-  var _fuDue=_fuAll.filter(function(x){ var dd=daysUntil(x.due); return dd!==null && dd<=7; });
-  if(_mine) _fuDue=_fuDue.filter(function(x){ return (x.owner||'')===_me; });
-  html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Follow-ups due this week</span>'+
-    '<button class="btn btn-sm" onclick="nav(\'followups\')">View all</button></div>';
-  if(!_fuDue.length){
-    html+='<div class="card-bd"><div class="muted">No follow-ups due in the next 7 days.</div></div>';
-  } else {
-    html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Due</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Type</th></tr></thead><tbody>';
-    _fuDue.slice(0,8).forEach(function(x){
-      html+='<tr class="clickable" style="cursor:pointer" onclick="fuOpen(\''+x.kind+'\','+x.id+')">'+
-        '<td class="nowrap">'+_fuDueCell(x.due)+'</td>'+
-        '<td><div style="font-weight:600;color:var(--txt)">'+_esc(x.who)+'</div>'+(x.firm?'<div class="muted" style="font-size:var(--fz-body)">'+_esc(x.firm)+'</div>':'')+'</td>'+
-        '<td>'+(x.action?_esc(x.action):'<span class="muted">-</span>')+'</td>'+
-        '<td class="nowrap muted">'+(x.kind==='lot'?'Lot agent':'Partner')+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  }
-  html+='</div>';
-
-  html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Data backup</span>'+
-    '<span class="card-hd-meta">Export or restore this module\'s data</span></div><div class="card-bd">'+
-    '<div class="muted" style="margin-bottom:10px">BD pulls your existing entries from the Marketing module automatically the first time it opens in this browser. Use Pull entries from Marketing to re-pull at any time. Export a backup file to keep or move to another machine, or restore from one. Importing replaces everything currently in this browser.</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-      '<button class="btn btn-primary btn-sm" onclick="pullFromMarketing()">Pull entries from Marketing</button>'+
-      '<button class="btn btn-sm" onclick="exportBackup()">Export backup</button>'+
-      '<button class="btn btn-sm" onclick="importBackupPick()">Import backup</button>'+
-      '<button class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
-      '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
-    '</div></div></div>';
-
-  html+=bdDashCards();
-  html+=bdBestLeadsCard();
 
   host.innerHTML=html;
   dashLayoutEnhance();
