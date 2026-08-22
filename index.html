@@ -1388,6 +1388,7 @@ td:hover > .sc-note-pop{display:block}
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
     <div class="tb-r">
       <span class="tb-save" id="tb-save" title="Your work is saved in this browser"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span>Saved &middot; this device</span></span>
+      <button type="button" class="tb-switch" id="tb-backup" onclick="exportBackup()" title="Download a backup file of this module's data" aria-label="Back up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span>Back up</span></button>
       <button class="tb-icon-btn" id="bd-bell" onclick="bdNotifToggle()" title="Notifications" aria-label="Notifications"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="bd-bell-badge" id="bd-bell-badge"></span></button><div class="bd-pop" id="bd-notif-pop"></div><button class="help-btn" id="bd-settings-btn" onclick="openBdSettings()" title="Settings" style="background:transparent;border:1px solid var(--brd);border-radius:6px;padding:5px 9px;cursor:pointer;color:var(--txm)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="help-btn" id="help-btn" onclick="openHelp()" title="Help" style="background:transparent;border:1px solid var(--brd);border-radius:6px;padding:5px 9px;cursor:pointer;color:var(--txm)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
       <button class="coach-btn" id="coach-btn" onclick="openCoach()" title="Coach"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg><span>Coach</span></button>
       <button class="tb-switch" onclick="toastInfo('Switch org','Available once the master shell ships multi-tenant routing.')">
@@ -8841,15 +8842,108 @@ function mergeDuplicateAgents(){
   }
   return {mergedGroups:mergedGroups, removed:removed, actMoved:actMoved, emailsSaved:emailsSaved};
 }
+// Partner dedupe. Same treatment as lot agents, with a stronger normalizer so
+// brokerage spelling variants collapse: apostrophes (straight and curly) are
+// removed BEFORE other punctuation is turned to spaces, so "Sotheby's" and
+// "Sothebys" both reduce to "sothebys" and count as the same firm. Grouping
+// still requires the full name to match, so different people at the same firm
+// never merge. On a stage conflict the furthest-along pipeline stage wins.
+function _ptnNormText(s){ return String(s||'').toLowerCase().replace(/[\u2018\u2019\u02bc\u00b4'`]/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim(); }
+function _ptnName(p){ return ((p.cf||'')+' '+(p.cl||'')).trim(); }
+function _ptnStageRank(p){ var o=_partnerStageOrder(); var canon=STAGE_MAP[(p&&p.relStage)||'']||'New'; return o.indexOf(canon); }
+function _ptnDedupeScore(p){
+  // higher = keep this record as the survivor. Activity is the strongest signal,
+  // then a personal (non-generic) email, then how far along the relationship is,
+  // then relationship score, then a filled-in phone.
+  var s=0;
+  s += (p.act && p.act.length ? p.act.length*1000 : 0);
+  var em=String(p.email||'').trim();
+  if(em && !_isGenericEmail(em)) s += 100;
+  else if(em) s += 20;
+  var r=_ptnStageRank(p); if(r>0) s += r*10;
+  s += (p.relScore||0);
+  if(String(p.phone||'').trim()) s += 5;
+  return s;
+}
+function mergeDuplicatePartners(){
+  var groups={};
+  PARTNERS.forEach(function(p){
+    var nm=_ptnNormText(_ptnName(p));
+    if(!nm) return; // a real name is required to dedupe a partner
+    var k=nm+'|'+_ptnNormText(p.firm);
+    (groups[k]=groups[k]||[]).push(p);
+  });
+  var mergedGroups=0, removed=0, actMoved=0, emailsSaved=0, removeIds={};
+  Object.keys(groups).forEach(function(k){
+    var g=groups[k];
+    if(g.length<2) return;
+    g.sort(function(a,b){ var d=_ptnDedupeScore(b)-_ptnDedupeScore(a); return d!==0?d:(a.id-b.id); });
+    var keep=g[0];
+    keep.act = keep.act || [];
+    var bestRank=_ptnStageRank(keep), bestStage=STAGE_MAP[keep.relStage||'']||'New', anyDormant=(keep.relStage==='Dormant');
+    for(var i=1;i<g.length;i++){
+      var dup=g[i];
+      if(dup.act && dup.act.length){ keep.act=keep.act.concat(dup.act); actMoved+=dup.act.length; }
+      // preserve emails: personal stays primary, any extra address goes to altEmail
+      var de=String(dup.email||'').trim();
+      if(de){
+        var ke=String(keep.email||'').trim();
+        if(!ke){ keep.email=de; }
+        else if(de.toLowerCase()!==ke.toLowerCase()){
+          if(_isGenericEmail(ke) && !_isGenericEmail(de)){ if(String(keep.altEmail||'').trim().toLowerCase()!==ke.toLowerCase()) keep.altEmail=ke; keep.email=de; }
+          else if(!String(keep.altEmail||'').trim()){ keep.altEmail=de; }
+          emailsSaved++;
+        }
+      }
+      // fill any blank survivor fields from the duplicate
+      ['phone','mobile','web','li','city','province','officeStreet','officePostal','officeCountry','title','cat','team','prefContact','bestTime','worksWithBuilder','priorityTier','contactCompleteness','partnerNotes','personalNotes','nextContact','nextAction','nextOwner','assignedTo','secondaryOwner','department','dateAssigned'].forEach(function(f){
+        if(!String(keep[f]||'').trim() && String(dup[f]||'').trim()) keep[f]=dup[f];
+      });
+      // numeric fields: keep the higher value rather than double-counting
+      ['relScore','estValue','booksDelivered','eventsAttended','siteTours','referralDiscussions'].forEach(function(f){
+        if((dup[f]||0) > (keep[f]||0)) keep[f]=dup[f];
+      });
+      // union linked leads
+      if(dup.linkedLeads && dup.linkedLeads.length){ keep.linkedLeads=keep.linkedLeads||[]; dup.linkedLeads.forEach(function(x){ if(keep.linkedLeads.indexOf(x)<0) keep.linkedLeads.push(x); }); }
+      // merge stage dates, keeping the earliest date recorded per stage
+      if(dup.stageDates){ keep.stageDates=keep.stageDates||{}; Object.keys(dup.stageDates).forEach(function(st){ var d=dup.stageDates[st]; if(d && (!keep.stageDates[st] || d<keep.stageDates[st])) keep.stageDates[st]=d; }); }
+      // furthest-along stage wins on conflict
+      if(dup.relStage==='Dormant') anyDormant=true;
+      var r=_ptnStageRank(dup); if(r>bestRank){ bestRank=r; bestStage=STAGE_MAP[dup.relStage||'']||'New'; }
+      removeIds[dup.id]=1; removed++;
+    }
+    if(bestRank>=0){ keep.relStage=bestStage; if(!keep.stageDates) keep.stageDates={}; if(bestStage && !keep.stageDates[bestStage]) keep.stageDates[bestStage]=_today(); }
+    else if(anyDormant){ keep.relStage='Dormant'; }
+    keep.act.sort(function(a,b){ var ta=new Date(a.loggedAt||a.d||0).getTime(), tb=new Date(b.loggedAt||b.d||0).getTime(); return (tb||0)-(ta||0); });
+    var last=''; keep.act.forEach(function(a){ var dd=String(a.d||'').slice(0,10); if(dd && dd>last) last=dd; });
+    if(last) keep.lastContact=last;
+    mergedGroups++;
+  });
+  if(removed){
+    PARTNERS = PARTNERS.filter(function(p){ return !removeIds[p.id]; });
+    try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    save();
+    try{ if(typeof renderPartners==='function' && document.getElementById('bd-ptnlist')) renderPartners(); }catch(e){}
+  }
+  return {mergedGroups:mergedGroups, removed:removed, actMoved:actMoved, emailsSaved:emailsSaved};
+}
 function mergeDuplicateAgentsPrompt(){
-  var dupCount=0, groups={};
-  PROSPECTS.forEach(function(p){ if(p.type!=='lot') return; var k=_lotDedupeNormName(p.contactName)+'|'+_lotDedupeNormName(p.contactFirm); if(!k.replace(/[| ]/g,'')) return; (groups[k]=groups[k]||[]).push(p); });
-  Object.keys(groups).forEach(function(k){ if(groups[k].length>1) dupCount += groups[k].length-1; });
-  if(!dupCount){ if(typeof toastSuccess==='function') toastSuccess('No duplicates','Every lot agent is already a single record.'); return; }
-  var body='<div style="font-size:var(--fz-body)">Found <b>'+dupCount+'</b> duplicate agent record'+(dupCount===1?'':'s')+' to merge. Each person becomes one record: your logged emails and notes are kept, your personal email stays primary, and any extra address is saved on the record. This cannot be undone, so export a backup first if you want a safety copy.</div>';
+  var lotDup=0, lg={};
+  PROSPECTS.forEach(function(p){ if(p.type!=='lot') return; var k=_lotDedupeNormName(p.contactName)+'|'+_lotDedupeNormName(p.contactFirm); if(!k.replace(/[| ]/g,'')) return; (lg[k]=lg[k]||[]).push(p); });
+  Object.keys(lg).forEach(function(k){ if(lg[k].length>1) lotDup += lg[k].length-1; });
+  var ptnDup=0, pg={};
+  PARTNERS.forEach(function(p){ var nm=_ptnNormText(_ptnName(p)); if(!nm) return; var k=nm+'|'+_ptnNormText(p.firm); (pg[k]=pg[k]||[]).push(p); });
+  Object.keys(pg).forEach(function(k){ if(pg[k].length>1) ptnDup += pg[k].length-1; });
+  var total=lotDup+ptnDup;
+  if(!total){ if(typeof toastSuccess==='function') toastSuccess('No duplicates','Every lot agent and partner is already a single record.'); return; }
+  var parts=[];
+  if(lotDup) parts.push('<b>'+lotDup+'</b> duplicate lot agent record'+(lotDup===1?'':'s'));
+  if(ptnDup) parts.push('<b>'+ptnDup+'</b> duplicate partner record'+(ptnDup===1?'':'s'));
+  var body='<div style="font-size:var(--fz-body)">Found '+parts.join(' and ')+' to merge. Each person becomes one record: logged emails and notes are kept, the personal email stays primary, any extra address is saved on the record, and duplicate partners keep the furthest-along pipeline stage. This cannot be undone, so export a backup first if you want a safety copy.</div>';
   openModal({title:'Merge duplicate agents', body:body, saveLabel:'Merge now', onSave:function(){
-    var r=mergeDuplicateAgents(); closeModal();
-    if(typeof toastSuccess==='function') toastSuccess('Duplicates merged', r.removed+' record'+(r.removed===1?'':'s')+' merged into '+r.mergedGroups+' agent'+(r.mergedGroups===1?'':'s')+(r.actMoved?(', '+r.actMoved+' logged item'+(r.actMoved===1?'':'s')+' preserved'):''));
+    var r1=mergeDuplicateAgents(); var r2=mergeDuplicatePartners(); closeModal();
+    var removed=r1.removed+r2.removed, groups=r1.mergedGroups+r2.mergedGroups, moved=r1.actMoved+r2.actMoved;
+    if(typeof toastSuccess==='function') toastSuccess('Duplicates merged', removed+' record'+(removed===1?'':'s')+' merged into '+groups+' '+(groups===1?'person':'people')+(moved?(', '+moved+' logged item'+(moved===1?'':'s')+' preserved'):''));
   }});
 }
 function save(){
@@ -9533,8 +9627,6 @@ function renderDash(){
   }
   html+='</div>';
 
-  html+=bdDashCards();
-  html+=bdBestLeadsCard();
   html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Data backup</span>'+
     '<span class="card-hd-meta">Export or restore this module\'s data</span></div><div class="card-bd">'+
     '<div class="muted" style="margin-bottom:10px">BD pulls your existing entries from the Marketing module automatically the first time it opens in this browser. Use Pull entries from Marketing to re-pull at any time. Export a backup file to keep or move to another machine, or restore from one. Importing replaces everything currently in this browser.</div>'+
@@ -9545,6 +9637,9 @@ function renderDash(){
       '<button class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
     '</div></div></div>';
+
+  html+=bdDashCards();
+  html+=bdBestLeadsCard();
 
   host.innerHTML=html;
   dashLayoutEnhance();
