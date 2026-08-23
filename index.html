@@ -1986,7 +1986,6 @@ function _readForm(scopeId){
    name in every person picker. A stored value may be a full name (new) or a
    first name (legacy); _fullName resolves either to the full display name. */
 var BD_TEAM=['Dave Stephens','Terry Pearson','Mika Nishimura'];
-function _bdSeedTeam(){ if(!BD_TEAM||!BD_TEAM.length){ _fill(BD_TEAM,['Dave Stephens','Terry Pearson','Mika Nishimura']); } }
 function _fullName(v){ v=String(v||'').trim(); if(!v) return ''; for(var i=0;i<BD_TEAM.length;i++){ var f=BD_TEAM[i]; if(f===v||String(f).split(' ')[0]===v) return f; } return v; }
 function _teamOpts(sel,includeBlank){ sel=_fullName(sel); var out=includeBlank?'<option value="">Unassigned</option>':''; out+=BD_TEAM.map(function(n){ return '<option value="'+_esc(n)+'"'+(n===sel?' selected':'')+'>'+_esc(n)+'</option>'; }).join(''); return out; }
 function _personOpts(sel){ return _teamOpts(sel,true); }
@@ -3459,7 +3458,6 @@ var CHANNEL_CATEGORY_OPTIONS=['Architect','Residential Designer','Interior Desig
 var CHANNEL_TASK_KINDS=['Call','Lunch','Site Tour','Send Portfolio','Handwritten Note'];
 var _chDraft=null;
 
-function chStatusPill(st){ return _chip(st==='active'?'c-grn':st==='paused'?'c-amb':'c-gry', st); }
 function channelMembers(ch){
   return PARTNERS.filter(function(p){ return ch.categories.indexOf(p.cat)>=0 && p.ownershipStatus==='Active'; });
 }
@@ -3497,278 +3495,18 @@ function chTaskRecs(ch){
 function chOverdueContacts(ch){
   return channelMembers(ch).filter(function(p){ var ds=daysSince(p.lastContact); return ds!=null && ds>(ch.overdueDays||90); });
 }
-function chEmailsSent(ch){ return CHANNEL_TOUCHES.filter(function(x){ return x.channelId===ch.id && x.kind==='email'; }).length; }
-function chScrollTo(id){ try{ var el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){} }
 function chReferrals(ch){
   return channelMembers(ch).reduce(function(a,p){ return a+((p.linkedLeads&&p.linkedLeads.length)||0); },0);
-}
-function chReferralDiscussions(ch){
-  return channelMembers(ch).reduce(function(a,p){ return a+(p.referralDiscussions||0); },0);
 }
 function memberNextEmailDue(ch,p){
   var due=ch.cadence.filter(function(step){ return step.type==='email' && chStepDue(ch,step,p); });
   return due.length?due[0].label:'';
 }
 
-function chFiltered(){
-  var q=((document.getElementById('ch-q')||{}).value||'').toLowerCase();
-  var st=(document.getElementById('ch-f-status')||{}).value||'';
-  return CHANNELS.filter(function(c){
-    if(st && c.status!==st) return false;
-    if(q && c.name.toLowerCase().indexOf(q)<0) return false;
-    return true;
-  });
-}
-function clearChFilters(){
-  var q=document.getElementById('ch-q'); if(q) q.value='';
-  var f=document.getElementById('ch-f-status'); if(f) f.value='';
-  renderChannels();
-}
 
-function renderChannels(){
-  var host=document.getElementById('channels-content');
-  if(!CHANNELS.length){ host.innerHTML=emptyState('No partner channels yet','Create a channel that nurtures a partner category on a cadence. Email touches simulate through the Postmark stub; personal touches surface as recommended actions.','<button class="btn btn-primary btn-sm" onclick="openChannelModal(null)">+ New Channel</button>'); return; }
-  var rows=chFiltered();
-  if(!rows.length){ host.innerHTML=filteredEmpty('clearChFilters'); return; }
-  var totalDue=CHANNELS.reduce(function(a,c){ return a+chEmailStepsDue(c).length; },0);
-  var banner=totalDue?('<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px"><div><span class="chip c-amb">'+totalDue+' due</span> email touch'+(totalDue===1?'':'es')+' are due across active channels.</div><button class="btn btn-primary btn-sm" onclick="runAllChannelEmails()">Run all due (simulated)</button></div>'):'';
-  var body=rows.map(function(c){
-    var members=channelMembers(c).length;
-    var due=chEmailStepsDue(c).length;
-    var refs=chReferrals(c);
-    return '<tr>'+
-      '<td class="cell-firm"><span class="linkish" onclick="openChannel('+c.id+')">'+_esc(c.name)+'</span></td>'+
-      '<td>'+chStatusPill(c.status)+'</td>'+
-      '<td>'+c.categories.map(function(x){ return catPill(x); }).join(' ')+'</td>'+
-      '<td class="right">'+num(members)+'</td>'+
-      '<td class="right">'+(due?'<span class="chip c-amb">'+due+'</span>':'-')+'</td>'+
-      '<td class="right">'+num(refs)+' / '+num(c.goalReferrals||0)+'</td>'+
-      '<td class="right nowrap"><button class="btn btn-sm" onclick="openChannel('+c.id+')">Open</button> '+
-      '<button class="btn btn-sm" onclick="openChannelModal('+c.id+')">Edit</button></td></tr>';
-  }).join('');
-  host.innerHTML=banner+'<div class="card"><div class="tbl-wrap"><table>'+
-    '<thead><tr><th scope="col">Channel</th><th scope="col">Status</th><th scope="col">Categories</th><th class="right" scope="col">Members</th><th class="right" scope="col">Emails due</th><th class="right" scope="col">Referrals / goal</th><th></th></tr></thead>'+
-    '<tbody>'+body+'</tbody></table></div></div>';
-}
 
-function _chTriggerLabel(step){
-  if(step.trigger==='on-join') return 'On join';
-  if(step.trigger==='on-stage') return 'On stage: '+_esc(step.triggerStage||'-');
-  if(step.trigger==='every-n-days') return 'Every '+(step.intervalDays||0)+' days';
-  return _esc(step.trigger);
-}
-function openChannel(id){
-  var ch=CHANNELS.filter(function(x){ return x.id===id; })[0]; if(!ch) return;
-  var members=channelMembers(ch);
-  var due=chEmailStepsDue(ch);
-  var taskRecs=chTaskRecs(ch);
-  var overdue=chOverdueContacts(ch);
-  var refs=chReferrals(ch), goal=ch.goalReferrals||0;
-  var toggleLabel=ch.status==='active'?'Pause':'Activate';
-
-  var html='<div class="pg"><div><div class="pg-title">'+_esc(ch.name)+'</div>'+
-    '<div class="pg-sub">'+chStatusPill(ch.status)+' &middot; '+ch.categories.join(', ')+' &middot; created '+fmtDate(ch.createdAt)+'</div></div>'+
-    '<div class="pg-actions">'+
-      (due.length?'<button class="btn btn-primary btn-sm" onclick="runDueChannelEmails('+ch.id+')">Run '+due.length+' due email'+(due.length===1?'':'s')+' (simulated)</button>':'')+
-      '<button class="btn btn-sm" onclick="toggleChannelStatus('+ch.id+')">'+toggleLabel+'</button>'+
-      '<button class="btn btn-sm" onclick="openChannelModal('+ch.id+')">Edit</button>'+
-      '<button class="btn btn-red btn-sm" onclick="deleteChannel('+ch.id+')">Delete</button>'+
-    '</div></div>';
-
-  html+='<div class="kpi-cards" style="margin-bottom:14px">'+
-    _refStatCard(num(members.length),'Members','blu','Partners whose category matches this channel and who receive its cadence. Click to jump to the member list.',"chScrollTo('ch-sec-members')")+
-    _refStatCard(num(chEmailsSent(ch)),'Emails sent','blu','Total cadence emails sent to members through this channel. Click to jump to the email history.',"chScrollTo('ch-sec-emails')")+
-    _refStatCard(num(refs)+' / '+num(goal),'Referrals vs goal',(refs>=goal&&goal>0?'grn':'amb'),'Referrals generated by this channel\'s members against the channel goal.')+
-    _refStatCard(num(overdue.length),'Contact overdue',(overdue.length?'red':'grn'),'Members not contacted within the channel\'s overdue threshold.')+
-    '</div>';
-
-  var cad=ch.cadence.map(function(step,i){
-    var tpl=step.type==='email'?TEMPLATES.filter(function(t){ return t.id===step.templateId; })[0]:null;
-    var detail=step.type==='email'?('Template: '+_esc(tpl?tpl.name:'(missing)')):('Personal: '+_esc(step.taskKind||'task'));
-    return '<div class="tile"><div style="display:flex;justify-content:space-between;gap:8px"><h4>'+_esc(step.label)+'</h4>'+
-      '<span class="chip '+(step.type==='email'?'c-blu':'c-gry')+'">'+_esc(step.type)+'</span></div>'+
-      '<div class="muted" style="margin:4px 0">'+_chTriggerLabel(step)+'</div>'+
-      '<div class="muted" style="font-size:var(--fz-xs)">'+detail+'</div></div>';
-  }).join('');
-  html+='<div class="card"><div class="card-hd"><div class="card-title">Cadence</div></div><div class="card-body"><div class="grid-3">'+(cad||'<div class="muted">No cadence steps.</div>')+'</div></div></div>';
-
-  // recommended personal actions
-  var recItems=[];
-  taskRecs.forEach(function(r){
-    recItems.push('<tr><td class="cell-firm">'+_esc(r.partner.firm)+'</td><td>'+_esc(r.partner.cf+' '+r.partner.cl)+'</td>'+
-      '<td><span class="chip c-gry">'+_esc(r.step.taskKind||'Task')+'</span></td><td class="muted">'+_esc(r.step.label)+'</td>'+
-      '<td class="right nowrap"><button class="btn btn-sm" onclick="openPartner('+r.partner.id+')">Open</button> <button class="btn btn-primary btn-sm" onclick="markChannelTaskDone('+ch.id+','+r.step.id+','+r.partner.id+')">Mark done</button></td></tr>');
-  });
-  overdue.forEach(function(p){
-    var ds=daysSince(p.lastContact);
-    recItems.push('<tr><td class="cell-firm">'+_esc(p.firm)+'</td><td>'+_esc(p.cf+' '+p.cl)+'</td>'+
-      '<td><span class="chip c-amb">Overdue contact</span></td><td class="muted">No contact in '+ds+' days (threshold '+(ch.overdueDays||90)+')</td>'+
-      '<td class="right nowrap"><button class="btn btn-sm" onclick="openPartner('+p.id+')">Open partner</button></td></tr>');
-  });
-  html+='<div class="card" style="margin-top:14px"><div class="card-hd"><div class="card-title">Recommended personal touches ('+recItems.length+')</div></div>'+
-    (recItems.length?('<div class="tbl-wrap"><table><thead><tr><th>Firm</th><th>Contact</th><th>Action</th><th>Why</th><th></th></tr></thead><tbody>'+recItems.join('')+'</tbody></table></div>')
-      :'<div class="card-body"><div class="muted">No personal touches due. The channel is current.</div></div>')+'</div>';
-
-  // members
-  var mrows=members.map(function(p){
-    var ds=daysSince(p.lastContact);
-    var lc=p.lastContact?(fmtDate(p.lastContact)+(ds!=null&&ds>(ch.overdueDays||90)?' <span class="chip c-amb">'+ds+'d</span>':'')):'-';
-    var nd=memberNextEmailDue(ch,p);
-    return '<tr><td class="cell-firm"><span class="linkish" onclick="openPartner('+p.id+')">'+_esc(p.firm)+'</span></td>'+
-      '<td>'+_esc(p.cf+' '+p.cl)+'</td>'+
-      '<td>'+catPill(p.cat)+'</td>'+
-      '<td>'+_esc(p.relStage||'-')+'</td>'+
-      '<td class="nowrap">'+lc+'</td>'+
-      '<td class="right">'+num((p.linkedLeads&&p.linkedLeads.length)||0)+'</td>'+
-      '<td>'+(nd?'<span class="chip c-amb">'+_esc(nd)+'</span>':'<span class="muted">current</span>')+'</td></tr>';
-  }).join('');
-  html+='<div class="card" id="ch-sec-members" style="margin-top:14px"><div class="card-hd"><div class="card-title">Members ('+members.length+')</div></div>'+
-    (members.length?('<div class="tbl-wrap"><table><thead><tr><th>Firm</th><th>Contact</th><th>Category</th><th>Stage</th><th>Last contact</th><th class="right">Referrals</th><th>Next email</th></tr></thead><tbody>'+mrows+'</tbody></table></div>')
-      :'<div class="card-body"><div class="muted">No active partners match this channel category yet.</div></div>')+'</div>';
-
-  // email history (sent email touches for this channel; matches the Emails-sent count)
-  var touches=(CHANNEL_TOUCHES||[]).filter(function(t){ return t.channelId===ch.id && t.kind==='email'; }).slice().sort(function(a,b){ return String(b.at||'').localeCompare(String(a.at||'')); });
-  var trows=touches.map(function(t){
-    var p=_partnerFind(t.partnerId);
-    var st=null; (ch.cadence||[]).forEach(function(s){ if(s.id===t.stepId) st=s; });
-    return '<tr><td class="cell-firm">'+(p?'<span class="linkish" onclick="openPartner('+p.id+')">'+_esc(p.firm)+'</span>':'<span class="muted">Partner removed</span>')+'</td>'+
-      '<td>'+_esc(st?st.label:'Email touch')+'</td>'+
-      '<td class="nowrap">'+(t.at?fmtDate(String(t.at).slice(0,10)):'-')+'</td></tr>';
-  }).join('');
-  html+='<div class="card" id="ch-sec-emails" style="margin-top:14px"><div class="card-hd"><div class="card-title">Email history ('+touches.length+')</div></div>'+
-    (touches.length?('<div class="tbl-wrap"><table><thead><tr><th>Partner</th><th>Touch</th><th>Sent</th></tr></thead><tbody>'+trows+'</tbody></table></div>')
-      :'<div class="card-body"><div class="muted">No emails sent through this channel yet. Touches sent by the cadence appear here.</div></div>')+'</div>';
-
-  document.getElementById('channel-detail').innerHTML=html;
-  nav('channel');
-}
-function runDueChannelEmails(channelId){
-  var ch=CHANNELS.filter(function(x){ return x.id===channelId; })[0]; if(!ch) return;
-  if(ch.status!=='active'){ toastInfo('Channel not active','Activate the channel before sending touches.'); return; }
-  var due=chEmailStepsDue(ch);
-  if(!due.length){ toastInfo('Nothing due','No email touches are due for this channel.'); return; }
-  Promise.all(due.map(function(d){ return _sendChannelEmail(ch,d.step,d.partner); })).then(function(){
-    save(); openChannel(channelId); toastSuccess('Touches sent (simulated)',due.length+' email'+(due.length===1?'':'s')+' delivered through the stub.');
-  });
-}
-function runAllChannelEmails(){
-  var jobs=[];
-  CHANNELS.forEach(function(ch){ if(ch.status==='active') chEmailStepsDue(ch).forEach(function(d){ jobs.push(_sendChannelEmail(ch,d.step,d.partner)); }); });
-  if(!jobs.length){ toastInfo('Nothing due','No email touches are due.'); return; }
-  Promise.all(jobs).then(function(){ save(); renderChannels(); toastSuccess('Touches sent (simulated)',jobs.length+' email'+(jobs.length===1?'':'s')+' delivered through the stub.'); });
-}
-function markChannelTaskDone(channelId,stepId,partnerId){
-  CHANNEL_TOUCHES.push({id:_nextId(CHANNEL_TOUCHES),channelId:channelId,stepId:stepId,partnerId:partnerId,at:_nowIso(),kind:'task'});
-  var _pp=_partnerFind(partnerId); if(_pp){ if(_today()>(_pp.lastContact||'')) _pp.lastContact=_today(); }
-  save(); openChannel(channelId); toastSuccess('Logged','Personal touch marked done.');
-}
-function toggleChannelStatus(id){
-  var ch=CHANNELS.filter(function(x){ return x.id===id; })[0]; if(!ch) return;
-  ch.status=ch.status==='active'?'paused':'active';
-  save(); openChannel(id); toastInfo('Channel '+ch.status,ch.name);
-}
-function deleteChannel(id){
-  var ch=CHANNELS.filter(function(x){ return x.id===id; })[0]; if(!ch) return;
-  if(!confirm('Delete "'+ch.name+'"? Touch history for this channel is also removed.')) return;
-  for(var i=CHANNELS.length-1;i>=0;i--) if(CHANNELS[i].id===id) CHANNELS.splice(i,1);
-  for(var j=CHANNEL_TOUCHES.length-1;j>=0;j--) if(CHANNEL_TOUCHES[j].channelId===id) CHANNEL_TOUCHES.splice(j,1);
-  save(); nav('channels'); toastInfo('Deleted',ch.name);
-}
 
 /* ---- channel builder ---- */
-function _chStepRowsHtml(){
-  if(!_chDraft.cadence.length) return '<div class="muted" style="padding:6px 0">No steps yet. Add the first touch below.</div>';
-  return _chDraft.cadence.map(function(st,i){
-    var tplSel=TEMPLATES.map(function(t){ return '<option value="'+t.id+'"'+(t.id===st.templateId?' selected':'')+'>'+_esc(t.name)+'</option>'; }).join('');
-    var taskSel=CHANNEL_TASK_KINDS.map(function(k){ return '<option value="'+_esc(k)+'"'+(k===st.taskKind?' selected':'')+'>'+_esc(k)+'</option>'; }).join('');
-    function trigOpt(v,l){ return '<option value="'+v+'"'+(st.trigger===v?' selected':'')+'>'+l+'</option>'; }
-    function typeOpt(v,l){ return '<option value="'+v+'"'+(st.type===v?' selected':'')+'>'+l+'</option>'; }
-    return '<div class="tile" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'+
-      '<h4>Touch '+(i+1)+'</h4><div style="display:flex;gap:4px">'+
-        (i>0?'<button class="btn btn-sm" onclick="chStepMove('+i+',-1)">Up</button>':'')+
-        (i<_chDraft.cadence.length-1?'<button class="btn btn-sm" onclick="chStepMove('+i+',1)">Down</button>':'')+
-        '<button class="btn btn-red btn-sm" onclick="chStepDel('+i+')">Remove</button></div></div>'+
-      '<div class="smb-form-grid" style="margin-top:8px">'+
-        '<div class="smb-fld full"><label>Label</label><input type="text" value="'+_esc(st.label||'')+'" onchange="chStepSet('+i+',\'label\',this.value)"></div>'+
-        '<div class="smb-fld"><label>Type</label><select onchange="chStepSet('+i+',\'type\',this.value)">'+typeOpt('email','Email (simulated send)')+typeOpt('task','Personal touch (task)')+'</select></div>'+
-        '<div class="smb-fld"><label>Trigger</label><select onchange="chStepSet('+i+',\'trigger\',this.value)">'+trigOpt('on-join','On join')+trigOpt('every-n-days','Every N days')+trigOpt('on-stage','On relationship stage')+'</select></div>'+
-        '<div class="smb-fld"><label>Interval days (if every N days)</label><input type="number" min="0" value="'+(st.intervalDays||0)+'" onchange="chStepSet('+i+',\'intervalDays\',this.value)"></div>'+
-        '<div class="smb-fld"><label>Stage (if on stage)</label><input type="text" value="'+_esc(st.triggerStage||'')+'" placeholder="e.g. Active Partner" onchange="chStepSet('+i+',\'triggerStage\',this.value)"></div>'+
-        '<div class="smb-fld"><label>Template (if email)</label><select onchange="chStepSet('+i+',\'templateId\',this.value)">'+tplSel+'</select></div>'+
-        '<div class="smb-fld"><label>Task kind (if personal)</label><select onchange="chStepSet('+i+',\'taskKind\',this.value)">'+taskSel+'</select></div>'+
-        '<label class="smb-fld-check full"><input type="checkbox"'+(st.skipIfSuppressed?' checked':'')+' onchange="chStepSet('+i+',\'skipIfSuppressed\',this.checked)">Skip suppressed contacts (email only)</label>'+
-      '</div></div>';
-  }).join('');
-}
-function _chRenderSteps(){ var h=document.getElementById('ch-steps-host'); if(h) h.innerHTML=_chStepRowsHtml(); }
-function chStepSet(i,field,val){
-  var st=_chDraft.cadence[i]; if(!st) return;
-  if(field==='intervalDays') st.intervalDays=Math.max(0,Number(val)||0);
-  else if(field==='templateId') st.templateId=Number(val);
-  else if(field==='skipIfSuppressed') st.skipIfSuppressed=!!val;
-  else st[field]=val;
-}
-function chStepAdd(){
-  var firstTpl=TEMPLATES.length?TEMPLATES[0].id:0;
-  _chDraft.cadence.push({id:_nextId(_chDraft.cadence),label:'New touch',type:'email',trigger:_chDraft.cadence.length?'every-n-days':'on-join',intervalDays:_chDraft.cadence.length?60:0,triggerStage:'',templateId:firstTpl,taskKind:'Call',skipIfSuppressed:true});
-  _chRenderSteps();
-}
-function chStepDel(i){ _chDraft.cadence.splice(i,1); _chRenderSteps(); }
-function chStepMove(i,dir){
-  var j=i+dir; if(j<0||j>=_chDraft.cadence.length) return;
-  var t=_chDraft.cadence[i]; _chDraft.cadence[i]=_chDraft.cadence[j]; _chDraft.cadence[j]=t;
-  _chRenderSteps();
-}
-function openChannelModal(id){
-  var existing=(id!==null && id!==undefined)?CHANNELS.filter(function(x){ return x.id===id; })[0]:null;
-  _chDraft = existing ? JSON.parse(JSON.stringify(existing)) : {name:'',status:'draft',categories:[],overdueDays:90,goalReferrals:0,cadence:[]};
-  if(!TEMPLATES.length){ toastInfo('No templates','Create a template first so email touches have something to send.'); }
-  var catChecks=CHANNEL_CATEGORY_OPTIONS.map(function(c){
-    return '<label class="smb-fld-check"><input type="checkbox" data-chcat="'+_esc(c)+'"'+(_chDraft.categories.indexOf(c)>=0?' checked':'')+'>'+_esc(c)+'</label>';
-  }).join('');
-  var body=
-    _section('Channel',
-      _fld('Name','name','text',_chDraft.name,{full:true,ph:'e.g. Architect & Designer Nurture'})+
-      _fld('Status','status','select',_chDraft.status,{options:['draft','active','paused']})+
-      _fld('Contact-overdue threshold (days)','overdueDays','number',_chDraft.overdueDays,{})+
-      _fld('Referral goal','goalReferrals','number',_chDraft.goalReferrals,{})
-    )+
-    '<div class="smb-form-section"><div class="smb-form-section-title">Target partner categories</div><div class="smb-form-grid">'+catChecks+'</div></div>'+
-    '<div class="smb-form-section"><div class="smb-form-section-title">Cadence</div>'+
-      '<div id="ch-steps-host">'+_chStepRowsHtml()+'</div>'+
-      '<button class="btn btn-sm" style="margin-top:8px" onclick="chStepAdd()">+ Add touch</button>'+
-    '</div>';
-  openModal({
-    title: existing?'Edit Channel':'New Channel',
-    sub: existing?_chDraft.name:'Automated nurture for a partner category',
-    body: body,
-    saveLabel: existing?'Save Channel':'Create Channel',
-    onSave: function(){ saveChannel(existing); }
-  });
-}
-function saveChannel(existing){
-  var f=_readForm();
-  if(!f.name || !f.name.trim()){ modalErr('Name is required.'); return; }
-  var cats=[];
-  var boxes=document.querySelectorAll('#smb-modal-bd [data-chcat]');
-  for(var i=0;i<boxes.length;i++){ if(boxes[i].checked) cats.push(boxes[i].getAttribute('data-chcat')); }
-  if(!cats.length){ modalErr('Pick at least one partner category.'); return; }
-  if(!_chDraft.cadence.length){ modalErr('Add at least one cadence touch.'); return; }
-  var rec=existing||{id:_nextId(CHANNELS),createdAt:_today()};
-  rec.name=f.name.trim();
-  rec.status=f.status;
-  rec.overdueDays=Math.max(1,Number(f.overdueDays)||90);
-  rec.goalReferrals=Math.max(0,Number(f.goalReferrals)||0);
-  rec.categories=cats;
-  rec.cadence=_chDraft.cadence.map(function(st,i){
-    return {id:i,label:(st.label||'Touch '+(i+1)).trim(),type:st.type,trigger:st.trigger,
-      intervalDays:Math.max(0,Number(st.intervalDays)||0),triggerStage:st.triggerStage||'',
-      templateId:Number(st.templateId)||0,taskKind:st.taskKind||'Call',skipIfSuppressed:!!st.skipIfSuppressed};
-  });
-  if(!existing) CHANNELS.push(rec);
-  _chDraft=null;
-  save(); closeModal(); renderChannels(); toastSuccess(existing?'Channel saved':'Channel created',rec.name);
-}
 function _numOr(v,d){ var n=Number(v); return isNaN(n)?d:n; }
 
 /* ============================================================
@@ -4379,15 +4117,6 @@ function _miniBar(items){ return '<div class="mini-bar">'+items.map(function(it)
 
 var _composeTokens={};
 function _mergeTokens(str){ var s=String(str||''); for(var k in _composeTokens){ s=s.split('{{'+k+'}}').join(_composeTokens[k]==null?'':_composeTokens[k]); } return s; }
-function _applyTemplateToCompose(id){
-  var subj=document.querySelector('.smb-modal-body [data-f=\"subject\"]');
-  var bodyEl=document.querySelector('.smb-modal-body [data-f=\"body\"]');
-  if(id===''||id==null) return;
-  var t=null; for(var i=0;i<TEMPLATES.length;i++){ if(String(TEMPLATES[i].id)===String(id)){ t=TEMPLATES[i]; break; } }
-  if(!t) return;
-  if(subj) subj.value=_mergeTokens(t.subject||'');
-  if(bodyEl){ bodyEl.value=_mergeTokens(t.body||''); _autogrow(bodyEl); }
-}
 function _editSignature(){
   openModal({title:'Email signature', saveLabel:'Save signature',
     body:_section('Signature', _fld('Added to the bottom of every email you send','sig','textarea',(EMAIL_SIGNATURE||''),{full:true,rows:5}))+'<div class="muted" style="font-size:var(--fz-body);margin-top:6px">This is appended to every email composed here, so it appears the same on any computer regardless of your mail app settings. Set it before composing; opening this clears the current draft.</div>',
@@ -5473,125 +5202,8 @@ function prospectLogContact(id){
    ============================================================ */
 var OUTREACH={drafts:[],settings:{maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true},tplByCat:{}};
 var OR_DEFAULT_TPL={'Realtor':'Realtor Book Delivery','Architect':'Architect Book Delivery','Residential Designer':'Architect Book Delivery','Building Plan Designer':'Architect Book Delivery','Interior Designer':'Architect Book Delivery','Developer':'Partner Check-in','_mlead':'Lot Agent Outreach','_default':'Partner Check-in'};
-function _orValidEmail(e){ e=String(e||'').trim(); return e.indexOf('@')>0 && e.toUpperCase()!=='N/R'; }
-function _orOutbound(acts){ acts=acts||[]; for(var i=0;i<acts.length;i++){ if(acts[i]&&acts[i].type==='Email'&&!acts[i].inbound) return true; } return false; }
 function _orTplFor(cat){ var pick=OUTREACH.tplByCat[cat]||OR_DEFAULT_TPL[cat]||OR_DEFAULT_TPL._default; for(var i=0;i<TEMPLATES.length;i++){ var t=TEMPLATES[i]; if(t.channel!=='sms'&&(t.id===pick||t.name===pick)) return t; } return null; }
-function _orMerge(str,tok){ var s=String(str||''); for(var k in tok){ s=s.split('{{'+k+'}}').join(tok[k]==null?'':tok[k]); } return s; }
-function _orDraftFor(kind,refId){ for(var i=0;i<OUTREACH.drafts.length;i++){ var d=OUTREACH.drafts[i]; if(d.kind===kind&&d.refId===refId&&d.status!=='rejected') return d; } return null; }
-function _orNextId(){ var m=0; OUTREACH.drafts.forEach(function(d){ if(d.id>m)m=d.id; }); return m+1; }
-function orScanDraft(){
-  var made=0, skipped=0, seen={};
-  OUTREACH.drafts.forEach(function(d){ if(d.status!=='rejected'&&d.to) seen[d.to.toLowerCase()]=1; });
-  PARTNERS.forEach(function(p){
-    if(!_orValidEmail(p.email)) return;
-    var em=String(p.email).trim().toLowerCase();
-    if(seen[em]){ skipped++; return; }
-    if(p.relStage==='Dormant'||p.hasReply||String(p.dnf||'').trim()) { skipped++; return; }
-    if(p.initialContact||_orOutbound(p.act)) { skipped++; return; }
-    if(_orDraftFor('partner',p.id)) return;
-    var tpl=_orTplFor(p.cat||'_default'); if(!tpl) return;
-    var fn=String(p.cf||'').trim()||'there';
-    var tok={first_name:fn,area:p.city||'your area'};
-    OUTREACH.drafts.push({id:_orNextId(),kind:'partner',refId:p.id,to:String(p.email).trim(),name:((p.cf||'')+' '+(p.cl||'')).trim()||p.firm,firm:p.firm||'',cat:p.cat||'',subject:_orMerge(tpl.subject,tok),body:_orMerge(tpl.body,tok),status:'pending',createdAt:new Date().toISOString(),note:''});
-    seen[em]=1; made++;
-  });
-  PROSPECTS.forEach(function(p){
-    if(!_orValidEmail(p.contactEmail)) return;
-    var em=String(p.contactEmail).trim().toLowerCase();
-    if(seen[em]){ skipped++; return; }
-    if(p.hasReply||_orOutbound(p.act)) { skipped++; return; }
-    if(_orDraftFor('mlead',p.id)) return;
-    var tpl=_orTplFor('_mlead'); if(!tpl) return;
-    var nm=String(p.contactName||'').trim(); var fn=nm.split(/\s+/)[0]||'there';
-    var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||p.address||'your area';
-    OUTREACH.drafts.push({id:_orNextId(),kind:'mlead',refId:p.id,to:String(p.contactEmail).trim(),name:nm||p.contactFirm||'Lot agent',firm:p.contactFirm||'',cat:'Market Lead',subject:_orMerge(tpl.subject,{first_name:fn,area:area}),body:_orMerge(tpl.body,{first_name:fn,area:area}),status:'pending',createdAt:new Date().toISOString(),note:''});
-    seen[em]=1; made++;
-  });
-  save();
-  if(typeof toastSuccess==='function') toastSuccess('Scan complete', made+' new draft'+(made===1?'':'s')+' written and locked for your review.'+(skipped?' '+skipped+' record'+(skipped===1?'':'s')+' suppressed (already emailed, replied, dormant, do-not-contact, or duplicate email).':''));
-  renderOutreach();
-}
-function _orSweep(){
-  var now=new Date(), changed=false;
-  OUTREACH.drafts.forEach(function(d){
-    if((d.status==='pending'||d.status==='approved')){
-      var replied=false;
-      if(d.kind==='partner'){ var p=_partnerFind(d.refId); replied=!!(p&&p.hasReply); }
-      else { var m=_prospFind(d.refId); replied=!!(m&&m.hasReply); }
-      if(replied){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; changed=true; return; }
-    }
-    if(d.status==='approved'&&d.expiresAt&&new Date(d.expiresAt)<now){ d.status='pending'; d.note='Approval expired after '+(OUTREACH.settings.expiryDays||30)+' days. Please re-review.'; d.approvedAt=null; d.expiresAt=null; changed=true; }
-  });
-  if(changed) save();
-}
 function orFreezeFor(kind,id){ var hit=false; OUTREACH.drafts.forEach(function(d){ if(d.kind===kind&&d.refId===id&&(d.status==='pending'||d.status==='approved')){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; hit=true; } }); if(hit){ save(); } }
-function _orFind(id){ for(var i=0;i<OUTREACH.drafts.length;i++) if(OUTREACH.drafts[i].id===id) return OUTREACH.drafts[i]; return null; }
-function orEditDraft(id,field,val){ var d=_orFind(id); if(!d) return; if(field==='subject') d.subject=val; else if(field==='body') d.body=val; save(); }
-function orApprove(id){ var d=_orFind(id); if(!d||d.status!=='pending') return; d.status='approved'; d.approvedAt=new Date().toISOString(); d.approvedBy=_curName(); var ex=new Date(); ex.setDate(ex.getDate()+(Number(OUTREACH.settings.expiryDays)||30)); d.expiresAt=ex.toISOString(); d.note=''; save(); renderOutreach(); }
-function orReject(id){ var d=_orFind(id); if(!d) return; d.status='rejected'; d.decidedAt=new Date().toISOString(); save(); renderOutreach(); }
-function orRevoke(id){ var d=_orFind(id); if(!d) return; d.status='pending'; d.approvedAt=null; d.expiresAt=null; d.note=''; save(); renderOutreach(); }
-function orApproveAllPending(){ var n=0; OUTREACH.drafts.forEach(function(d){ if(d.status==='pending'){ d.status='approved'; d.approvedAt=new Date().toISOString(); d.approvedBy=_curName(); var ex=new Date(); ex.setDate(ex.getDate()+(Number(OUTREACH.settings.expiryDays)||30)); d.expiresAt=ex.toISOString(); d.note=''; n++; } }); save(); if(typeof toastSuccess==='function') toastSuccess('Approved', n+' draft'+(n===1?'':'s')+' moved to the release queue.'); renderOutreach(); }
-function orSetSetting(key,val){ var n=Math.max(1,Math.floor(Number(val)||0)); if(key==='maxPerDay'){ OUTREACH.settings.maxPerDay=Math.min(500,n||10); } else if(key==='expiryDays'){ OUTREACH.settings.expiryDays=Math.min(365,n||30); } save(); renderOutreach(); }
-function orSetTpl(cat,tplId){ if(tplId==='') delete OUTREACH.tplByCat[cat]; else OUTREACH.tplByCat[cat]=isNaN(Number(tplId))?tplId:Number(tplId); save(); }
-function _orCount(st){ return OUTREACH.drafts.filter(function(d){ return d.status===st; }).length; }
-function _orSentToday(){ var t=_today(); return OUTREACH.drafts.filter(function(d){ return d.status==='sent'&&String(d.sentAt||'').slice(0,10)===t; }).length; }
-function _orDraftCard(d){
-  var locked=d.status!=='pending';
-  var meta='<span class="tag tag-slate" style="margin-right:6px">'+_esc(d.cat||'')+'</span><span class="muted" style="font-size:var(--fz-body)">'+_esc(d.to)+'</span>';
-  var head='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><strong style="font-size:var(--fz-lg)">'+_esc(d.name||d.firm)+'</strong>'+(d.firm&&d.name!==d.firm?' <span class="muted">'+_esc(d.firm)+'</span>':'')+'</div><div>'+meta+'</div></div>';
-  var note=d.note?'<div class="muted" style="font-size:var(--fz-body);margin-top:4px">'+_esc(d.note)+'</div>':'';
-  var fields;
-  if(locked){
-    fields='<div style="margin-top:8px"><span class="muted" style="font-size:var(--fz-body)">Subject:</span> '+_esc(d.subject)+'</div>'+
-      '<div class="muted" style="font-size:var(--fz-body);margin-top:4px;white-space:pre-wrap">'+_esc(d.body).slice(0,400)+(d.body.length>400?'...':'')+'</div>';
-  } else {
-    fields='<div style="margin-top:8px"><input id="or-sub-'+d.id+'" type="text" value="'+_esc(d.subject)+'" onchange="orEditDraft('+d.id+',\'subject\',this.value)" style="width:100%"></div>'+
-      '<div style="margin-top:6px"><textarea id="or-bod-'+d.id+'" rows="6" onchange="orEditDraft('+d.id+',\'body\',this.value)" style="width:100%">'+_esc(d.body)+'</textarea></div>';
-  }
-  var btns='';
-  if(d.status==='pending') btns='<button class="btn btn-primary btn-sm" onclick="orApprove('+d.id+')">Approve</button> <button class="btn btn-sm" onclick="orReject('+d.id+')">Reject</button>';
-  else if(d.status==='approved') btns='<span class="chip c-amb" style="margin-right:8px">Awaiting send backend</span><button class="btn btn-sm" onclick="orRevoke('+d.id+')">Pull back to review</button>';
-  else if(d.status==='frozen') btns='<span class="chip c-gry" style="margin-right:8px">Frozen: contact replied</span><button class="btn btn-sm" onclick="orReject('+d.id+')">Discard</button>';
-  else if(d.status==='rejected') btns='<button class="btn btn-sm" onclick="orRevoke('+d.id+')">Restore to review</button>';
-  var when=d.status==='approved'&&d.approvedAt?('<div class="muted" style="font-size:var(--fz-body);margin-top:4px">Approved '+fmtDate(d.approvedAt.slice(0,10))+' by '+_esc(d.approvedBy||'')+(d.expiresAt?' | approval expires '+fmtDate(d.expiresAt.slice(0,10)):'')+'</div>'):'';
-  return '<div class="card" style="margin-bottom:10px"><div class="card-bd">'+head+note+fields+when+'<div style="margin-top:8px">'+btns+'</div></div></div>';
-}
-function renderOutreach(){
-  _orSweep();
-  var el=document.getElementById('outreach-content'); if(!el) return;
-  var pend=_orCount('pending'), appr=_orCount('approved'), froz=_orCount('frozen'), rej=_orCount('rejected');
-  var cap=Math.max(0,(Number(OUTREACH.settings.maxPerDay)||10)-_orSentToday());
-  var h='<div class="page-hd"><div><h1>Outreach</h1><div class="page-sub">Automated first-touch emails, written and locked until you approve their release</div></div>'+
-    '<div><button class="btn btn-primary" onclick="orScanDraft()">Scan and write drafts</button></div></div>';
-  h+='<div class="kpi-cards dash-metrics" style="margin-bottom:16px">'+
-    _refStatCard(num(pend),'Pending your approval','blu','Drafts written and locked, waiting for you to approve or reject. Click to review.',"chScrollTo('or-sec-pending')")+
-    _refStatCard(num(appr),'Approved, in release queue','blu','Approved drafts waiting for the send backend to release them at the daily limit.',"chScrollTo('or-sec-release')")+
-    _refStatCard(num(froz),'Frozen (replied)',(froz?'amb':'blu'),'Drafts automatically held because the contact replied. Nothing sends to a partner who has answered.')+
-    _refStatCard(num(cap),'Release capacity today','blu','Emails still allowed to go out today under your daily send limit.')+
-    '</div>';
-  h+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Release settings</span></div><div class="card-bd">'+
-    '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">'+
-    '<label style="font-size:var(--fz-body)">Max emails per day <input type="number" min="1" max="500" value="'+(Number(OUTREACH.settings.maxPerDay)||10)+'" onchange="orSetSetting(\'maxPerDay\',this.value)" style="width:70px;margin-left:6px"></label>'+
-    '<label style="font-size:var(--fz-body)">Approval expires after <input type="number" min="1" max="365" value="'+(Number(OUTREACH.settings.expiryDays)||30)+'" onchange="orSetSetting(\'expiryDays\',this.value)" style="width:70px;margin-left:6px"> days</label>'+
-    '<span class="muted" style="font-size:var(--fz-body)">Weekdays only, business hours, spread through the day</span></div>'+
-    '<div class="muted" style="font-size:var(--fz-body);margin-top:8px">Approved emails do not send from this prototype. They wait in the release queue until the shared email backend is connected, then release automatically at the daily limit above, from your address with your full signature. If a contact replies, everything queued to them freezes.</div>'+
-    '</div></div>';
-  var tplOpts=TEMPLATES.filter(function(t){ return t.channel!=='sms'; });
-  var cats=['Realtor','Architect','Residential Designer','Building Plan Designer','Interior Designer','Developer','_mlead'];
-  h+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Template per audience</span></div><div class="card-bd"><div style="display:flex;gap:16px;flex-wrap:wrap">'+
-    cats.map(function(c){ var cur=OUTREACH.tplByCat[c]||OR_DEFAULT_TPL[c]||OR_DEFAULT_TPL._default; return '<label style="font-size:var(--fz-body)">'+_esc(c==='_mlead'?'Market Leads':c)+'<br><select onchange="orSetTpl(\''+c+'\',this.value)">'+tplOpts.map(function(t){ var sel=(t.id===cur||t.name===cur)?' selected':''; return '<option value="'+t.id+'"'+sel+'>'+_esc(t.name)+'</option>'; }).join('')+'</select></label>'; }).join('')+
-    '</div><div class="muted" style="font-size:var(--fz-body);margin-top:8px">New drafts use the template mapped to the record\'s category. Edit any draft before approving.</div></div></div>';
-  var pending=OUTREACH.drafts.filter(function(d){ return d.status==='pending'; });
-  h+='<div id="or-sec-pending" style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px"><span class="card-title">Pending approval ('+pending.length+')</span>'+(pending.length?'<button class="btn btn-sm" onclick="orApproveAllPending()">Approve all pending</button>':'')+'</div>';
-  h+=pending.length?pending.map(_orDraftCard).join(''):emptyState('Nothing waiting on you','Run a scan to write first-touch drafts for every partner and market lead you have not emailed yet.','');
-  var approved=OUTREACH.drafts.filter(function(d){ return d.status==='approved'; });
-  if(approved.length){ h+='<div id="or-sec-release" class="card-title" style="margin:14px 0 8px;display:block">Release queue ('+approved.length+')</div>'+approved.map(_orDraftCard).join(''); }
-  var frozen=OUTREACH.drafts.filter(function(d){ return d.status==='frozen'; });
-  if(frozen.length){ h+='<div class="card-title" style="margin:14px 0 8px;display:block">Frozen ('+frozen.length+')</div>'+frozen.map(_orDraftCard).join(''); }
-  if(rej){ h+='<div class="muted" style="font-size:var(--fz-body);margin:14px 0 4px">'+rej+' rejected draft'+(rej===1?'':'s')+' kept for record.</div>'; }
-  el.innerHTML=h;
-  normalizeTableScope(el);
-}
 
 /* ---- init ---- */
 
@@ -6073,7 +5685,7 @@ function _renderNoDataBar(reason){
 
 function emCreateIssue(){ showToast("Issues module not in BD"); } function emCreateTodo(){ showToast("To-Dos module not in BD"); }
 function scorecardCreateLinkedIssue(){ showToast("Issues module not in BD"); }
-function goalSendToTeam(){} function issueSendToTeam(){} function headlineCascade(){} function sendCascade(){}
+ function issueSendToTeam(){} function headlineCascade(){} function sendCascade(){}
 function _navigateToEntity(){} function _getEntityById(){ return null; }
 /* real CSV export ported from VSP */
 function exportScorecardCSV(){
@@ -7302,65 +6914,7 @@ function renderScorecardInline(opts){ _recalcAll();
   return h;
 }
 
-function renderTeamMenu(menuKey){
-  var activeT=teamsRegistry[state.currentTeam]||teamsRegistry['lt'];
-  var open=!!state[menuKey];
-  var h='<div style="position:relative;display:inline-block">';
-  h+='<button onclick="state.'+menuKey+'=!state.'+menuKey+';renderPage()" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:1px solid var(--brd2);background:var(--sur);cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt)">';
-  h+='Team: <strong>'+activeT.name+'</strong>';
-  h+='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>';
-  if(open){
-    h+='<div style="position:absolute;top:36px;left:0;background:var(--sur);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.15);z-index:300;min-width:230px;padding:4px 0">';
-    Object.keys(teamsRegistry).forEach(function(tid){
-      var tm=teamsRegistry[tid]; var isA=tid===state.currentTeam;
-      h+='<button onclick="state.'+menuKey+'=false;switchTeam(\''+tid+'\')" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 14px;border:none;background:'+(isA?'var(--blub)':'transparent')+';cursor:pointer;font-family:inherit;color:'+(isA?'var(--blu)':'var(--txt)')+';font-size:var(--fz-lg)">'+tm.name+'</button>';
-    });
-    h+='</div>';
-    h+='<div onclick="state.'+menuKey+'=false;renderPage()" style="position:fixed;inset:0;z-index:99"></div>';
-  }
-  h+='</div>';
-  return h;
-}
 
-function renderTeamSelector(){
-  var el=document.getElementById('team-selector');
-  if(!el) return;
-  var teamList=Object.values(teamsRegistry);
-  var active=teamsRegistry[state.currentTeam]||teamsRegistry["lt"];
-  var h='';
-  h+='<button onclick="state.showTeamMenu=!state.showTeamMenu;renderTeamSelector()" style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;border:1px solid var(--brd2);background:var(--sur);cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt)">';
-  h+='<div style="width:8px;height:8px;border-radius:50%;background:'+active.color+';flex-shrink:0"></div>';
-  h+='<span>Team: <strong>'+active.name+'</strong></span>';
-  h+='<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
-  h+='</button>';
-  if(state.showTeamMenu){
-    h+='<div style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--sur);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;min-width:240px;padding:4px 0">';
-    h+='<div style="padding:8px 10px 4px;border-bottom:1px solid var(--brd)">';
-    h+='<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sur2);border-radius:5px;border:1px solid var(--brd)">';
-    h+='<svg width="11" height="11" fill="none" stroke="var(--txm)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>';
-    h+='<input id="team-search" oninput="renderTeamSelector()" placeholder="Search teams..." style="border:none;background:transparent;font-size:var(--fz-lg);font-family:inherit;color:var(--txt);width:100%;outline:none">';
-    h+='</div></div>';
-    var searchEl=document.getElementById('team-search');
-    var q=searchEl?searchEl.value.toLowerCase():'';
-    var filtered=teamList.filter(function(t){return t.name.toLowerCase().includes(q);});
-    filtered.forEach(function(t){
-      var isActive=t.id===state.currentTeam;
-      h+='<button onclick="switchTeam(\''+t.id+'\')" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 14px;border:none;background:'+(isActive?'var(--blub)':'transparent')+';cursor:pointer;font-family:inherit;color:'+(isActive?'var(--blu)':'var(--txt)')+';font-size:var(--fz-lg)">';
-      h+='<div style="width:8px;height:8px;border-radius:50%;background:'+t.color+';flex-shrink:0"></div>';
-      h+=t.name;
-      if(isActive) h+='<svg style="margin-left:auto" width="11" height="11" fill="none" stroke="var(--blu)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
-      h+='</button>';
-    });
-    h+='<div style="border-top:1px solid var(--brd);padding:4px 0;margin-top:4px">';
-    h+='<button onclick="state.showTeamMenu=false;state.newTeamPanel=true;renderPage()" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;color:var(--blu);font-size:var(--fz-lg)">';
-    h+='<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Create Team</button>';
-    h+='</div>';
-    h+='</div>';
-    h+='<div onclick="state.showTeamMenu=false;renderTeamSelector()" style="position:fixed;inset:0;z-index:299"></div>';
-  }
-  el.innerHTML=h;
-  if(state.showTeamMenu){var si=document.getElementById('team-search');if(si)si.focus();}
-}
 
 function rerenderKeepScroll(){
   var pc=document.getElementById('page-content');
@@ -8468,141 +8022,10 @@ function publishMailContract(){
    BD. Writes go through the shared store (TEMPLATES + publishTemplatesSteward)
    so Marketing sees the same set. BD does not build a second send engine; this
    is the template editor only. ---- */
-function _tplFind(id){ for(var i=0;i<TEMPLATES.length;i++){ if(String(TEMPLATES[i].id)===String(id)) return TEMPLATES[i]; } return null; }
-function _tplCategories(){ return ['Lot Agent','Realtor','Architect','Designer','Developer','Partner Outreach','Other']; }
-function renderTemplates(){
-  var host=document.getElementById('templates-content'); if(!host) return;
-  var list=TEMPLATES.filter(function(t){ return (t.channel||'email')!=='sms'; }).slice().sort(function(a,b){ return String(a.name||'').toLowerCase()<String(b.name||'').toLowerCase()?-1:1; });
-  var totalSends=list.reduce(function(s,t){ return s+(Number(t.sends)||0); },0);
-  var head='<div class="pg"><div><div class="pg-title">Email Templates</div><div class="pg-sub">Reusable outreach emails for partners and lot agents. These are the templates that show in the "Start from a template" picker when you compose an email. Editing here updates the shared template library, so Marketing stays in sync. Use {{first_name}} and {{area}} to personalize.</div></div><div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openTemplateEditor(null)">New template</button></div></div>';
-  var kpi=_miniBar([['Templates',num(list.length)],['Total sends',num(totalSends)]]);
-  var body;
-  if(!list.length){
-    body=emptyState('No templates yet','Create a reusable outreach email so partner and lot-agent emails start from a consistent, on-brand message.','<button class="btn btn-primary btn-sm" onclick="openTemplateEditor(null)">New template</button>');
-  } else {
-    var rows=list.map(function(t){
-      return '<tr>'+
-        '<td><strong>'+_esc(t.name||'(untitled)')+'</strong></td>'+
-        '<td>'+_esc(t.category||'')+'</td>'+
-        '<td>'+_esc(String(t.subject||'').slice(0,80))+'</td>'+
-        '<td>'+_esc(t.updated||'')+'</td>'+
-        '<td class="right">'+num(Number(t.sends)||0)+'</td>'+
-        '<td class="right"><button class="btn btn-sm" onclick="openTemplateEditor('+t.id+')">Edit</button> <button class="btn btn-sm" onclick="deleteTemplate('+t.id+')">Delete</button></td>'+
-      '</tr>';
-    }).join('');
-    body='<div class="card"><div class="tbl-wrap"><table><thead><tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Subject</th><th scope="col">Updated</th><th class="right" scope="col">Sends</th><th class="right" scope="col">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-  }
-  host.innerHTML=head+kpi+body;
-}
-function openTemplateEditor(id){
-  if(typeof openModal!=='function') return;
-  var t=(id==null)?null:_tplFind(id);
-  var isEdit=!!t;
-  var cats=_tplCategories();
-  var curCat=isEdit?(t.category||'Partner Outreach'):'Partner Outreach';
-  if(cats.indexOf(curCat)<0) cats=[curCat].concat(cats);
-  var bodyHtml=_section('Template',
-      _fld('Name','name','text',isEdit?(t.name||''):'',{full:true,ph:'e.g. Realtor Coffee Invite'})+
-      _fld('Category','category','select',curCat,{options:cats})+
-      _fld('Subject','subject','text',isEdit?(t.subject||''):'',{full:true,ph:'Subject line'})+
-      _fld('Message','body','textarea',isEdit?(t.body||''):'',{full:true,autogrow:true,ph:'Write the email. Use {{first_name}} and {{area}} to personalize.'})
-    );
-  openModal({
-    title:(isEdit?'Edit template':'New template'),
-    sub:(isEdit?(t.name||''):'Shared with Marketing'),
-    body:bodyHtml,
-    saveLabel:(isEdit?'Save changes':'Create template'),
-    onSave:function(){ saveTemplate(isEdit?t.id:null); }
-  });
-}
-function saveTemplate(id){
-  var f=_readForm();
-  var name=String(f.name||'').trim();
-  if(!name){ if(typeof modalErr==='function') modalErr('Enter a template name.'); return; }
-  var rec=(id==null)?null:_tplFind(id);
-  if(rec){
-    rec.name=name; rec.category=f.category||rec.category||'Partner Outreach';
-    rec.subject=String(f.subject||''); rec.body=String(f.body||'');
-    rec.channel='email'; rec.updated=_today();
-  } else {
-    rec={ id:_nextId(TEMPLATES), name:name, category:(f.category||'Partner Outreach'), channel:'email', subject:String(f.subject||''), body:String(f.body||''), updated:_today(), sends:0 };
-    TEMPLATES.push(rec);
-  }
-  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
-  save();
-  if(typeof closeModal==='function') closeModal();
-  if(typeof toastSuccess==='function') toastSuccess(id==null?'Template created':'Template saved', name+' is ready in the compose picker.');
-  renderTemplates();
-}
-function deleteTemplate(id){
-  var t=_tplFind(id); if(!t) return;
-  openModal({
-    title:'Delete template',
-    sub:t.name||'',
-    body:'<div style="font-size:var(--fz-body);line-height:1.5">Delete <strong>'+_esc(t.name||'this template')+'</strong>? It will be removed from the compose picker for everyone. This cannot be undone.</div>',
-    saveLabel:'Delete template',
-    onSave:function(){
-      for(var i=0;i<TEMPLATES.length;i++){ if(String(TEMPLATES[i].id)===String(id)){ TEMPLATES.splice(i,1); break; } }
-      try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
-      save();
-      if(typeof closeModal==='function') closeModal();
-      if(typeof toastSuccess==='function') toastSuccess('Template deleted', (t.name||'Template')+' removed.');
-      renderTemplates();
-    }
-  });
-}
 
 /* ---- Team page: the people assigned to this module. Interim, local control
    until HR owns module assignment across the app. Everyone here populates
    every person picker (Assigned to, Logged by, meeting assignee, etc.). ---- */
-function renderTeam(){
-  var host=document.getElementById('team-content'); if(!host) return;
-  var head='<div class="pg"><div><div class="pg-title">Team</div><div class="pg-sub">The people assigned to the BD module. Everyone here appears in every person dropdown, like "Assigned to" and "Logged by". Interim setup: once HR is live, module assignment moves there.</div></div><div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="bdAddTeamMember()">Add person</button></div></div>';
-  var body;
-  if(!BD_TEAM.length){
-    body=emptyState('No one assigned yet','Add the people who work in BD so they show up in the assignment dropdowns.','<button class="btn btn-primary btn-sm" onclick="bdAddTeamMember()">Add person</button>');
-  } else {
-    var rows=BD_TEAM.map(function(n,idx){
-      return '<tr><td><strong>'+_esc(n)+'</strong></td><td class="right"><button class="btn btn-sm" onclick="bdRemoveTeamMember('+idx+')">Remove</button></td></tr>';
-    }).join('');
-    body='<div class="card"><div class="tbl-wrap"><table><thead><tr><th scope="col">Name</th><th class="right" scope="col">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-  }
-  host.innerHTML=head+body;
-}
-function bdAddTeamMember(){
-  if(typeof openModal!=='function') return;
-  var bodyHtml=_section('Add person', _fld('Full name','name','text','',{full:true,ph:'e.g. Will Liddell'}));
-  openModal({
-    title:'Add person to BD',
-    sub:'They will appear in every assignment dropdown',
-    body:bodyHtml,
-    saveLabel:'Add',
-    onSave:function(){
-      var f=_readForm(); var name=String(f.name||'').trim();
-      if(!name){ if(typeof modalErr==='function') modalErr('Enter a full name.'); return; }
-      if(BD_TEAM.some(function(n){ return n.toLowerCase()===name.toLowerCase(); })){ if(typeof modalErr==='function') modalErr(name+' is already on the team.'); return; }
-      BD_TEAM.push(name); save();
-      if(typeof closeModal==='function') closeModal();
-      if(typeof toastSuccess==='function') toastSuccess('Added', name+' is now assignable in BD.');
-      renderTeam();
-    }
-  });
-}
-function bdRemoveTeamMember(idx){
-  var name=BD_TEAM[idx]; if(name==null) return;
-  openModal({
-    title:'Remove person',
-    sub:name,
-    body:'<div style="font-size:var(--fz-body);line-height:1.5">Remove <strong>'+_esc(name)+'</strong> from the BD team? They will no longer appear in assignment dropdowns. Existing records keep their current assignment.</div>',
-    saveLabel:'Remove',
-    onSave:function(){
-      BD_TEAM.splice(idx,1); save();
-      if(typeof closeModal==='function') closeModal();
-      if(typeof toastSuccess==='function') toastSuccess('Removed', name+' removed from the BD team.');
-      renderTeam();
-    }
-  });
-}
 
 /* ---- window.SMB_PARTNERS steward (BD owns CRUD per D-44) ----
    Marketing, CX, and CRM are readers. The array reference is stable so
@@ -9706,8 +9129,6 @@ var GOAL_METRICS={
   reachouts_logged:{label:'Reach-outs logged',unit:'#',compute:function(period){ var n=0; function tally(arr){ (arr||[]).forEach(function(a){ if(a&&inPeriod(a.d,period)) n++; }); } PARTNERS.forEach(function(p){ tally(p.act); }); PROSPECTS.forEach(function(p){ tally(p.act); }); return n; }},
   referrals_won:{label:'Leads referred by partners',unit:'#',compute:function(period){ var n=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(x){ if(inPeriod(x.date,period)) n++; }); }); return n; }}
 };
-function goalActual(g){ var m=GOAL_METRICS[g.metric]; return m?Math.round(m.compute(g.period)):0; }
-function goalFmt(v,unit){ return unit==='$'?bdMoney(v):num(v); }
 
 
 
@@ -9725,427 +9146,29 @@ function _qtrEnd(){ var n=new Date(); var m=Math.floor(n.getMonth()/3)*3+2; var 
 function _yrEnd(){ return new Date().getFullYear()+'-12-31'; }
 function _defaultDue(period){ return period==='year'?_yrEnd():_qtrEnd(); }
 
-function _goalNorm(g){
-  if(g.title===undefined) g.title=g.label||'';
-  if(g.status==='on'||g.status===undefined||g.status==='') g.status='on-track';
-  else if(g.status==='off') g.status='off-track';
-  else if(g.status==='done') g.status='complete';
-  else if(g.status==='notdone') g.status='off-track';
-  if(['on-track','off-track','complete','cancelled'].indexOf(g.status)<0) g.status='on-track';
-  if(g.period!=='year'&&g.period!=='quarter') g.period='quarter';
-  if(g.horizon===undefined) g.horizon='current';
-  if(g.progress===undefined||g.progress===null) g.progress=(g.status==='complete'?100:0);
-  g.progress=Math.max(0,Math.min(100,Math.round(Number(g.progress)||0)));
-  if(!Array.isArray(g.milestones)) g.milestones=[];
-  if(!g.due) g.due=_defaultDue(g.period);
-  if(g.company===undefined) g.company=false;
-  if(g.archived===undefined) g.archived=false;
-  if(!g.quarter) g.quarter=_curQuarterLabel();
-  return g;
-}
-function _goalsEnsure(){ var migrated=false; BD_GOALS.forEach(function(g){ if(g.title===undefined||g.status==='on'||g.status==='off'||g.status==='done'||g.status==='notdone') migrated=true; _goalNorm(g); }); if(migrated) save(); }
-function goalById(id){ return BD_GOALS.filter(function(g){ return g.id===id; })[0]||null; }
 function _nextMid(g){ var mx=0; (g.milestones||[]).forEach(function(m){ if(m.id>mx) mx=m.id; }); return mx+1; }
 function _periodBadge(p){ return p==='year'?'Annual':'Quarterly'; }
 
-function _goalStatusLabel(st){
-  if(st==='complete'||st==='done') return 'Done';
-  if(st==='off-track'||st==='off') return 'Off Track';
-  if(st==='cancelled') return 'Cancelled';
-  if(st==='notdone') return 'Off Track';
-  return 'On Track';
-}
 function statusColor(st){
   if(st==='complete'||st==='done') return 'var(--blu)';
   if(st==='off-track'||st==='off'||st==='notdone') return 'var(--red)';
   if(st==='cancelled') return 'var(--txd)';
   return 'var(--grn)';
 }
-function _goalStatusCls(st){
-  if(st==='complete'||st==='done') return 'c-blu';
-  if(st==='off-track'||st==='off'||st==='notdone') return 'c-red';
-  if(st==='cancelled') return 'c-gry';
-  return 'c-grn';
-}
 function statusChip(st){ return '<span class="chip '+_goalStatusCls(st)+'">'+_esc(_goalStatusLabel(st))+'</span>'; }
 /* kept for dashboard card compatibility (old + new statuses) */
-function _goalStatusInfo(st){ return {label:_goalStatusLabel(st),cls:_goalStatusCls(st)}; }
 
-function renderGoals(){
-  var host=document.getElementById('goals-content'); if(!host) return;
-  _goalsEnsure();
-  var view=_goalsView;
-  var f=_goalsFilter;
-  var activeGoals=BD_GOALS.filter(function(g){ return !g.archived; });
-  var counts={
-    complete:activeGoals.filter(function(g){return g.status==="complete";}).length,
-    "on-track":activeGoals.filter(function(g){return g.status==="on-track";}).length,
-    "off-track":activeGoals.filter(function(g){return g.status==="off-track";}).length
-  };
 
-  var h='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">';
-  h+='<div><div class="pg-title">Goals</div>';
-  h+='<div class="pg-sub">Set and track quarterly goals to help your team consistently hit their targets.</div></div>';
-  h+='<div style="display:flex;gap:7px;margin-top:4px;flex-shrink:0">';
-  h+='<button class="btn btn-sm" onclick="printGoals()" style="display:flex;align-items:center;gap:5px">';
-  h+='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg> Print</button>';
-  h+='<button class="btn btn-sm" onclick="downloadGoalsCsv()" style="display:flex;align-items:center;gap:5px">';
-  h+='<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Export CSV</button>';
-  h+='<button class="btn btn-primary btn-sm" onclick="openGoalModal(null)">Add Goal</button>';
-  h+='</div></div>';
 
-  // Goal-load discipline: 3 to 7 active goals per owner per quarter
-  var _perOwner={};
-  activeGoals.forEach(function(g){ if(g.status!=='complete' && g.period!=='year' && g.owner){ _perOwner[g.owner]=(_perOwner[g.owner]||0)+1; } });
-  var _over=Object.keys(_perOwner).filter(function(o){ return _perOwner[o]>7; });
-  if(_over.length){
-    var _names=_over.map(function(o){ return (typeof pplName==='function'?(pplName(o)||o):o)+' ('+_perOwner[o]+')'; }).join(', ');
-    h+='<div style="display:flex;align-items:center;gap:9px;padding:10px 14px;border:1px solid var(--amb);border-left:4px solid var(--amb);border-radius:8px;background:var(--ambb,var(--sur2));margin-bottom:14px;color:var(--txt)"><span aria-hidden="true">\u25CF</span><div><b>Goal overload:</b> '+_names+'. Three to seven active goals per quarter is the discipline; past seven they rarely all finish.</div></div>';
-  }
-
-  // View tabs + toolbar (team menu, owner filter, status filter, search) on one row
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">';
-  h+='<div class="bd-tab-bar" style="margin-bottom:0">';
-  [['list','List'],['board','Planning Board'],['archive','Archive']].forEach(function(t){
-    h+='<button class="bd-tab'+(view===t[0]?' active':'')+'" onclick="setGoalsView(&quot;'+t[0]+'&quot;)">'+t[1]+'</button>';
-  });
-  h+='</div>';
-  h+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:16px">';
-  h+=renderTeamMenu('goalsTeamMenu');
-  h+='<select onchange="setGoalsOwner(this.value)" aria-label="Filter by owner" style="font-size:var(--fz-body);padding:3px 8px;border:1px solid var(--brd2);border-radius:5px;background:var(--sur);color:var(--txt)"><option value="">All Owners</option>'+GOAL_PEOPLE.map(function(p){return '<option value="'+_esc(p)+'"'+(_goalsOwner===p?' selected':'')+'>'+_esc(p)+'</option>';}).join('')+'</select>';
-  h+='<select onchange="setGoalsFilter(this.value)" aria-label="Filter by status" style="font-size:var(--fz-body);padding:3px 8px;border:1px solid var(--brd2);border-radius:5px;background:var(--sur);color:var(--txt)">';
-  h+='<option value="all"'+(f==="all"?" selected":"")+'>Status: All</option>';
-  h+='<option value="on-track"'+(f==="on-track"?" selected":"")+'>On Track</option>';
-  h+='<option value="off-track"'+(f==="off-track"?" selected":"")+'>Off Track</option>';
-  h+='<option value="complete"'+(f==="complete"?" selected":"")+'>Done</option>';
-  h+='</select>';
-  h+='<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--brd2);border-radius:5px;background:var(--sur)">';
-  h+='<svg width="11" height="11" fill="none" stroke="var(--txm)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>';
-  h+='<input id="goals-search" oninput="setGoalsSearch(this.value)" value="'+_esc(_goalsSearch)+'" placeholder="Search Goals..." style="border:none;background:transparent;font-size:var(--fz-body);font-family:inherit;color:var(--txt);width:110px;outline:none">';
-  h+='</div>';
-  h+='</div></div>';
-
-  if(view==='archive'){ host.innerHTML=h+_goalsArchiveHtml(); return; }
-  if(view==='board'){ host.innerHTML=h+_goalsBoardHtml(activeGoals); return; }
-
-  // ── LIST VIEW ─────────────────────────────────────────────
-  // Summary stats
-  h+='<div style="display:flex;gap:10px;margin-bottom:14px">';
-  [{k:"complete",c:"var(--blu)",l:"Done"},{k:"on-track",c:"var(--grn)",l:"On Track"},{k:"off-track",c:"var(--red)",l:"Off Track"}].forEach(function(s){
-    h+='<div style="display:flex;align-items:center;gap:7px;padding:5px 13px;background:'+s.c+'10;border:1px solid '+s.c+'30;border-radius:6px;cursor:pointer" onclick="setGoalsFilter(&quot;'+(f===s.k?'all':s.k)+'&quot;)">';
-    h+='<span style="font-size:var(--fz-xl);font-weight:600;color:'+s.c+'">'+counts[s.k]+'</span>';
-    h+='<span style="font-size:var(--fz-body);color:'+s.c+';font-weight:500">'+s.l+'</span></div>';
-  });
-  h+='<div style="margin-left:auto;display:flex;gap:6px">';
-  [{v:"all",l:"All"},{v:"on-track",l:"On Track"},{v:"off-track",l:"Off Track"},{v:"complete",l:"Done"}].forEach(function(btn){
-    h+='<button class="btn btn-sm'+(f===btn.v?' btn-blu':'')+'" onclick="setGoalsFilter(&quot;'+btn.v+'&quot;)">'+btn.l+'</button>';
-  });
-  h+='</div></div>';
-
-  var ownerF=_goalsOwner||"";
-  var search=(_goalsSearch||"").toLowerCase();
-  var filtered=activeGoals.filter(function(g){
-    if(ownerF&&g.owner!==ownerF) return false;
-    if(search&&!g.title.toLowerCase().includes(search)) return false;
-    if(f!=="all"&&g.status!==f) return false;
-    return true;
-  });
-  var companyGoals=filtered.filter(function(g){return g.company;});
-  var _qtr=_curQuarterLabel();
-  var _teamName=(teamsRegistry[state.currentTeam]||teamsRegistry['lt']||{}).name||'';
-
-  // Company Goals section - collapsible
-  if(companyGoals.length){
-    var _cgKey='goals-company';
-    var _cgCollapsed=!!_goalsCollapsed[_cgKey];
-    h+='<div style="margin-bottom:6px">';
-    h+='<div onclick="toggleGoalSection(&quot;'+_cgKey+'&quot;)" style="display:flex;align-items:center;gap:9px;padding:8px 14px;background:var(--sur2);border:1px solid var(--brd);border-radius:7px 7px '+(_cgCollapsed?'7px 7px':'0 0')+';border-bottom:'+(_cgCollapsed?'1px solid var(--brd)':'none')+';cursor:pointer">';
-    h+='<svg width="12" height="12" fill="none" stroke="var(--txm)" stroke-width="2" viewBox="0 0 24 24" style="transition:transform .15s;transform:rotate('+(_cgCollapsed?'-90':'0')+'deg);flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
-    h+='<div style="width:22px;height:22px;border-radius:5px;background:var(--blub);border:1px solid var(--blu);display:flex;align-items:center;justify-content:center;flex-shrink:0">';
-    h+='<svg width="12" height="12" fill="none" stroke="var(--blu)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div>';
-    h+='<span style="font-size:var(--fz-body);font-weight:500;color:var(--txt)">Company Goals</span>';
-    h+='<span style="font-size:var(--fz-body);background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:1px 8px;color:var(--txm)">'+companyGoals.length+'</span>';
-    h+='<span style="font-size:var(--fz-body);color:var(--txm);margin-left:2px">'+_esc(_qtr)+(_teamName?' \u00b7 '+_esc(_teamName):'')+'</span>';
-    h+='</div>';
-    if(!_cgCollapsed){
-      h+='<div style="border:1px solid var(--brd);border-top:none;border-radius:0 0 7px 7px;margin-bottom:18px">';
-      companyGoals.forEach(function(g,i){ h+=goalRow(g,false,i===companyGoals.length-1); });
-      h+='</div>';
-    }
-    h+='</div>';
-  }
-
-  // Per-owner sections - includes company goals so they show under their owner too
-  var owners=[];
-  var ownerMap={};
-  filtered.forEach(function(g){
-    if(!ownerMap[g.owner]){ ownerMap[g.owner]={owner:g.owner,color:pplColor(g.owner),goals:[]}; owners.push(ownerMap[g.owner]); }
-    ownerMap[g.owner].goals.push(g);
-  });
-  owners.forEach(function(o){
-    var _ocKey='goals-owner-'+o.owner;
-    var _ocCollapsed=!!_goalsCollapsed[_ocKey];
-    h+='<div style="margin-bottom:14px">';
-    h+='<div onclick="toggleGoalSection(&quot;'+_ocKey+'&quot;)" style="display:flex;align-items:center;gap:9px;padding:8px 14px;background:var(--sur2);border:1px solid var(--brd);border-radius:7px 7px '+(_ocCollapsed?'7px 7px':'0 0')+';border-bottom:'+(_ocCollapsed?'1px solid var(--brd)':'none')+';cursor:pointer">';
-    h+='<svg width="12" height="12" fill="none" stroke="var(--txm)" stroke-width="2" viewBox="0 0 24 24" style="transition:transform .15s;transform:rotate('+(_ocCollapsed?'-90':'0')+'deg);flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
-    h+=avatar(o.owner);
-    h+='<span style="font-size:var(--fz-body);font-weight:500">'+_esc(o.owner)+'</span>';
-    h+='<span style="font-size:var(--fz-body);background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:1px 8px;color:var(--txm)">'+o.goals.length+'</span>';
-    h+='</div>';
-    if(!_ocCollapsed){
-      h+='<div style="border:1px solid var(--brd);border-top:none;border-radius:0 0 7px 7px">';
-      o.goals.forEach(function(g,i){ h+=goalRow(g,false,i===o.goals.length-1); });
-      h+='</div>';
-    }
-    h+='</div>';
-  });
-
-  if(!filtered.length){
-    h+='<div style="text-align:center;padding:40px;color:var(--txm);font-size:var(--fz-body)">No goals match this filter.</div>';
-  }
-  host.innerHTML=h;
-}
-function toggleGoalSection(key){ _goalsCollapsed[key]=!_goalsCollapsed[key]; renderGoals(); }
-function _goalSection(key,label,list,isCompany){
-  var collapsed=!!_goalsCollapsed[key];
-  var qtr=_curQuarterLabel();
-  var h='<div style="margin-bottom:14px">';
-  h+='<div onclick="toggleGoalSection(&quot;'+key+'&quot;)" style="display:flex;align-items:center;gap:9px;padding:8px 14px;background:var(--sur2);border:1px solid var(--brd);border-radius:7px 7px '+(collapsed?'7px 7px':'0 0')+';border-bottom:'+(collapsed?'1px solid var(--brd)':'none')+';cursor:pointer">';
-  h+='<svg width="12" height="12" fill="none" stroke="var(--txm)" stroke-width="2" viewBox="0 0 24 24" style="transition:transform .15s;transform:rotate('+(collapsed?'-90':'0')+'deg);flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
-  if(isCompany){
-    h+='<div style="width:22px;height:22px;border-radius:5px;background:var(--blub);border:1px solid var(--blu);display:flex;align-items:center;justify-content:center;flex-shrink:0">';
-    h+='<svg width="12" height="12" fill="none" stroke="var(--blu)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div>';
-  } else {
-    h+=avatar(label);
-  }
-  h+='<span style="font-size:var(--fz-body);font-weight:500;color:var(--txt)">'+_esc(label)+'</span>';
-  h+='<span style="font-size:var(--fz-body);background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:1px 8px;color:var(--txm)">'+list.length+'</span>';
-  h+='<span style="font-size:var(--fz-body);color:var(--txm);margin-left:2px">'+_esc(qtr)+'</span>';
-  h+='</div>';
-  if(!collapsed){
-    h+='<div style="border:1px solid var(--brd);border-top:none;border-radius:0 0 7px 7px">';
-    list.forEach(function(g,i){ h+=goalRow(g,false,i===list.length-1); });
-    h+='</div>';
-  }
-  h+='</div>';
-  return h;
-}
-function _goalMatches(g){
-  if(_goalsOwner&&g.owner!==_goalsOwner) return false;
-  if(_goalsFilter!=='all'&&g.status!==_goalsFilter) return false;
-  if(_goalsSearch&&g.title.toLowerCase().indexOf(_goalsSearch.toLowerCase())<0) return false;
-  return true;
-}
-function setGoalsView(v){ _goalsView=v; _goalCtx=null; renderGoals(); }
-function setGoalsFilter(v){ _goalsFilter=v; renderGoals(); }
-function setGoalsOwner(v){ _goalsOwner=v; renderGoals(); }
-function setGoalsSearch(v){ _goalsSearch=v; renderGoals(); var el=document.getElementById('goals-search'); if(el){ el.focus(); try{ el.setSelectionRange(el.value.length,el.value.length); }catch(e){} } }
-
-function goalRow(g,archived,isLast){
-  var mDone=g.milestones.filter(function(m){return m.done;}).length;
-  var mTotal=g.milestones.length;
-  var isExpanded=!!_goalsExpanded[g.id];
-  // Locked SMB Components v1 modifier: status -> class
-  var sCls=g.status==='on-track'?'on-track':g.status==='off-track'?'off-track':g.status==='complete'?'done':'cancelled';
-  var h='';
-  var rowCls='goal-row'+(g.status==='off-track'?' off':'')+(g.status==='cancelled'?' cancelled':'')+(isLast?' last':'');
-  var _gdrag=archived?'':' draggable="true" ondragstart="goalDragStart(event,'+g.id+')" ondragover="goalDragOver(event)" ondrop="goalDrop(event,'+g.id+')" ondragend="goalDragEnd(event)"';
-  h+='<div'+_gdrag+' class="'+rowCls+'">';
-  // Main row
-  h+='<div class="goal-row-main" onclick="toggleGoalExpand('+g.id+')">';
-  // Expand chevron
-  h+='<svg width="12" height="12" fill="none" stroke="var(--txd)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;transition:transform .15s;transform:'+(isExpanded?'rotate(90deg)':'rotate(0)')+'"><path d="M9 18l6-6-6-6"/></svg>';
-  // Status chip
-  h+=statusChip(g.status);
-  // Title
-  var tCls='goal-title'+(g.status==='off-track'?' off':'')+((archived||g.status==='cancelled')?' muted':'')+(g.status==='complete'?' done':'');
-  h+='<div style="flex:1;min-width:0"><span class="'+tCls+'" onclick="event.stopPropagation();openGoalModal('+g.id+')" title="Click to edit">'+_esc(g.title)+'</span></div>';
-  // Company badge
-  if(g.company&&!archived)h+='<span class="chip c-blu" style="font-size:var(--fz-xs)">Company</span>';
-  // Milestone count
-  h+='<span class="goal-ms'+(mTotal&&mDone===mTotal?' all-done':'')+'">'+mDone+'/'+mTotal+' milestones</span>';
-  // Progress
-  if(!archived){
-    h+='<div class="goal-progress" onclick="event.stopPropagation();goalSetProgress('+g.id+')" title="Click to set progress">';
-    h+='<div class="goal-progress-bar"><div class="goal-progress-fill '+sCls+'" style="width:'+g.progress+'%"></div></div>';
-    h+='<span style="font-weight:600;min-width:28px;text-align:right;color:'+statusColor(g.status)+'">'+g.progress+'%</span>';
-    h+='</div>';
-  }
-  // Owner avatar
-  h+=avatar(g.owner);
-  // Due date
-  h+='<span class="goal-due">'+_esc(g.due)+'</span>';
-  // Status select
-  if(!archived){
-    h+='<select class="goal-status-select '+sCls+'" onclick="event.stopPropagation()" onchange="changeGoalStatus('+g.id+',this.value)" aria-label="Status for '+_esc(g.title)+'">';
-    h+='<option value="on-track"'+(g.status==="on-track"?" selected":"")+'>On Track</option>';
-    h+='<option value="off-track"'+(g.status==="off-track"?" selected":"")+'>Off Track</option>';
-    h+='<option value="complete"'+(g.status==="complete"?" selected":"")+'>Done</option>';
-    h+='<option value="cancelled"'+(g.status==="cancelled"?" selected":"")+'>Cancelled</option>';
-    h+='</select>';
-  }
-  // Context menu
-  if(!archived){
-    var gMenuOpen=_goalCtx===g.id;
-    h+='<div style="position:relative;flex-shrink:0" onclick="event.stopPropagation()">';
-    h+='<div class="goal-ctx'+(gMenuOpen?' open':'')+'" onclick="goalCtxOpen('+g.id+')" aria-label="Goal actions">\u22ef</div>';
-    if(gMenuOpen){
-      h+='<div class="goal-ctx-menu" style="right:0;top:auto;margin-top:4px">';
-      h+=_goalMIv('\u270E','Edit','openGoalModal('+g.id+')');
-      h+='<div style="height:1px;background:var(--brd);margin:3px 0"></div>';
-      h+=_goalMIv('\u2191','Top of List','goalMoveTop('+g.id+')');
-      h+=_goalMIv('\u2193','Bottom of List','goalMoveBottom('+g.id+')');
-      h+='<div style="height:1px;background:var(--brd);margin:4px 0"></div>';
-      h+=_goalMIv('\u2705','Mark On Track','goalSetStatus('+g.id+',&quot;on-track&quot;)');
-      h+=_goalMIv('\u{1F534}','Mark Off Track','goalSetStatus('+g.id+',&quot;off-track&quot;)');
-      h+=_goalMIv('\u2714','Mark Done','goalSetStatus('+g.id+',&quot;complete&quot;)');
-      h+='<div style="height:1px;background:var(--brd);margin:4px 0"></div>';
-      h+=_goalMIv('\u{1F4CA}','Set Progress %','goalSetProgress('+g.id+')');
-      h+=_goalMIv('\u{1F4E6}','Archive','goalArchive('+g.id+')');
-      h+='</div>';
-      h+='<div onclick="goalCtxClose()" style="position:fixed;inset:0;z-index:299"></div>';
-    }
-    h+='</div>';
-  }
-  h+='</div>';
-  // Expanded detail
-  if(isExpanded){
-    h+='<div class="goal-expand">';
-    h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0 12px">';
-    h+='<div class="goal-progress-bar" style="flex:1"><div class="goal-progress-fill '+sCls+'" style="width:'+g.progress+'%"></div></div>';
-    h+='<span style="font-size:var(--fz-body);font-weight:600;min-width:30px;color:'+statusColor(g.status)+'">'+g.progress+'%</span>';
-    if(!archived){
-      h+='<input type="range" min="0" max="100" value="'+g.progress+'" onclick="event.stopPropagation()" oninput="event.stopPropagation();updateGoalProgress('+g.id+',parseInt(this.value))" onchange="event.stopPropagation();updateGoalProgress('+g.id+',parseInt(this.value))" style="width:100px;accent-color:var(--blu)">';
-    }
-    h+='</div>';
-    h+='<div style="font-size:var(--fz-base);font-weight:600;color:var(--txm);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Milestones</div>';
-    g.milestones.forEach(function(m){
-      h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--brd)">';
-      h+='<div onclick="event.stopPropagation();toggleMilestone('+g.id+','+m.id+')" style="width:15px;height:15px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:'+(m.done?'var(--grn)':'transparent')+';border:1.5px solid '+(m.done?'var(--grn)':'var(--brd2)')+';cursor:pointer">';
-      h+=(m.done?'<svg width="8" height="8" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>':'')+'</div>';
-      h+='<span onclick="event.stopPropagation();toggleMilestone('+g.id+','+m.id+')" style="flex:1;font-size:var(--fz-body);color:'+(m.done?'var(--txm)':'var(--txt)')+';text-decoration:'+(m.done?'line-through':'none')+';cursor:pointer">'+_esc(m.text)+'</span>';
-      h+='<button onclick="event.stopPropagation();deleteMilestone('+g.id+','+m.id+')" title="Delete milestone" style="background:none;border:none;color:var(--txd);cursor:pointer;font-size:var(--fz-lg);padding:0 4px">\u00d7</button>';
-      h+='</div>';
-    });
-    if(!archived){
-      h+='<div style="display:flex;align-items:center;gap:6px;padding:8px 0 4px;border-top:0.5px dashed var(--brd);margin-top:6px" onclick="event.stopPropagation()">';
-      h+='<input id="goal-new-ms-'+g.id+'" placeholder="Add a milestone..." onkeydown="event.stopPropagation();if(event.key===&quot;Enter&quot;){event.preventDefault();addMilestoneFromInput('+g.id+');}" style="flex:1;padding:6px 9px;border:1.5px solid var(--brd2);border-radius:5px;font-size:var(--fz-base);font-family:inherit">';
-      h+='<button class="btn btn-blu btn-sm" onclick="addMilestoneFromInput('+g.id+')">+ Add</button>';
-      h+='</div>';
-    }
-    h+='</div>';
-  }
-  h+='</div>';
-  return h;
-}
-function _goalMI(label,onclick){ return '<button onclick="'+onclick+'" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-body);color:var(--txt)">'+label+'</button>'; }
-function _goalMIv(icon,label,onclick){ return '<button onclick="'+onclick+'" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt)"><span style="font-size:var(--fz-body);width:16px;text-align:center">'+icon+'</span>'+label+'</button>'; }
-
-function _goalsBoardHtml(live){
-  function card(g){
-    var c=statusColor(g.status), mDone=g.milestones.filter(function(m){return m.done;}).length, mTotal=g.milestones.length;
-    var ch='<div draggable="true" ondragstart="goalDragStart(event,'+g.id+')" onclick="openGoalModal('+g.id+')" style="background:var(--sur);border:1px solid var(--brd);border-radius:8px;padding:12px 13px;margin-bottom:8px;cursor:pointer">';
-    ch+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+statusChip(g.status)+'<span style="font-size:var(--fz-body);color:var(--txm)">'+_esc(g.due)+'</span></div>';
-    ch+='<div style="font-size:var(--fz-body);font-weight:600;line-height:1.45;margin-bottom:9px;color:var(--txt)">'+_esc(g.title)+'</div>';
-    if(mTotal>0){ var pct=Math.round(mDone/mTotal*100); ch+='<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:8px"><div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:2px"></div></div>'; }
-    ch+='<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:var(--fz-body);color:var(--txm)">'+(mTotal?mDone+'/'+mTotal+' milestones':'No milestones')+'</span>'+avatar(g.owner)+'</div></div>';
-    return ch;
-  }
-  var h='<div class="goal-board-grid">';
-  GOAL_HORIZONS.forEach(function(hz){
-    var hzGoals=live.filter(function(g){ return (g.horizon||'current')===hz[0]&&_goalMatches(g); });
-    h+='<div ondragover="goalBoardOver(event)" ondrop="goalBoardDrop(event,&quot;'+hz[0]+'&quot;)">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--sur2);border:1px solid var(--brd);border-radius:7px 7px 0 0;border-bottom:none">';
-    h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:var(--fz-body);font-weight:600;color:var(--txt)">'+hz[1]+'</span><span style="font-size:var(--fz-body);color:var(--txm)">'+hz[2]+'</span><span style="font-size:var(--fz-body);background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:1px 7px;color:var(--txm)">'+hzGoals.length+'</span></div>';
-    h+='<button onclick="openGoalModal(null,&quot;'+hz[0]+'&quot;)" title="Add goal" style="width:22px;height:22px;border-radius:4px;border:1px solid var(--brd2);background:var(--sur);cursor:pointer;color:var(--blu);font-size:var(--fz-lg);line-height:1;font-weight:600">+</button></div>';
-    h+='<div style="background:var(--sur2);border:1px solid var(--brd);border-top:none;border-radius:0 0 7px 7px;padding:8px;min-height:160px">';
-    if(!hzGoals.length) h+='<div style="text-align:center;padding:22px 12px;color:var(--txd);font-size:var(--fz-body)">Nothing here yet</div>';
-    else hzGoals.forEach(function(g){ h+=card(g); });
-    h+='</div></div>';
-  });
-  h+='</div>';
-  return h;
-}
-function _goalsArchiveHtml(){
-  var arch=BD_GOALS.filter(function(g){ return g.archived; });
-  var h='<div style="background:var(--sur2);border:1px solid var(--brd);border-radius:7px;padding:10px 14px;margin-bottom:14px;font-size:var(--fz-body);color:var(--txm)">Completed and retired goals. Read-only, for reference and reporting.</div>';
-  if(!arch.length) return h+'<div class="card"><div class="smb-empty"><div class="smb-empty-title">Nothing archived</div><div class="smb-empty-sub">Goals you archive will appear here.</div></div></div>';
-  var body='';
-  arch.forEach(function(g){
-    body+='<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--brd)">'+statusChip(g.status)+
-      '<span style="flex:1;font-size:var(--fz-lg);color:var(--txm)">'+_esc(g.title)+'</span>'+
-      '<span class="chip c-gry" style="font-size:var(--fz-xs)">'+_esc(g.quarter)+'</span>'+avatar(g.owner)+
-      '<button class="btn btn-sm" onclick="goalUnarchive('+g.id+')">Restore</button></div>';
-  });
-  return h+'<div class="card" style="padding:0">'+body+'</div>';
-}
 
 /* mutations */
-function toggleGoalExpand(id){ _goalsExpanded[id]=!_goalsExpanded[id]; renderGoals(); }
-function changeGoalStatus(id,val){ var g=goalById(id); if(!g) return; g.status=val; if(val==='complete') g.progress=100; save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
-function goalSetStatus(id,val){ changeGoalStatus(id,val); _goalCtx=null; renderGoals(); }
-function updateGoalProgress(id,val){ var g=goalById(id); if(!g) return; g.progress=Math.max(0,Math.min(100,val||0)); if(g.progress===100&&g.status!=='cancelled') g.status='complete'; save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
-function goalSetProgress(id){ var g=goalById(id); if(!g) return; var v=(typeof prompt==='function')?prompt('Progress % for "'+g.title+'":',g.progress):null; if(v===null) return; updateGoalProgress(id,Math.round(Number(v)||0)); }
-function addMilestoneFromInput(id){ var g=goalById(id); if(!g) return; var el=document.getElementById('goal-new-ms-'+id); var t=el?el.value.trim():''; if(!t) return; g.milestones.push({id:_nextMid(g),text:t,done:false}); _goalsExpanded[id]=true; save(); renderGoals(); }
-function toggleMilestone(gid,mid){ var g=goalById(gid); if(!g) return; var m=g.milestones.filter(function(x){return x.id===mid;})[0]; if(!m) return; m.done=!m.done; var mt=g.milestones.length, md=g.milestones.filter(function(x){return x.done;}).length; if(mt) g.progress=Math.round(md/mt*100); if(g.progress===100&&g.status!=='cancelled') g.status='complete'; save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
-function deleteMilestone(gid,mid){ var g=goalById(gid); if(!g) return; g.milestones=g.milestones.filter(function(x){return x.id!==mid;}); var mt=g.milestones.length, md=g.milestones.filter(function(x){return x.done;}).length; if(mt) g.progress=Math.round(md/mt*100); save(); renderGoals(); }
-function goalCtxOpen(id){ _goalCtx=(_goalCtx===id?null:id); renderGoals(); }
-function goalCtxClose(){ _goalCtx=null; renderGoals(); }
-function goalMoveTop(id){ var g=goalById(id); if(!g) return; BD_GOALS=BD_GOALS.filter(function(x){return x.id!==id;}); BD_GOALS.unshift(g); _goalCtx=null; save(); renderGoals(); }
-function goalMoveBottom(id){ var g=goalById(id); if(!g) return; BD_GOALS=BD_GOALS.filter(function(x){return x.id!==id;}); BD_GOALS.push(g); _goalCtx=null; save(); renderGoals(); }
-function goalArchive(id){ var g=goalById(id); if(!g) return; g.archived=true; g.quarter=_curQuarterLabel(); _goalCtx=null; save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
-function goalUnarchive(id){ var g=goalById(id); if(!g) return; g.archived=false; save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
-function goalDelete(id){ BD_GOALS=BD_GOALS.filter(function(g){ return g.id!==id; }); save(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); }
 
 /* drag - list reorder */
-function goalDragStart(e,id){ _goalDragId=id; if(e.dataTransfer){ e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',String(id)); }catch(_){} } }
-function goalDragOver(e){ if(e.preventDefault) e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect='move'; }
-function goalDrop(e,targetId){ if(e.preventDefault) e.preventDefault(); if(_goalDragId===null||_goalDragId===targetId){ _goalDragId=null; return; } var from=BD_GOALS.map(function(g){return g.id;}).indexOf(_goalDragId); var to=BD_GOALS.map(function(g){return g.id;}).indexOf(targetId); if(from<0||to<0){ _goalDragId=null; return; } var moved=BD_GOALS.splice(from,1)[0]; BD_GOALS.splice(to,0,moved); _goalDragId=null; save(); renderGoals(); }
-function goalDragEnd(){ _goalDragId=null; }
 /* drag - board horizon change */
-function goalBoardOver(e){ if(e.preventDefault) e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect='move'; }
-function goalBoardDrop(e,horizon){ if(e.preventDefault) e.preventDefault(); if(_goalDragId===null) return; var g=goalById(_goalDragId); if(g) g.horizon=horizon; _goalDragId=null; save(); renderGoals(); }
 
 /* editor modal */
-function openGoalModal(id,horizon){
-  _goalsEnsure();
-  var g=(id===null||id===undefined)?null:goalById(id);
-  var d=g?JSON.parse(JSON.stringify(g)):{title:'',owner:((_curName()||'Dave').split(' ')[0]),period:'quarter',horizon:horizon||'current',due:'',status:'on-track',progress:0};
-  if(!d.due) d.due=_defaultDue(d.period);
-  var body=_section('Goal',
-    _fld('Goal','title','text',d.title,{full:true,ph:'e.g. Sign 3 new referral partners this quarter'})+
-    _fld('Owner','owner','select',d.owner,{options:GOAL_PEOPLE})+
-    _fld('Period','period','select',d.period,{options:[{v:'quarter',l:'Quarterly'},{v:'year',l:'Annual'}]})+
-    _fld('Horizon','horizon','select',d.horizon,{options:[{v:'current',l:'Current'},{v:'next',l:'Next'},{v:'later',l:'Later'},{v:'future',l:'Future'}]})+
-    _fld('Due date','due','date',d.due,{})+
-    _fld('Status','status','select',d.status,{options:[{v:'on-track',l:'On Track'},{v:'off-track',l:'Off Track'},{v:'complete',l:'Done'},{v:'cancelled',l:'Cancelled'}]})+
-    _fld('Progress %','progress','number',d.progress,{})
-  )+(g?'<div style="margin-top:10px"><button class="btn btn-sm" onclick="goalDelete('+g.id+');closeModal()">Delete goal</button></div>':'');
-  openModal({ title:g?'Edit Goal':'New Goal', sub:'Track progress and milestones the VSP way', body:body, saveLabel:g?'Save':'Create Goal',
-    onSave:function(){ var fr=_readForm(); if(!fr.title||!fr.title.trim()){ modalErr('Goal is required.'); return; }
-      var rec=g||{id:_nextId(BD_GOALS),milestones:[],archived:false};
-      rec.title=fr.title.trim(); rec.owner=fr.owner; rec.period=fr.period; rec.horizon=fr.horizon||'current';
-      rec.due=fr.due||_defaultDue(rec.period); rec.status=fr.status;
-      rec.progress=Math.max(0,Math.min(100,Math.round(Number(fr.progress)||0)));
-      if(rec.status==='complete') rec.progress=100;
-      _goalNorm(rec);
-      if(!g) BD_GOALS.push(rec);
-      save(); closeModal(); renderGoals(); if(typeof emitBdSignal==='function') emitBdSignal(); toastSuccess('Saved', rec.title+' updated.'); } });
-}
 
 /* reporting */
-function downloadGoalsCsv(){
-  var rows=[['Goal','Owner','Period','Horizon','Due','Status','Progress','Milestones done','Milestones total','Archived']];
-  BD_GOALS.forEach(function(g){ rows.push([g.title,g.owner,g.period,g.horizon,g.due,_goalStatusLabel(g.status),g.progress+'%',g.milestones.filter(function(m){return m.done;}).length,g.milestones.length,g.archived?'yes':'no']); });
-  var csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
-  try{ var blob=new Blob([csv],{type:'text/csv'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bd-goals.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }catch(e){}
-}
-function printGoals(){
-  var w=(typeof window.open==='function')?window.open('','_blank'):null; if(!w) return;
-  var rows=BD_GOALS.filter(function(g){return !g.archived;}).map(function(g){ return '<tr><td>'+_esc(g.title)+'</td><td>'+_esc(g.owner)+'</td><td>'+_esc(_periodBadge(g.period))+'</td><td>'+_esc(_goalStatusLabel(g.status))+'</td><td>'+g.progress+'%</td><td>'+_esc(g.due)+'</td></tr>'; }).join('');
-  w.document.write('<html><head><title>BD Goals</title></head><body style="font-family:Inter,Arial,sans-serif"><h2>BD Goals</h2><table border="1" cellpadding="6" style="border-collapse:collapse;font-size:13px"><tr><th>Goal</th><th>Owner</th><th>Period</th><th>Status</th><th>Progress</th><th>Due</th></tr>'+rows+'</table></body></html>');
-  w.document.close(); w.focus(); w.print();
-}
 
 
 /* ============================================================
@@ -10512,93 +9535,11 @@ var EVENT_TYPES=['Mixer','Lunch and Learn','Site Tour / Open House','Dinner','Co
 var _eventView=null;
 
 function _eventsEnsure(){ if(!Array.isArray(BD_EVENTS)) BD_EVENTS=[]; BD_EVENTS.forEach(_eventNorm); }
-function _eventNorm(e){
-  if(!e) return e;
-  if(!Array.isArray(e.guests)) e.guests=[];
-  e.guests.forEach(function(g){ if(typeof g.rsvp==='undefined') g.rsvp=''; if(typeof g.attended==='undefined') g.attended=false; });
-  ['title','type','date','time','location','host','notes'].forEach(function(k){ if(typeof e[k]==='undefined') e[k]=(k==='type'?'Mixer':''); });
-  return e;
-}
-function _eventById(id){ for(var i=0;i<BD_EVENTS.length;i++){ if(BD_EVENTS[i].id===id) return BD_EVENTS[i]; } return null; }
-function _eventIsUpcoming(e){ return String(e.date||'')>=_today(); }
-function _evGuestName(pid){ var p=_partnerFind(pid); if(!p) return 'Unknown partner'; return ((((p.cf||'')+' '+(p.cl||'')).trim())||p.firm||'Partner'); }
-function _evGuestFirm(pid){ var p=_partnerFind(pid); return p?(p.firm||''):''; }
-function _evGuestCat(pid){ var p=_partnerFind(pid); return p?(p.cat||''):''; }
 function _evRsvpCounts(e){ var c={yes:0,no:0,maybe:0,pending:0}; (e.guests||[]).forEach(function(g){ var r=g.rsvp||''; if(r==='yes')c.yes++; else if(r==='no')c.no++; else if(r==='maybe')c.maybe++; else c.pending++; }); return c; }
-function _evAttendedCount(e){ return (e.guests||[]).filter(function(g){ return g.attended; }).length; }
 
-function renderEvents(){
-  _eventsEnsure();
-  var host=document.getElementById('events-content'); if(!host) return;
-  if(_eventView!=null && _eventById(_eventView)){ host.innerHTML=_eventDetailHtml(_eventById(_eventView)); return; }
-  _eventView=null;
-  var up=BD_EVENTS.filter(_eventIsUpcoming);
-  var invited=0,yes=0,attended=0;
-  BD_EVENTS.forEach(function(e){ (e.guests||[]).forEach(function(g){ if(g.attended) attended++; }); });
-  up.forEach(function(e){ invited+=(e.guests||[]).length; (e.guests||[]).forEach(function(g){ if(g.rsvp==='yes') yes++; }); });
-  var head='<div class="pg"><div><div class="pg-title">Partner Events</div><div class="pg-sub">Mixers, lunch-and-learns, and site tours you host to build referral relationships. Track who you invited, who is coming, and who showed up. Marking a guest attended logs a touch on their partner record.</div></div><div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openEventModal(null)">New event</button></div></div>';
-  var kpi=_miniBar([['Upcoming',num(up.length)],['Guests invited (upcoming)',num(invited)],['RSVP yes (upcoming)',num(yes)],['Attended (all time)',num(attended)]]);
-  var upList=BD_EVENTS.filter(_eventIsUpcoming).sort(function(a,b){ return String(a.date||'')<String(b.date||'')?-1:1; });
-  var pastList=BD_EVENTS.filter(function(e){ return !_eventIsUpcoming(e); }).sort(function(a,b){ return String(a.date||'')>String(b.date||'')?-1:1; });
-  var body='';
-  if(!BD_EVENTS.length){
-    body=emptyState('No events yet','Host a partner event to nurture your referral relationships, then track invites, RSVPs, and attendance here.','<button class="btn btn-primary btn-sm" onclick="openEventModal(null)">New event</button>');
-  } else {
-    body=_eventTable('Upcoming events', upList, false)+_eventTable('Past events', pastList, true);
-  }
-  host.innerHTML=head+kpi+body;
-}
-function _eventTable(title, list, isPast){
-  if(!list.length) return '';
-  var rows=list.map(function(e){
-    var rc=_evRsvpCounts(e); var gc=(e.guests||[]).length;
-    return '<tr class="clickable" style="cursor:pointer" onclick="openEvent('+e.id+')">'+
-      '<td><div style="font-weight:600;color:var(--txt)">'+_esc(e.title||'Untitled event')+'</div>'+(e.location?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(e.location)+'</div>'):'')+'</td>'+
-      '<td><span class="chip c-blu">'+_esc(e.type||'')+'</span></td>'+
-      '<td class="nowrap">'+(e.date?fmtDate(e.date):'-')+(e.time?(' <span class="muted">'+_esc(e.time)+'</span>'):'')+'</td>'+
-      '<td class="nowrap">'+num(gc)+' guest'+(gc===1?'':'s')+'</td>'+
-      (isPast
-        ? '<td class="nowrap">'+num(_evAttendedCount(e))+' attended</td>'
-        : '<td class="nowrap"><span class="chip c-grn">'+num(rc.yes)+' yes</span> <span class="muted" style="font-size:var(--fz-body)">'+num(rc.pending)+' pending</span></td>')+
-      '</tr>';
-  }).join('');
-  var lastHd=isPast?'Attended':'RSVP';
-  return '<div class="card" style="margin-top:14px"><div class="card-hd"><span class="card-title">'+_esc(title)+'</span><span class="muted" style="font-size:var(--fz-body)">'+num(list.length)+'</span></div>'+
-    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Event</th><th scope="col">Type</th><th scope="col">Date</th><th scope="col">Guests</th><th scope="col">'+lastHd+'</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-}
 
 function openEvent(id){ _eventView=id; renderEvents(); }
-function eventsBackToList(){ _eventView=null; renderEvents(); }
 
-function _eventDetailHtml(e){
-  var rc=_evRsvpCounts(e); var att=_evAttendedCount(e);
-  var meta=[];
-  if(e.date) meta.push(fmtDate(e.date)+(e.time?(' at '+_esc(e.time)):''));
-  if(e.location) meta.push(_esc(e.location));
-  if(e.host) meta.push('Host: '+_esc(e.host));
-  var head='<div class="back-link" onclick="eventsBackToList()"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="12" height="12"><path d="M15 18l-6-6 6-6"/></svg>Back to Events</div>'+
-    '<div class="pg"><div><div class="pg-title">'+_esc(e.title||'Untitled event')+'</div><div class="pg-sub"><span class="chip c-blu">'+_esc(e.type||'')+'</span>'+(meta.length?('  '+meta.join('  |  ')):'')+(_eventIsUpcoming(e)?'':'  <span class="chip c-gry">Past</span>')+'</div></div><div class="pg-actions"><button class="btn btn-sm" onclick="openEventModal('+e.id+')">Edit</button><button class="btn btn-red btn-sm" onclick="deleteEvent('+e.id+')">Delete</button></div></div>';
-  var notes=e.notes?('<div class="card" style="margin-bottom:14px"><div class="card-body"><div class="muted" style="font-size:var(--fz-body);margin-bottom:4px">Notes</div><div style="color:var(--txt);white-space:pre-wrap">'+_esc(e.notes)+'</div></div></div>'):'';
-  var summary='<div style="margin-bottom:14px">'+_miniBar([['Guests',num((e.guests||[]).length)],['Yes',num(rc.yes)],['Maybe',num(rc.maybe)],['No',num(rc.no)],['Pending',num(rc.pending)],['Attended',num(att)]])+'</div>';
-  var grows=(e.guests||[]).map(function(g){
-    var pid=g.pid;
-    var rsvpSel='<select onchange="eventSetRsvp('+e.id+','+pid+',this.value)" aria-label="RSVP" style="padding:4px 7px;border:1px solid var(--brd);border-radius:5px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
-      [['','Pending'],['yes','Yes'],['maybe','Maybe'],['no','No']].map(function(o){ return '<option value="'+o[0]+'"'+((g.rsvp||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>';
-    var attChk='<label class="smb-fld-check" style="margin:0"><input type="checkbox"'+(g.attended?' checked':'')+' onchange="eventToggleAttended('+e.id+','+pid+',this.checked)">Attended</label>';
-    return '<tr>'+
-      '<td><div style="font-weight:600;color:var(--txt)">'+_esc(_evGuestName(pid))+'</div><div class="muted" style="font-size:var(--fz-body)">'+_esc(_evGuestFirm(pid))+'</div></td>'+
-      '<td class="nowrap">'+(_evGuestCat(pid)?('<span class="chip c-gry">'+_esc(_evGuestCat(pid))+'</span>'):'-')+'</td>'+
-      '<td>'+rsvpSel+'</td>'+
-      '<td>'+attChk+'</td>'+
-      '<td class="right"><button class="btn btn-sm" onclick="eventRemoveGuest('+e.id+','+pid+')">Remove</button></td>'+
-      '</tr>';
-  }).join('');
-  var guestCard='<div class="card"><div class="card-hd"><span class="card-title">Guest list</span><button class="btn btn-primary btn-sm" onclick="eventAddGuests('+e.id+')">Add guests</button></div>'+
-    ((e.guests||[]).length
-      ? '<div class="tbl-wrap"><table><thead><tr><th scope="col">Partner</th><th scope="col">Category</th><th scope="col">RSVP</th><th scope="col">Attendance</th><th scope="col"></th></tr></thead><tbody>'+grows+'</tbody></table></div>'
-      : '<div class="card-body"><div class="muted">No guests yet. Add partners from your directory to build the invite list.</div></div>')+'</div>';
-  return head+notes+summary+guestCard;
-}
 
 function openEventModal(id){
   _eventsEnsure();
@@ -10636,60 +9577,7 @@ function deleteEvent(id){
   });
 }
 
-function eventSetRsvp(eid,pid,val){ var e=_eventById(eid); if(!e) return; (e.guests||[]).forEach(function(g){ if(g.pid===pid) g.rsvp=val; }); save(); renderEvents(); }
-function eventRemoveGuest(eid,pid){ var e=_eventById(eid); if(!e) return; e.guests=(e.guests||[]).filter(function(g){ return g.pid!==pid; }); save(); renderEvents(); }
-function eventToggleAttended(eid,pid,checked){
-  var e=_eventById(eid); if(!e) return; var p=_partnerFind(pid);
-  (e.guests||[]).forEach(function(g){
-    if(g.pid!==pid) return;
-    var was=!!g.attended; g.attended=!!checked;
-    if(p){
-      if(!was && g.attended){
-        p.eventsAttended=(Number(p.eventsAttended)||0)+1;
-        p.act=p.act||[]; p.act.unshift({d:_today(),type:'Meeting',subj:'Attended '+(e.title||'event'),notes:'',by:_curName().split(' ')[0],loggedAt:new Date().toISOString()});
-        if(_today()>(p.lastContact||'')) p.lastContact=_today();
-      } else if(was && !g.attended){
-        p.eventsAttended=Math.max(0,(Number(p.eventsAttended)||0)-1);
-      }
-    }
-  });
-  if(p && typeof window.SMB_PARTNERS!=='undefined' && window.SMB_PARTNERS && window.SMB_PARTNERS._upsert){ try{ window.SMB_PARTNERS._upsert(p); }catch(_){} }
-  save(); if(typeof emitBdSignal==='function') emitBdSignal(); renderEvents();
-}
 
-function eventAddGuests(eid){
-  var e=_eventById(eid); if(!e) return;
-  var body='<div class="smb-fld full"><input id="ev-guest-q" type="text" placeholder="Search partners by name, firm, or category..." oninput="_evGuestRender('+eid+')" style="width:100%;padding:7px 12px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)"></div>'+
-    '<div class="muted" style="font-size:var(--fz-body);margin:6px 0">Check the partners to invite, then Add selected. Showing your highest-relationship partners first.</div>'+
-    '<div id="ev-guest-list" style="max-height:340px;overflow:auto;border:1px solid var(--brd);border-radius:6px;padding:6px"></div>';
-  openModal({ title:'Add guests', sub:(e.title||'Event'), body:body, saveLabel:'Add selected',
-    onSave:function(){
-      var boxes=document.querySelectorAll('#ev-guest-list input[type=checkbox]:checked');
-      var added=0;
-      for(var i=0;i<boxes.length;i++){ var pid=Number(boxes[i].getAttribute('data-pid'));
-        if(!(e.guests||[]).some(function(g){ return g.pid===pid; })){ e.guests.push({pid:pid,rsvp:'',attended:false}); added++; } }
-      save(); closeModal(); renderEvents();
-      if(typeof toastSuccess==='function') toastSuccess('Guests added', added+' partner'+(added===1?'':'s')+' invited.');
-    } });
-  _evGuestRender(eid);
-}
-function _evGuestRender(eid){
-  var e=_eventById(eid); if(!e) return;
-  var host=document.getElementById('ev-guest-list'); if(!host) return;
-  var qEl=document.getElementById('ev-guest-q'); var q=qEl?(qEl.value||'').toLowerCase():'';
-  var invited={}; (e.guests||[]).forEach(function(g){ invited[g.pid]=true; });
-  var list=PARTNERS.filter(function(p){
-    if(invited[p.id]) return false;
-    if(!q) return true;
-    var hay=((p.firm||'')+' '+(p.cf||'')+' '+(p.cl||'')+' '+(p.cat||'')).toLowerCase();
-    return hay.indexOf(q)>=0;
-  }).sort(function(a,b){ return (Number(b.relScore)||0)-(Number(a.relScore)||0); }).slice(0,120);
-  if(!list.length){ host.innerHTML='<div class="muted" style="padding:10px">No matching partners.</div>'; return; }
-  host.innerHTML=list.map(function(p){
-    var nm=(((p.cf||'')+' '+(p.cl||'')).trim())||p.firm||'Partner';
-    return '<label class="smb-fld-check" style="display:flex;gap:8px;padding:5px 6px;border-bottom:1px solid var(--brd)"><input type="checkbox" data-pid="'+p.id+'"><span><span style="font-weight:600;color:var(--txt)">'+_esc(nm)+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(p.firm||'')+(p.cat?(' | '+_esc(p.cat)):'')+'</span></span></label>';
-  }).join('');
-}
 function bdEventsExceptions(){
   try{ _eventsEnsure(); var out=[]; var t=_today();
     BD_EVENTS.filter(_eventIsUpcoming).forEach(function(e){
