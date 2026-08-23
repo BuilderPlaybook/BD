@@ -2674,12 +2674,41 @@ function _combinedActsForLead(pr){
 /* Shared push: writes the lead to CRM when the leads steward is present,
    fires the cross-module intake event, and records the push on the partner
    (timeline + linked leads + a visible local log) so it is testable standalone. */
+/* BD -> CRM lead intake queue (same-origin handoff). When the CRM module is
+   not loaded in this page, pushed leads are queued at smb_bd_lead_intake_v1;
+   CRM drains the queue at boot (upsert + remove consumed by id). Entries are
+   stamped onto the partner's crmLeads record (intakeId) so nothing queues
+   twice. Direct SMB_LEADS._upsert still wins when CRM is in the same page. */
+function _bdQueueLeadIntake(lead, partner, kind){
+  try{
+    var q=[]; try{ q=JSON.parse(localStorage.getItem('smb_bd_lead_intake_v1')||'[]')||[]; }catch(_){ q=[]; }
+    if(!Array.isArray(q)) q=[];
+    var iid='bdq-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
+    q.push({ id:iid, createdAt:new Date().toISOString(), source:'bd', kind:kind, referralSourcePartnerId:(kind==='referral'&&partner?partner.id:null), partnerName:(partner?_bdPersonLabel(partner):''), lead:lead });
+    localStorage.setItem('smb_bd_lead_intake_v1', JSON.stringify(q));
+    return iid;
+  }catch(_){ return null; }
+}
+function _bdIntakeBackfill(){
+  try{
+    var changed=false;
+    (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){
+      ((p&&p.crmLeads)||[]).forEach(function(r){
+        if(!r || r.leadId!=null || r.intakeId) return;
+        var iid=_bdQueueLeadIntake({ name:r.name||'', projectType:r.projectType||'', estimatedRange:r.value||0, notes:'Backfilled from BD referral log ('+(r.date||'')+')' }, p, r.kind||'referral');
+        if(iid){ r.intakeId=iid; changed=true; }
+      });
+    });
+    if(changed){ try{ save(); }catch(_){ } }
+  }catch(_){ }
+}
 function _pushLeadToCrm(lead, partner, kind, label){
   var leadId=null;
   try{ if(typeof _leadsAvailable==='function' && _leadsAvailable() && window.SMB_LEADS && window.SMB_LEADS._upsert){ var r=window.SMB_LEADS._upsert(lead); leadId=(r&&r.id!=null)?r.id:null; } }catch(e){}
   try{ window.dispatchEvent(new CustomEvent('smb.lead.intake',{detail:{source:'partner',kind:kind,referralSourcePartnerId:(kind==='referral'?partner.id:null),lead:lead}})); }catch(e){}
+  var _iid=(leadId==null)?_bdQueueLeadIntake(lead,partner,kind):null;
   partner.crmLeads=partner.crmLeads||[];
-  partner.crmLeads.push({name:label,kind:kind,date:_today(),projectType:lead.projectType||'',value:lead.estimatedRange||0,leadId:leadId});
+  partner.crmLeads.push({name:label,kind:kind,date:_today(),projectType:lead.projectType||'',value:lead.estimatedRange||0,leadId:leadId,intakeId:_iid});
   partner.isPartner=true; partner.stageDates=partner.stageDates||{}; if(!partner.stageDates['Partner']) partner.stageDates['Partner']=_today();
   if(leadId!=null){ partner.linkedLeads=partner.linkedLeads||[]; if(partner.linkedLeads.indexOf(leadId)<0) partner.linkedLeads.push(leadId); }
   partner.act=partner.act||[];
@@ -2689,7 +2718,7 @@ function _pushLeadToCrm(lead, partner, kind, label){
   closeModal();
   try{ renderPartners(); }catch(e){}
   openPartner(partner.id);
-  if(typeof toastSuccess==='function') toastSuccess(kind==='referral'?'Referral logged':'Pushed to CRM', label+(typeof _leadsAvailable==='function'&&_leadsAvailable()?'':' (CRM not loaded - will sync when CRM is open)'));
+  if(typeof toastSuccess==='function') toastSuccess(kind==='referral'?'Referral logged':'Pushed to CRM', label+(typeof _leadsAvailable==='function'&&_leadsAvailable()?'':' (queued for CRM)'));
 }
 
 /* The partner becomes the lead. Stays a partner; the two are linked. */
@@ -9872,6 +9901,7 @@ function init(){
   attachSearch();
   emitBdSignal();
   try{ if(typeof syncTeamData==='function') syncTeamData(); _recalcAll(); }catch(e){}
+  try{ _bdIntakeBackfill(); }catch(e){}
   nav('dashboard');
   try{
     normalizeTableScope(document);
