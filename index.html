@@ -4193,7 +4193,14 @@ function _composeEmail(to,name,onSend,opts){
     var a=document.createElement('a'); a.href=href;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }catch(e){}
-  try{ if(typeof onSend==='function') onSend('',''); }catch(e){}
+  /* Confirm before logging (Dave, 2026-08-23): the mail window is open; only a
+     Yes records the touch, so browsing compose never scores the scorecard. */
+  try{
+    openModal({ title:'Log this email?', sub:(name?String(name):to),
+      body:'<div style="font-size:var(--fz-body)">The email window is open. Log this as a sent email on the record? Choosing Cancel logs nothing.</div>',
+      saveLabel:'Yes, log it',
+      onSave:function(){ closeModal(); try{ if(typeof onSend==='function') onSend('',''); }catch(e){} } });
+  }catch(e){ try{ if(typeof onSend==='function') onSend('',''); }catch(_){} }
 }
 function mleadComposeEmail(kind,id,tplName){
   if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):'')}); }
@@ -6114,13 +6121,17 @@ function _qMonths(m,q){ var r=m.readings||[],n=0; for(var k=q*3;k<q*3+3;k++){ if
 function _bdScWk(i){ var s=scWeekDate(i); return {s:s,e:new Date(s.getTime()+7*86400000)}; }
 function _bdAllPeople(){ var r=[]; if(typeof PARTNERS!=='undefined'&&PARTNERS) r=r.concat(PARTNERS); if(typeof PROSPECTS!=='undefined'&&PROSPECTS) r=r.concat(PROSPECTS); return r; }
 function _bdFirstActDate(p){ var f=null; ((p&&p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
-function _bdFeedNewOutreach(s,e){ var n=0; _bdAllPeople().forEach(function(p){ var f=_bdFirstActDate(p); if(f&&_inWk(f,s,e)) n++; }); return n; }
-function _bdFeedExistingTouches(s,e){ var n=0; _bdAllPeople().forEach(function(p){ var f=_bdFirstActDate(p); if(!f) return; ((p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
-function _bdFeedMeetings(s,e){ var n=0; _bdAllPeople().forEach(function(p){ (p.act||[]).forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
+var _bdGrpCache=null;
+function _bdIdentKey(p){ var e=String(p.email||p.contactEmail||'').trim().toLowerCase(); if(e) return 'e:'+e; var n=String(((p.cf||'')+' '+(p.cl||'')).trim()||p.contactName||'').toLowerCase(); var f=String(p.firm||p.contactFirm||'').toLowerCase(); return 'n:'+n+'|'+f; }
+function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}}; order.push(k); } var g=map[k]; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||''); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
+function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
+function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
+function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
-function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; var scan=function(list){ (list||[]).forEach(function(p){ (p.act||[]).forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); }; scan(typeof PARTNERS!=='undefined'?PARTNERS:[]); scan(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); return Object.keys(days).length; }; }
-function _bdFeedBooks(s,e){ var n=0; var scan=function(list){ (list||[]).forEach(function(p){ (p.act||[]).forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); }; scan(typeof PARTNERS!=='undefined'?PARTNERS:[]); scan(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); return n; }
+function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
+function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ if(_inWk(r.date,s,e)) n++; }); }); return n; }
 var BD_AUTO_FEED={ 'bd.newPartnerOutreach':_bdFeedNewOutreach, 'bd.existingTouches':_bdFeedExistingTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.newActiveRelationships':_bdFeedStageReached('Meeting'), 'bd.eventsAttended':_bdFeedDistinctDays(/networking|mixer/i), 'bd.siteTours':_bdFeedDistinctDays(/site\s*(visit|tour)/i), 'bd.booksDelivered':_bdFeedBooks };
 function _bdScMonth(i){ var y=SC_PLAN_START_DATE.getFullYear(); return {s:new Date(y,i,1), e:new Date(y,i+1,1)}; }
@@ -6147,7 +6158,7 @@ function _bdmAdoptScorecard(){ try{ var rawS=null; try{ rawS=localStorage.getIte
   });
   return changed; }catch(_){ return false; } }
 try{ window.addEventListener('storage', function(e){ try{ if(e&&e.key==='smb_bdm_scorecard_v1' && typeof _curPage!=='undefined' && _curPage==='scorecard'){ renderScorecard(); } }catch(_){ } }); }catch(_){ }
-function _recalcAll(){ _bdEnsureScorecardV2(); _bdmAdoptScorecard(); _bdAutoFillScorecard(); scorecard.forEach(function(s){(s.metrics||[]).forEach(_recalcMetric);}); _bdmPublishScorecard(); }
+function _recalcAll(){ _bdGrpCache=null; _bdEnsureScorecardV2(); _bdmAdoptScorecard(); _bdAutoFillScorecard(); scorecard.forEach(function(s){(s.metrics||[]).forEach(_recalcMetric);}); _bdmPublishScorecard(); }
 
 function _recalcMetric(m){
   if(!m||!m.calc||!m.calc.op||m.calc.op==='none') return;
@@ -6288,13 +6299,13 @@ function _bdPersonLabel(p){ if(!p) return '?'; var n=((p.cf||'')+' '+(p.cl||''))
 function _bdCellTipItems(key,s,e){
   var out=[]; var people=_bdAllPeople();
   function push(l,r){ out.push([l,r]); }
-  if(key==='bd.newPartnerOutreach'){ people.forEach(function(p){ var f=_bdFirstActDate(p); if(f&&_inWk(f,s,e)) push(_bdPersonLabel(p),f); }); }
-  else if(key==='bd.existingTouches'){ people.forEach(function(p){ var f=_bdFirstActDate(p); if(!f) return; ((p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) push(_bdPersonLabel(p)+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
-  else if(key==='bd.relationshipMeetings'){ people.forEach(function(p){ ((p.act)||[]).forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(_bdPersonLabel(p),a.d); }); }); }
+  if(key==='bd.newPartnerOutreach'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) push(g.label,f); }); }
+  else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) push(g.label+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
+  else if(key==='bd.relationshipMeetings'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   else if(key==='bd.newActiveRelationships'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates['Meeting']; if(d&&_inWk(d,s,e)) push(_bdPersonLabel(p),d); }); }
   else if(key==='bd.referralsReceived'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ ((p.crmLeads)||[]).forEach(function(r){ if(_inWk(r.date,s,e)) push((r.name||'Referral')+' \u00b7 '+_bdPersonLabel(p),r.date||''); }); }); }
-  else if(key==='bd.eventsAttended'||key==='bd.siteTours'){ var re=(key==='bd.eventsAttended')?/networking|mixer/i:/site\s*(visit|tour)/i; var days={}; people.forEach(function(p){ ((p.act)||[]).forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)){ if(!days[a.d]) days[a.d]=[]; var _pl=_bdPersonLabel(p); if(days[a.d].indexOf(_pl)<0) days[a.d].push(_pl); } }); }); Object.keys(days).sort().forEach(function(d){ push(days[d].slice(0,3).join(', '),d); }); }
-  else if(key==='bd.booksDelivered'){ people.forEach(function(p){ ((p.act)||[]).forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) push(_bdPersonLabel(p),a.d); }); }); }
+  else if(key==='bd.eventsAttended'||key==='bd.siteTours'){ var re=(key==='bd.eventsAttended')?/networking|mixer/i:/site\s*(visit|tour)/i; var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)){ if(!days[a.d]) days[a.d]=[]; if(days[a.d].indexOf(g.label)<0) days[a.d].push(g.label); } }); }); Object.keys(days).sort().forEach(function(d){ push(days[d].slice(0,3).join(', '),d); }); }
+  else if(key==='bd.booksDelivered'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   return out;
 }
 function _bdCellTip(m,weekIdx,isWeekly){
@@ -6359,9 +6370,19 @@ function _scCellTxt(h,val){
   return h==='green'?'var(--grn)':h==='amber'?'var(--ambt)':'var(--red)';
 }
 
+function scCurrentWeekIdx(){
+  var now=new Date();
+  for(var i=0;i<weekRanges.length;i++){
+    var start=scWeekDate(i); var end=new Date(start.getTime()+7*86400000);
+    if(now>=start && now<end) return i;
+  }
+  return Math.min(scLastDataIdx()+1, weekRanges.length-1);
+}
 function _scDateRanges(){
   var N=weekRanges.length;
-  var cur=scLastDataIdx();
+  // Anchor ranges to the CURRENT week, not just the last week with data, so the
+  // current (and any recent empty) weeks are always visible for entry (VSP parity).
+  var cur=Math.max(scLastDataIdx(), scCurrentWeekIdx());
   var ps=scPlanStartIdx();
   function desc(lo,hi){ var r=[]; if(lo<0)lo=0; if(hi>N-1)hi=N-1; for(var i=hi;i>=lo;i--) r.push(i); return r; }
   function lastN(n){ return desc(cur-n+1, cur); }
