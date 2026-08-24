@@ -6175,13 +6175,13 @@ function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&sc
 var _bdmLastPub='';
 function _bdmScorecardPayload(){ try{ var sec=(typeof scorecard!=='undefined'&&scorecard&&scorecard[0])?scorecard[0]:null; if(!sec) return null;
   return { ownerId:'DS', seat:'Business Development Manager',
-    metrics:(sec.metrics||[]).map(function(m){ return { id:m.id, title:m.title, goal:m.goal, goalType:m.goalType, unit:m.unit, cadence:(m.cadence||'weekly'), readings:Array.isArray(m.readings)?m.readings.slice():[], showTotal:m.showTotal, showAverage:m.showAverage, rollupAs:m.rollupAs }; }),
+    metrics:(sec.metrics||[]).map(function(m){ return { id:m.id, title:m.title, goal:m.goal, goalType:m.goalType, unit:m.unit, cadence:(m.cadence||'weekly'), readings:Array.isArray(m.readings)?m.readings.slice():[], showTotal:m.showTotal, showAverage:m.showAverage, rollupAs:m.rollupAs, indicator:m.indicator, auto:m.auto, _autoKey:m._autoKey }; }),
     savedAt:new Date().toISOString() };
 }catch(_){ return null; } }
 function _bdmPublishScorecard(){ try{ var p=_bdmScorecardPayload(); if(!p) return; var body=JSON.stringify(p.metrics); if(body===_bdmLastPub){ window.SMB_BDM_SCORECARD=window.SMB_BDM_SCORECARD||p; return; } _bdmLastPub=body; window.SMB_BDM_SCORECARD=p; try{ localStorage.setItem('smb_bdm_scorecard_v1', JSON.stringify(p)); }catch(_){ } }catch(_){ } }
 function _bdmAdoptScorecard(){ try{ var rawS=null; try{ rawS=localStorage.getItem('smb_bdm_scorecard_v1'); }catch(_){ } if(!rawS) return false; var inc=JSON.parse(rawS); if(!inc||!Array.isArray(inc.metrics)) return false; var sec=(typeof scorecard!=='undefined'&&scorecard&&scorecard[0])?scorecard[0]:null; if(!sec||!sec.metrics) return false; var changed=false;
   inc.metrics.forEach(function(im){ if(!im||im.id==null) return; var loc=null; sec.metrics.forEach(function(m){ if(m&&m.id===im.id) loc=m; });
-    if(loc){ ['title','goal','goalType','unit','showTotal','showAverage','rollupAs'].forEach(function(k){ if(im[k]!==undefined && JSON.stringify(im[k])!==JSON.stringify(loc[k])){ loc[k]=im[k]; changed=true; } });
+    if(loc){ ['title','goal','goalType','unit','showTotal','showAverage','rollupAs','indicator'].forEach(function(k){ if(im[k]!==undefined && JSON.stringify(im[k])!==JSON.stringify(loc[k])){ loc[k]=im[k]; changed=true; } });
       if(Array.isArray(im.readings) && !loc.auto && JSON.stringify(im.readings)!==JSON.stringify(loc.readings)){ loc.readings=im.readings.slice(); changed=true; } }
     else { sec.metrics.push({ id:im.id, title:im.title||'', goal:im.goal, goalType:im.goalType||'\u2265', unit:im.unit||'#', cadence:im.cadence||'weekly', indicator:'leading', readings:Array.isArray(im.readings)?im.readings.slice():_nulls(_cadLen(im.cadence||'weekly')), showTotal:im.showTotal, showAverage:im.showAverage, rollupAs:im.rollupAs }); changed=true; }
   });
@@ -9949,6 +9949,73 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 else init();
 
 
+</script>
+<script>
+/* === SMB BDM Scorecard Staging Adapter v1 === staging-only graft, not part of
+   the audited module. BDM and VSP deploy on separate origins, so the shared
+   surface flows through Firebase: PUT smb_bdm_scorecard_v1 to
+   bdm/lida-001/scorecard on save (change-detected), GET on boot + 15s poll and
+   merge-adopt by metric id, newer savedAt wins, never full-replace. */
+(function(){
+  var FB='https://smb-staging-666a3-default-rtdb.firebaseio.com/bdm/lida-001/scorecard.json';
+  var KEY='smb_bdm_scorecard_v1';
+  var lastPushed='';
+  function cmp(obj){ try{ var c=JSON.parse(JSON.stringify(obj)); c.savedAt=0; return JSON.stringify(c); }catch(e){ return ''; } }
+  function push(){
+    try{
+      if(typeof fetch!=='function') return;
+      var raw=null; try{ raw=localStorage.getItem(KEY); }catch(e){ return; }
+      if(!raw) return; var obj=null; try{ obj=JSON.parse(raw); }catch(e){ return; }
+      if(!obj||!Array.isArray(obj.metrics)) return;
+      var c=cmp(obj); if(c===lastPushed) return; lastPushed=c;
+      obj.savedAt=new Date().toISOString();
+      fetch(FB,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}).catch(function(){ lastPushed=''; });
+    }catch(e){}
+  }
+  try{
+    var proto=Object.getPrototypeOf(localStorage);
+    var origSet=proto.setItem;
+    proto.setItem=function(k,v){ origSet.apply(this,arguments); if(k===KEY){ try{ push(); }catch(e){} } };
+  }catch(e){}
+  function mergeAdopt(remote){
+    try{
+      if(!remote||!Array.isArray(remote.metrics)) return;
+      var raw=null; try{ raw=localStorage.getItem(KEY); }catch(e){ return; }
+      var local=null; try{ local=raw?JSON.parse(raw):null; }catch(e){ local=null; }
+      if(!local||!Array.isArray(local.metrics)){
+        lastPushed=cmp(remote);
+        try{ localStorage.setItem(KEY, JSON.stringify(remote)); }catch(e){}
+        _refresh(); return;
+      }
+      var newerRemote=String(remote.savedAt||'')>String(local.savedAt||'');
+      var byId={}; local.metrics.forEach(function(m){ if(m&&m.id!=null) byId[m.id]=m; });
+      var changed=false;
+      remote.metrics.forEach(function(rm){
+        if(!rm||rm.id==null) return;
+        var lm=byId[rm.id];
+        if(!lm){ local.metrics.push(rm); changed=true; return; }
+        if(!newerRemote) return;
+        ['title','goal','goalType','unit','cadence','readings','showTotal','showAverage','rollupAs','indicator','auto','_autoKey'].forEach(function(k){
+          if(rm[k]!==undefined && JSON.stringify(rm[k])!==JSON.stringify(lm[k])){ lm[k]=rm[k]; changed=true; }
+        });
+      });
+      if(!changed) return;
+      if(newerRemote) local.savedAt=remote.savedAt;
+      lastPushed=cmp(local);
+      try{ localStorage.setItem(KEY, JSON.stringify(local)); }catch(e){}
+      _refresh();
+    }catch(e){}
+  }
+  function _refresh(){
+    try{ if(typeof _curPage!=='undefined' && _curPage==='scorecard' && typeof renderScorecard==='function'){ renderScorecard(); } }catch(e){}
+  }
+  function poll(){
+    try{ if(typeof fetch!=='function') return;
+      fetch(FB).then(function(r){ return r.json(); }).then(function(j){ mergeAdopt(j); }).catch(function(){});
+    }catch(e){}
+  }
+  try{ poll(); setInterval(poll,15000); setTimeout(push,4000); }catch(e){}
+})();
 </script>
 </body>
 </html>
