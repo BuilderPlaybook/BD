@@ -9912,7 +9912,22 @@ function _a11yButtons(root){
   }catch(e){}
 }
 
+function _bdEmbedParams(){ try{ var q=(location.search||'').replace(/^\?/,''); var o={}; q.split('&').forEach(function(kv){ if(!kv) return; var p=kv.split('='); o[decodeURIComponent(p[0])]=decodeURIComponent(p[1]||''); }); return o; }catch(_){ return {}; } }
+function _bdApplyEmbed(){
+  try{
+    var p=_bdEmbedParams();
+    if(p.embed!=='1'&&p.embed!=='true') return null;
+    window.__BD_EMBED=true;
+    var st=document.createElement('style');
+    st.id='bd-embed-style';
+    st.textContent='.sb{display:none !important} .sb-backdrop{display:none !important} .tb{display:none !important} .main{margin-left:0 !important;width:100% !important} .main-body{padding-top:14px !important} .sb-hamburger{display:none !important} #bd-sync-badge,.bd-sync-badge,.staging-badge{display:none !important}';
+    document.head.appendChild(st);
+    document.body.setAttribute('data-bd-embed','1');
+    return (p.page||'scorecard');
+  }catch(_){ return null; }
+}
 function init(){
+  var _embedPage=_bdApplyEmbed();
   loadState();
   publishMailContract();
   publishPartnersSteward();
@@ -9922,7 +9937,7 @@ function init(){
   emitBdSignal();
   try{ if(typeof syncTeamData==='function') syncTeamData(); _recalcAll(); }catch(e){}
   try{ _bdIntakeBackfill(); }catch(e){}
-  nav('dashboard');
+  nav(_embedPage||'dashboard');
   try{
     normalizeTableScope(document);
     _a11yButtons(document);
