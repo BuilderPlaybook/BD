@@ -2890,7 +2890,7 @@ function relProgramEmail(id){
   var n=p.program.step, cur=PR.steps[n-1]; if(!cur||cur.mode!=='email') return;
   _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(),
     function(s,m){ _relProgMark(id,n,{type:'Email',subj:s,notes:m}); },
-    {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, defaultTemplate:cur.tpl});
+    {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, audience:_cmpAudienceForPartner(p), defaultTemplate:cur.tpl});
 }
 function relProgramDone(id){
   var p=_partnerFind(id); if(!p||!p.program) return;
@@ -3481,7 +3481,7 @@ function deletePartner(id){
 
 function partnerComposeEmail(id){
   var p=_partnerFind(id); if(!p) return;
-  _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(id,s,m); }, {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, undo:function(){ return _mktgActResolve('partner',id); }});
+  _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(id,s,m); }, {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, audience:_cmpAudienceForPartner(p), undo:function(){ return _mktgActResolve('partner',id); }});
 }
 function partnerLogEmail(id,subj,notes){
   var p=_partnerFind(id); if(!p) return;
@@ -4212,74 +4212,137 @@ function _editSignature(){
     body:_section('Signature', _fld('Added to the bottom of every email you send','sig','textarea',(EMAIL_SIGNATURE||''),{full:true,rows:5}))+'<div class="muted" style="font-size:var(--fz-body);margin-top:6px">This is appended to every email composed here, so it appears the same on any computer regardless of your mail app settings. Set it before composing; opening this clears the current draft.</div>',
     onSave:function(){ var f=_readForm(); EMAIL_SIGNATURE=String(f.sig||''); try{ save(); }catch(_){} closeModal(); if(typeof toastSuccess==='function') toastSuccess('Signature saved',''); }});
 }
+function _cmpAudienceForPartner(p){
+  var c=String((p&&p.cat)||'').toLowerCase();
+  if(c.indexOf('realtor')>=0) return 'Realtor';
+  if(c.indexOf('architect')>=0) return 'Architect';
+  return 'Partner';
+}
+function _cmpTokens(str,tk){
+  var s=String(str||''); tk=tk||{};
+  s=s.replace(/\{\{\s*first_name\s*\}\}/g,(tk.first_name!=null?tk.first_name:'there'));
+  s=s.replace(/\{\{\s*area\s*\}\}/g,(tk.area!=null?tk.area:'your area'));
+  return s;
+}
+function _cmpTplList(aud){
+  var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
+  list.sort(function(a,b){
+    var aa=_tplAudience(a.name), ba=_tplAudience(b.name);
+    var ap=(aa===aud)?0:(aa==='Partner'?1:2), bp=(ba===aud)?0:(ba==='Partner'?1:2);
+    if(ap!==bp) return ap-bp;
+    if(aa!==ba) return aa<ba?-1:1;
+    return String(a.name)<String(b.name)?-1:1;
+  });
+  return list;
+}
+function _copyToClipboard(text){
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text); return true; } }catch(e){}
+  try{
+    var ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    var ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  }catch(e){ return false; }
+}
+var _cmpCtx=null;
 function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
-  /* Opens a blank email to the recipient so the user's own mail-app signature is
-     applied (a pre-filled body suppresses the mail-app signature). Logs a generic
-     email so the activity, count, and follow-up still record. Pre-written templates
-     and an injected signature return when the shared send backend is connected. */
-  to=String(to).trim();
-  var cc=(opts&&opts.cc)?String(opts.cc).trim():'';
-  /* Subject-only prefill from the chosen template (Dave, 2026-08-24): a
-     prefilled mailto BODY suppresses the user's Outlook signature, so we
-     prefill the subject only and leave the body empty. The signature (and its
-     book/QR banner) is appended by Outlook. Template tokens {{first_name}} /
-     {{area}} are substituted into the subject. Full body prefill returns with
-     the send backend, which injects body and signature server-side. */
-  var _subject='';
+  /* One compose flow for every email surface (Dave, 2026-08-24): pick a
+     template right on the record, see and edit the subject and body with
+     tokens already substituted, then Open in Outlook. The mailto carries To,
+     CC, and Subject only (a prefilled BODY suppresses the user's Outlook
+     signature and its book/QR banner), and the body is copied to the
+     clipboard so one Ctrl+V drops it in above the signature. The touch is
+     logged immediately with the REAL subject and body so the Email Thread
+     shows what was actually sent, with an Undo toast if the user bails.
+     Direct send with body and signature injected server-side returns when
+     the shared send backend (D-45) is connected. */
+  to=String(to).trim(); opts=opts||{};
+  var cc=(opts.cc)?String(opts.cc).trim():'';
+  var aud=opts.audience||'Partner';
+  var tokens=opts.tokens||{};
+  var list=_cmpTplList(aud);
+  var defId='';
+  if(opts.defaultTemplate){
+    for(var i=0;i<list.length;i++){ if(list[i].name===opts.defaultTemplate||list[i].id===opts.defaultTemplate){ defId=String(list[i].id); break; } }
+  }
+  if(defId===''){ for(var j=0;j<list.length;j++){ if(_tplAudience(list[j].name)===aud){ defId=String(list[j].id); break; } } }
+  _cmpCtx={to:to,cc:cc,name:(name?String(name):''),onSend:onSend,undo:(typeof opts.undo==='function'?opts.undo:null),tokens:tokens,aud:aud};
+  var optHtml='<option value=""'+(defId===''?' selected':'')+'>Blank email (no template)</option>'+list.map(function(t){
+    var ta=_tplAudience(t.name);
+    return '<option value="'+t.id+'"'+(String(t.id)===defId?' selected':'')+'>'+_esc(t.name)+(ta!==aud?(' \u00b7 '+_esc(ta)):'')+'</option>';
+  }).join('');
+  var t0=(defId!=='')?_tplFind(parseInt(defId,10)):null;
+  var s0=t0?_cmpTokens(t0.subject,tokens):'';
+  var b0=t0?_cmpTokens(t0.body,tokens):'';
+  var mbody='<div class="smb-form-grid">'+
+    '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
+    '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
+    '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills To and Subject and copies this body to your clipboard: press Ctrl+V in the Outlook window to drop it in above your signature, edit if needed, and hit Send. The email is logged here with this subject and body and counts as a touch; Undo is on the toast if you do not send. Direct send from this screen arrives with the email backend.</div></div>'+
+  '</div>';
+  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
+    onSave:function(){ _cmpDoSend(); } });
+}
+function _cmpApplyTpl(){
+  var c=_cmpCtx; if(!c) return;
+  var sel=document.getElementById('cmp-tpl'); if(!sel) return;
+  var s=document.getElementById('cmp-subject'), b=document.getElementById('cmp-body');
+  if(sel.value===''){ if(s) s.value=''; if(b){ b.value=''; _autogrow(b); } return; }
+  var t=_tplFind(parseInt(sel.value,10)); if(!t) return;
+  if(s) s.value=_cmpTokens(t.subject,c.tokens);
+  if(b){ b.value=_cmpTokens(t.body,c.tokens); _autogrow(b); }
+}
+function _cmpDoSend(){
+  var c=_cmpCtx; if(!c) return;
+  var subj=String((document.getElementById('cmp-subject')||{}).value||'').trim();
+  var body=String((document.getElementById('cmp-body')||{}).value||'');
+  var selEl=document.getElementById('cmp-tpl');
+  var tid=(selEl&&selEl.value!=='')?parseInt(selEl.value,10):null;
+  closeModal();
+  _cmpCtx=null;
+  if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
+  var copied=false;
+  if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
   try{
-    var _tplName=(opts&&opts.defaultTemplate)?String(opts.defaultTemplate):'';
-    if(_tplName){
-      var _tpl=null;
-      for(var _i=0;_i<TEMPLATES.length;_i++){ if(TEMPLATES[_i] && (TEMPLATES[_i].name===_tplName || TEMPLATES[_i].id===opts.defaultTemplate)){ _tpl=TEMPLATES[_i]; break; } }
-      if(_tpl && _tpl.subject){
-        _subject=String(_tpl.subject);
-        var _tk=(opts&&opts.tokens)?opts.tokens:{};
-        _subject=_subject.replace(/\{\{\s*first_name\s*\}\}/g,(_tk.first_name!=null?_tk.first_name:'there'))
-                         .replace(/\{\{\s*area\s*\}\}/g,(_tk.area!=null?_tk.area:'your area'));
-      }
-    }
-  }catch(e){ _subject=''; }
-  try{
-    var href='mailto:'+encodeURIComponent(to).replace(/%40/g,'@');
+    var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
     var _qs=[];
-    if(cc && cc.toLowerCase()!==to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(cc).replace(/%40/g,'@')); }
-    if(_subject){ _qs.push('subject='+encodeURIComponent(_subject)); }
+    if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
+    if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
     if(_qs.length){ href+='?'+_qs.join('&'); }
     var a=document.createElement('a'); a.href=href;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }catch(e){}
   /* Log-by-default with undo (Dave, 2026-08-24): the mail window is open, so
      the touch is logged immediately and an Undo toast lets the user reverse it
-     if they did not actually send. Replaces the Aug-23 confirm-first modal,
-     which silently dropped real sends when it was dismissed. Undo removes the
-     just-logged activity by its loggedAt via opts.undo() (an _mktgActResolve
-     context) when supplied; otherwise the touch stands. */
-  var _undoCtx=(opts&&typeof opts.undo==='function')?opts.undo:null;
+     if they did not actually send. Undo removes the just-logged activity via
+     c.undo() (an _mktgActResolve context) when supplied. */
+  var _undoCtx=c.undo;
   var _before=null;
   try{ if(_undoCtx){ var c0=_undoCtx(); _before=(c0&&c0.arr&&c0.arr[0]&&c0.arr[0].loggedAt)?c0.arr[0].loggedAt:null; } }catch(e){}
-  try{ if(typeof onSend==='function') onSend('',''); }catch(e){}
+  try{ if(typeof c.onSend==='function') c.onSend(subj,body); }catch(e){}
+  try{ save(); }catch(e){}
+  var msg=(c.name||c.to)+(copied?'. Body copied, Ctrl+V in Outlook above your signature.':'');
   if(_undoCtx){
     try{
-      /* The log functions unshift one activity (newest at index 0). Undo strips
-         that entry only if it is a new Email logged by this compose (its
-         loggedAt differs from the pre-send index-0 loggedAt captured above). */
-      toastUndo('Email logged',(name?String(name):to),function(){
+      toastUndo('Email logged',msg,function(){
         try{
-          var c=_undoCtx(); if(!c||!c.arr||!c.arr.length) return;
-          var top=c.arr[0]; if(!top||top.type!=='Email') return;
+          var cx=_undoCtx(); if(!cx||!cx.arr||!cx.arr.length) return;
+          var top=cx.arr[0]; if(!top||top.type!=='Email') return;
           if(top.loggedAt && top.loggedAt===_before) return;
-          c.arr.shift();
-          try{ if(typeof c.persist==='function') c.persist(); else save(); }catch(_){}
-          try{ if(typeof c.rerender==='function') c.rerender(); }catch(_){}
+          cx.arr.shift();
+          try{ if(typeof cx.persist==='function') cx.persist(); else save(); }catch(_){}
+          try{ if(typeof cx.rerender==='function') cx.rerender(); }catch(_){}
         }catch(_){}
       });
     }catch(e){}
-  }
+  } else if(typeof toastSuccess==='function'){ toastSuccess('Email logged',msg); }
 }
 function mleadComposeEmail(kind,id,tplName){
-  if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
-  else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, undo:function(){ return _mktgActResolve('pull',id); }}); }
+  if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
+  else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, audience:'Outreach', undo:function(){ return _mktgActResolve('pull',id); }}); }
 }
 function _mleadAutoPartner(kind,id){
   var dt=_today();
@@ -8337,7 +8400,7 @@ function reachCheckin(id){
   var p=_partnerFind(id); if(!p) return;
   _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(),
     function(s,m){ partnerLogEmail(id,s,m); },
-    {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, defaultTemplate:'Partner Check-in'});
+    {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, audience:'Partner', defaultTemplate:'Partner Check-in', undo:function(){ return _mktgActResolve('partner',p.id); }});
 }
 
 /* ---- shared mail/template contract (D-45) ----
@@ -8402,7 +8465,7 @@ function renderTemplates(){
   var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
   list.sort(function(a,b){ var aa=_tplAudience(a.name), ba=_tplAudience(b.name); if(aa!==ba) return aa<ba?-1:1; return String(a.name)<String(b.name)?-1:1; });
   var head='<div class="pg"><div><div class="pg-title">Templates</div>'+
-    '<div class="pg-sub">Your email template library. Send opens Outlook with the subject filled in and your signature intact; the body stays blank so Outlook keeps your signature. Edits are shared with Marketing.</div></div>'+
+    '<div class="pg-sub">Your email template library. Send opens the compose window: review the subject and body, then Open in Outlook fills the subject and copies the body for one Ctrl+V above your signature. Edits are shared with Marketing.</div></div>'+
     '<div class="pg-actions"><button type="button" class="btn btn-primary btn-sm" onclick="_tplNew()">New template</button></div></div>';
   if(!list.length){
     host.innerHTML=head+'<div class="card"><div class="card-body">No templates yet. Click New template to add one.</div></div>';
@@ -8435,7 +8498,7 @@ function _tplEdit(id){
     '<div class="smb-fld full"><label for="tpl-name">Name</label><input type="text" id="tpl-name" value="'+_esc(t?t.name:'')+'"></div>'+
     '<div class="smb-fld full"><label for="tpl-subject">Subject</label><input type="text" id="tpl-subject" value="'+_esc(t?t.subject:'')+'"></div>'+
     '<div class="smb-fld full"><label for="tpl-body">Body</label><textarea id="tpl-body" class="autogrow" rows="10" style="font-family:inherit">'+_esc(t?t.body:'')+'</textarea></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Tokens {{first_name}} and {{area}} are filled in when you send. The body is for your reference and for when the send backend is connected; today only the subject is prefilled into Outlook so your signature is kept.</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Tokens {{first_name}} and {{area}} are filled in when you send. On send, the subject prefills into Outlook and the body is copied to your clipboard for one Ctrl+V above your signature, until the send backend delivers it directly.</div></div>'+
   '</div>';
   openModal({ title:(t?'Edit template':'New template'), sub:(t?t.name:''), body:body, saveLabel:(t?'Save':'Create'),
     onSave:function(){ _tplSaveEdit(id); } });
@@ -8463,7 +8526,7 @@ function _tplSend(id){
   var body='<div class="smb-form-grid">'+
     '<div class="smb-fld full"><label for="tpl-send-partner">Send to a partner</label><select id="tpl-send-partner" onchange="_tplSendPickPartner()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="tpl-send-email">Or type an email</label><input type="email" id="tpl-send-email" value="" placeholder="name@example.com"></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Subject "'+_esc(t.subject||'')+'" will be prefilled. The body stays blank so your Outlook signature is applied. Picking a partner logs the email on their record.</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Next you will see the compose window with subject and body filled in from "'+_esc(t.name)+'", ready to edit. Picking a partner logs the email on their record.</div></div>'+
   '</div>';
   openModal({ title:'Send template', sub:t.name, body:body, saveLabel:'Open in Outlook',
     onSave:function(){ _tplDoSend(id); } });
@@ -8486,7 +8549,7 @@ function _tplDoSend(id){
   var tokens={first_name:(p?(p.cf||'there'):'there'), area:(p?(p.city||'your area'):'your area')};
   if(p){
     _composeEmail(to, ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(p.id,s,m); },
-      {tokens:tokens, defaultTemplate:t.name, undo:function(){ return _mktgActResolve('partner',p.id); }});
+      {tokens:tokens, audience:_cmpAudienceForPartner(p), defaultTemplate:t.name, undo:function(){ return _mktgActResolve('partner',p.id); }});
   } else {
     _composeEmail(to, to, function(){}, {tokens:tokens, defaultTemplate:t.name});
   }
