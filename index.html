@@ -7879,7 +7879,7 @@ function scBuild(){
         var cols=d.cols[mi];
         var allVals=m.readings.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
         var validCols=cols.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
-        var avg=validCols.length?(validCols.reduce(function(a,b){return a+b;},0)/validCols.length).toFixed(1):' - ';
+        var avg=validCols.length?(validCols.reduce(function(a,b){return a+b;},0)/validCols.length):null;
         var total=validCols.length?validCols.reduce(function(a,b){return a+b;},0):'';
         // Format total based on unit (uses fmtVal for $/% awareness)
         var totalDisplay=total===''?' - ':scFmtVal(total,m.unit);
