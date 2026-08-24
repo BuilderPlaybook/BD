@@ -6147,7 +6147,7 @@ function _qMonths(m,q){ var r=m.readings||[],n=0; for(var k=q*3;k<q*3+3;k++){ if
    partner data; toggling it off in the editor returns it to manual entry
    (the standard VSP behaviour). Each weekly cell counts records dated in that
    calendar week, indexed against weekRanges like every other measurable. ---- */
-function _bdScWk(i){ var s=scWeekDate(i); return {s:s,e:new Date(s.getTime()+7*86400000)}; }
+function _bdScWk(i){ return {s:scWeekDate(i), e:scWeekDate(i+1)}; }
 function _bdAllPeople(){ var r=[]; if(typeof PARTNERS!=='undefined'&&PARTNERS) r=r.concat(PARTNERS); if(typeof PROSPECTS!=='undefined'&&PROSPECTS) r=r.concat(PROSPECTS); return r; }
 function _bdFirstActDate(p){ var f=null; ((p&&p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
 var _bdGrpCache=null;
@@ -6402,7 +6402,7 @@ function _scCellTxt(h,val){
 function scCurrentWeekIdx(){
   var now=new Date();
   for(var i=0;i<weekRanges.length;i++){
-    var start=scWeekDate(i); var end=new Date(start.getTime()+7*86400000);
+    var start=scWeekDate(i); var end=scWeekDate(i+1);
     if(now>=start && now<end) return i;
   }
   return Math.min(scLastDataIdx()+1, weekRanges.length-1);
@@ -6433,8 +6433,6 @@ function _scDateRanges(){
     last13:   {label:"Last 13 Weeks",     weekIdxs:lastN(13)},
     qtd:      {label:"Quarter to Date",   weekIdxs:desc(qStart, cur)},
     yearToDate:{label:"Year to Date",     weekIdxs:desc(_ys, cur)},
-    fullYear:  {label:"Full Year",         weekIdxs:desc(_ys, _ye)},
-    rolling52:{label:"Rolling 52 Weeks",  weekIdxs:desc(cur-51, cur)},
     custom:   {label:"Custom Range",      weekIdxs:_ci()}
   };
 }
@@ -7070,7 +7068,7 @@ function renderScorecardInline(opts){ _recalcAll();
     h += '<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>';
     if(showMenu){
       h += '<div onclick="event.stopPropagation()" style="position:absolute;top:100%;left:0;margin-top:4px;background:var(--sur);border:1px solid var(--brd);border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:200;min-width:200px;padding:4px 0">';
-      ['last4','last13','qtd','yearToDate','fullYear','rolling52','custom'].forEach(function(rng){
+      ['last4','last13','qtd','yearToDate','custom'].forEach(function(rng){
         var active = rng === dr;
         h += '<button onclick="setScorecardDateRange(\''+rng+'\')" style="display:block;width:100%;text-align:left;padding:8px 13px;border:none;background:'+(active?'var(--blub)':'transparent')+';cursor:pointer;font-family:inherit;font-size:var(--fz-body);color:'+(active?'var(--blu)':'var(--txt)')+'">'+_R1[rng].label+(active?' ✓':'')+'</button>';
       });
@@ -7135,14 +7133,15 @@ function renderScorecardInline(opts){ _recalcAll();
 
     _mets.forEach(function(m,mi){
       var trend=getTrendInline(m);
-      var allVals=m.readings.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
+      var _winRi=colIdxs.map(function(_i){return m.readings[_i];});
+      var allVals=_winRi.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
       var sum=allVals.length?allVals.reduce(function(a,b){return a+b;},0):null;
       var avg=allVals.length?(sum/allVals.length):null;
       var rowBg=mi%2===0?'var(--sur)':'var(--gray-50)';
 
       h+='<tr>';
       h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+(trend==="good"?"Trending right":"Trend wrong way")+'">'+trendIconInline(trend)+'</td>';
-      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(m)+'</td>';
+      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRi}))+'</td>';
       h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+_goalLabel(m)+'</td>';
       var _cnpAi=_cnpAvgTip(m,allVals,avg||0); var _cnpTi=_cnpTotalTip(m,allVals);
       h+='<td tabindex="0" data-cnp="avg" style="'+scStkB(SC_OFF.avg,SC_W.avg,rowBg,'text-align:center;font-size:var(--fz-body);font-weight:600;color:'+(m.rollupAs==='Total'?'var(--txm)':_tierColor(_scTier(m,avg))))+'">'+scFmtVal(avg,m.unit)+_cnpAi+'</td>';
@@ -7444,7 +7443,7 @@ function scStkH(left,w,extra){
 
 function scTitleW(k){ var w=SC_TITLE_W[k]; return (w&&w>=120&&w<=640)?w:190; }
 
-function scWeekDate(i){ return new Date(SC_PLAN_START_DATE.getTime()+(i-scPlanStartIdx())*7*86400000); }
+function scWeekDate(i){ var d=new Date(SC_PLAN_START_DATE.getFullYear(),SC_PLAN_START_DATE.getMonth(),SC_PLAN_START_DATE.getDate()); d.setDate(d.getDate()+(i-scPlanStartIdx())*7); return d; }
 
 function scorecardCreateLinkedIssue(sIdx, mIdx){
   var section = scorecard[sIdx];
@@ -7657,7 +7656,7 @@ function scBuild(){
   // Date Range (weekly only; monthly/quarterly show all periods)
   if(period==='weekly'){
   h+='<select onchange="state.scorecardDateRange=this.value;renderPage()" style="font-size:var(--fz-lg);padding:6px 10px;border:1.5px solid var(--brd2);border-radius:7px;background:var(--sur);color:var(--txt);font-family:inherit;cursor:pointer">';
-  ['last4','last13','qtd','yearToDate','fullYear','rolling52','custom'].forEach(function(_drk){
+  ['last4','last13','qtd','yearToDate','custom'].forEach(function(_drk){
     h+='<option value="'+_drk+'"'+(((state.scorecardDateRange||'last13')===_drk)?' selected':'')+'>Date Range: '+dateRanges[_drk].label+'</option>';
   });
   h+='</select>';
@@ -7746,11 +7745,12 @@ function scBuild(){
     h+='</tr></thead><tbody>';
     _mg.forEach(function(r){
       var m=r.m;
-      var nums=activeIdxs.map(function(i){return period==='quarterly'?_qAgg(m,i):m.readings[i];}).filter(function(v){return typeof v==='number';});
+      var _winRm=activeIdxs.map(function(i){return period==='quarterly'?_qAgg(m,i):m.readings[i];});
+      var nums=_winRm.filter(function(v){return typeof v==='number';});
       var sum=nums.reduce(function(a,b){return a+b;},0);
       var avg=nums.length?sum/nums.length:0;
       h+='<tr style="border-bottom:0.5px solid var(--brd)">';
-      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(m)+'</td>';
+      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRm}))+'</td>';
       h+='<td style="padding:8px 10px;text-align:left"><span style="display:inline-flex;align-items:center;gap:6px">'+_scAvatar((r.oid||'').slice(0,2),r.ocolor,18)+'<span style="font-size:var(--fz-body);color:var(--txm)">'+r.oname+'</span></span></td>';
       h+='<td style="text-align:center;font-size:var(--fz-body);color:var(--blu)">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
       var _cnpA=_cnpAvgTip(m,nums,avg); var _cnpT=_cnpTotalTip(m,nums);
@@ -7859,7 +7859,7 @@ function scBuild(){
         var cols=d.cols[mi];
         var allVals=m.readings.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
         var validCols=cols.filter(function(v){return v!==null&&v!==undefined&&typeof v==='number';});
-        var avg=(period==='quarterly')?(validCols.length?(validCols.reduce(function(a,b){return a+b;},0)/validCols.length).toFixed(1):' - '):(allVals.length?(allVals.reduce(function(a,b){return a+b;},0)/allVals.length).toFixed(1):' - ');
+        var avg=validCols.length?(validCols.reduce(function(a,b){return a+b;},0)/validCols.length).toFixed(1):' - ';
         var total=validCols.length?validCols.reduce(function(a,b){return a+b;},0):'';
         // Format total based on unit (uses fmtVal for $/% awareness)
         var totalDisplay=total===''?' - ':scFmtVal(total,m.unit);
@@ -7880,7 +7880,7 @@ function scBuild(){
         h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+trendLabel+'">'+trendIcon(trend)+'</td>';
 
         // Title (click to edit measurable)
-        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(m)+'</td>';
+        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:cols}))+'</td>';
         h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
         var _cnpVm=validCols; var _cnpAvgN=_cnpVm.length?_cnpVm.reduce(function(a,b){return a+b;},0)/_cnpVm.length:0;
         var _cnpAm=_cnpAvgTip(m,_cnpVm,_cnpAvgN); var _cnpTm=_cnpTotalTip(m,_cnpVm);
