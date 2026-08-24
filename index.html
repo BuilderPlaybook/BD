@@ -3477,7 +3477,7 @@ function deletePartner(id){
 
 function partnerComposeEmail(id){
   var p=_partnerFind(id); if(!p) return;
-  _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(id,s,m); }, {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}});
+  _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(id,s,m); }, {tokens:{first_name:(p.cf||'there'),area:(p.city||'your area')}, undo:function(){ return _mktgActResolve('partner',id); }});
 }
 function partnerLogEmail(id,subj,notes){
   var p=_partnerFind(id); if(!p) return;
@@ -4222,18 +4222,37 @@ function _composeEmail(to,name,onSend,opts){
     var a=document.createElement('a'); a.href=href;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }catch(e){}
-  /* Confirm before logging (Dave, 2026-08-23): the mail window is open; only a
-     Yes records the touch, so browsing compose never scores the scorecard. */
-  try{
-    openModal({ title:'Log this email?', sub:(name?String(name):to),
-      body:'<div style="font-size:var(--fz-body)">The email window is open. Log this as a sent email on the record? Choosing Cancel logs nothing.</div>',
-      saveLabel:'Yes, log it',
-      onSave:function(){ closeModal(); try{ if(typeof onSend==='function') onSend('',''); }catch(e){} } });
-  }catch(e){ try{ if(typeof onSend==='function') onSend('',''); }catch(_){} }
+  /* Log-by-default with undo (Dave, 2026-08-24): the mail window is open, so
+     the touch is logged immediately and an Undo toast lets the user reverse it
+     if they did not actually send. Replaces the Aug-23 confirm-first modal,
+     which silently dropped real sends when it was dismissed. Undo removes the
+     just-logged activity by its loggedAt via opts.undo() (an _mktgActResolve
+     context) when supplied; otherwise the touch stands. */
+  var _undoCtx=(opts&&typeof opts.undo==='function')?opts.undo:null;
+  var _before=null;
+  try{ if(_undoCtx){ var c0=_undoCtx(); _before=(c0&&c0.arr&&c0.arr[0]&&c0.arr[0].loggedAt)?c0.arr[0].loggedAt:null; } }catch(e){}
+  try{ if(typeof onSend==='function') onSend('',''); }catch(e){}
+  if(_undoCtx){
+    try{
+      /* The log functions unshift one activity (newest at index 0). Undo strips
+         that entry only if it is a new Email logged by this compose (its
+         loggedAt differs from the pre-send index-0 loggedAt captured above). */
+      toastUndo('Email logged',(name?String(name):to),function(){
+        try{
+          var c=_undoCtx(); if(!c||!c.arr||!c.arr.length) return;
+          var top=c.arr[0]; if(!top||top.type!=='Email') return;
+          if(top.loggedAt && top.loggedAt===_before) return;
+          c.arr.shift();
+          try{ if(typeof c.persist==='function') c.persist(); else save(); }catch(_){}
+          try{ if(typeof c.rerender==='function') c.rerender(); }catch(_){}
+        }catch(_){}
+      });
+    }catch(e){}
+  }
 }
 function mleadComposeEmail(kind,id,tplName){
-  if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):'')}); }
-  else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}}); }
+  if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
+  else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, undo:function(){ return _mktgActResolve('pull',id); }}); }
 }
 function _mleadAutoPartner(kind,id){
   var dt=_today();
@@ -4282,6 +4301,12 @@ function mleadLogEmail(kind,id,subj,notes){
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(pu){ var k=pu.applicantKey||_pullKey(pu.applicant,''); if(k){ if(!PULL_ACTIVITY[k]) PULL_ACTIVITY[k]=[]; PULL_ACTIVITY[k].unshift(a); who=_pullDisplay(pu.applicant,'')||who; } } }
   var _np=null; try{ _np=_mleadAutoPartner(kind,id); }catch(e){}
   if(_np){ if(!_np.act) _np.act=[]; _np.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); }
+  else if(kind==='lot'){
+    /* Already linked to a partner: mirror the touch onto the partner card too,
+       so every lot email (not just the first) shows on his relationship history
+       (Dave, 2026-08-24). */
+    try{ var lp=_prospFind(id); if(lp&&lp.linkedPartnerId!=null){ var pn=_partnerFind(lp.linkedPartnerId); if(pn){ if(!pn.act) pn.act=[]; pn.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); if(a.d>(pn.lastContact||'')) pn.lastContact=a.d; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} } } }catch(e){}
+  }
   try{ save(); }catch(e){}
   if(typeof toastSuccess==='function') toastSuccess(_np?'Added to pipeline':'Email logged', _np?(who+' has been added to your pipeline.'):('Logged to '+who+'.'));
   if(MLEAD_VIEW) renderProspecting();
@@ -4410,11 +4435,12 @@ var ACT_DEFAULT='<svg fill="none" stroke="currentColor" stroke-width="2" width="
 function actIcon(t){return ACT_ICONS[t]||ACT_DEFAULT;}
 function _mktgActsCard(arr,kind,id){
   arr=arr||[];
-  var list=arr.slice().sort(function(a,b){ return new Date(b.d)-new Date(a.d); });
+  // Email lives in the Email Thread card; timeline shows non-email touchpoints only
+  var list=arr.slice().filter(function(a){ return a && a.type!=='Email'; }).sort(function(a,b){ return new Date(b.d)-new Date(a.d); });
   var h='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Activity Timeline</span>'+
     '<button class="btn btn-primary btn-sm" onclick="mktgLogActivity(\''+kind+'\','+id+')">Log activity</button></div>'+
     '<div class="card-body" style="padding:8px 16px">';
-  if(!list.length){ return h+'<div class="muted" style="padding:8px 0">No activity logged yet.</div></div></div>'; }
+  if(!list.length){ return h+'<div class="muted" style="padding:8px 0">No calls, meetings, or notes logged yet. Emails appear in the Email Thread below.</div></div></div>'; }
   list.forEach(function(a){
     var idx=arr.indexOf(a);
     var nextLine=(a.na||a.nc)?(' &middot; Next: '+_esc(a.na||'')+(a.nc?' ('+fmtDate(a.nc)+')':'')):'';
