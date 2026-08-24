@@ -4225,7 +4225,7 @@ function _cmpTokens(str,tk){
   return s;
 }
 function _cmpTplList(aud){
-  var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
+  var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms' && !t.archived; });
   list.sort(function(a,b){
     var aa=_tplAudience(a.name), ba=_tplAudience(b.name);
     var ap=(aa===aud)?0:(aa==='Partner'?1:2), bp=(ba===aud)?0:(ba==='Partner'?1:2);
@@ -4295,6 +4295,29 @@ function _cmpApplyTpl(){
   if(s) s.value=_cmpTokens(t.subject,c.tokens);
   if(b){ b.value=_cmpTokens(t.body,c.tokens); _autogrow(b); }
 }
+/* Paste banner (Dave, 2026-08-24): the Ctrl+V step was living in a toast that
+   fades, so it got missed and Outlook looked broken. This banner stays on
+   screen until dismissed, with a Copy again button in case the clipboard got
+   overwritten before pasting. */
+function _showPasteBanner(bodyText){
+  var old=document.getElementById('bd-paste-banner'); if(old) old.remove();
+  var bar=document.createElement('div');
+  bar.id='bd-paste-banner';
+  bar.setAttribute('role','status');
+  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--sur);color:var(--txt);border-bottom:3px solid var(--gp);padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-size:var(--fz-body)';
+  var txt=document.createElement('div');
+  txt.style.cssText='flex:1';
+  txt.innerHTML='<strong>Body copied.</strong> Click in the Outlook email and press <strong>Ctrl+V</strong>. It pastes above your signature.';
+  var again=document.createElement('button');
+  again.type='button'; again.className='btn btn-sm'; again.textContent='Copy again';
+  again.onclick=function(){ _copyToClipboard(bodyText); if(typeof toastSuccess==='function') toastSuccess('Copied','Body copied to clipboard again.'); };
+  var x=document.createElement('button');
+  x.type='button'; x.className='btn btn-sm'; x.textContent='Done';
+  x.onclick=function(){ bar.remove(); };
+  bar.appendChild(txt); bar.appendChild(again); bar.appendChild(x);
+  document.body.appendChild(bar);
+  setTimeout(function(){ var b=document.getElementById('bd-paste-banner'); if(b) b.remove(); }, 120000);
+}
 function _cmpDoSend(){
   var c=_cmpCtx; if(!c) return;
   var subj=String((document.getElementById('cmp-subject')||{}).value||'').trim();
@@ -4306,6 +4329,7 @@ function _cmpDoSend(){
   if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
   var copied=false;
   if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
+  if(copied){ _showPasteBanner(body); }
   try{
     var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
     var _qs=[];
@@ -5411,7 +5435,7 @@ function prospectLogContact(id){
    ============================================================ */
 var OUTREACH={drafts:[],settings:{maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true},tplByCat:{}};
 var OR_DEFAULT_TPL={'Realtor':'Realtor Book Delivery','Architect':'Architect Book Delivery','Residential Designer':'Architect Book Delivery','Building Plan Designer':'Architect Book Delivery','Interior Designer':'Architect Book Delivery','Developer':'Partner Check-in','_mlead':'Lot Agent Outreach','_default':'Partner Check-in'};
-function _orTplFor(cat){ var pick=OUTREACH.tplByCat[cat]||OR_DEFAULT_TPL[cat]||OR_DEFAULT_TPL._default; for(var i=0;i<TEMPLATES.length;i++){ var t=TEMPLATES[i]; if(t.channel!=='sms'&&(t.id===pick||t.name===pick)) return t; } return null; }
+function _orTplFor(cat){ var pick=OUTREACH.tplByCat[cat]||OR_DEFAULT_TPL[cat]||OR_DEFAULT_TPL._default; for(var i=0;i<TEMPLATES.length;i++){ var t=TEMPLATES[i]; if(t.channel!=='sms'&&!t.archived&&(t.id===pick||t.name===pick)) return t; } return null; }
 function orFreezeFor(kind,id){ var hit=false; OUTREACH.drafts.forEach(function(d){ if(d.kind===kind&&d.refId===id&&(d.status==='pending'||d.status==='approved')){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; hit=true; } }); if(hit){ save(); } }
 
 /* ---- init ---- */
@@ -8460,35 +8484,102 @@ function _tplBodyPreview(body){
   if(s.length>160) s=s.slice(0,160).replace(/\s+\S*$/,'')+'...';
   return s;
 }
+var _tplTab='All';
+var _tplOpen=null; /* id of the card expanded to full preview */
+function _tplSetTab(t){ _tplTab=t; _tplOpen=null; renderTemplates(); }
+function _tplToggleOpen(id){ _tplOpen=(_tplOpen===id)?null:id; renderTemplates(); }
+function _tplHighlightTokens(s){
+  return _esc(s).replace(/\{\{(first_name|area)\}\}/g,'<span class="chip c-blu" style="font-size:var(--fz-xs);padding:1px 6px">{{$1}}</span>');
+}
 function renderTemplates(){
   var host=document.getElementById('templates-content'); if(!host) return;
-  var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
+  var all=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
+  var live=all.filter(function(t){ return !t.archived; });
+  var archived=all.filter(function(t){ return !!t.archived; });
+
+  /* Tab bar: audience filters over the live set, plus Archived. */
+  var tabs=['All','Realtor','Lot Agent','Architect','Partner'];
+  var counts={All:live.length};
+  tabs.slice(1).forEach(function(a){ counts[a]=live.filter(function(t){ return _tplAudience(t.name)===a; }).length; });
+  var list;
+  if(_tplTab==='Archived') list=archived;
+  else if(_tplTab==='All') list=live;
+  else list=live.filter(function(t){ return _tplAudience(t.name)===_tplTab; });
   list.sort(function(a,b){ var aa=_tplAudience(a.name), ba=_tplAudience(b.name); if(aa!==ba) return aa<ba?-1:1; return String(a.name)<String(b.name)?-1:1; });
+
   var head='<div class="pg"><div><div class="pg-title">Templates</div>'+
-    '<div class="pg-sub">Your email template library. Send opens the compose window: review the subject and body, then Open in Outlook fills the subject and copies the body for one Ctrl+V above your signature. Edits are shared with Marketing.</div></div>'+
+    '<div class="pg-sub">Your email template library. Click a card to read the full template. Send opens the compose window; Open in Outlook fills the subject and copies the body for one Ctrl+V above your signature. Edits are shared with Marketing.</div></div>'+
     '<div class="pg-actions"><button type="button" class="btn btn-primary btn-sm" onclick="_tplNew()">New template</button></div></div>';
+
+  var tabHtml='<div class="tab-bar" style="margin-bottom:12px">'+
+    tabs.map(function(t){ return '<button type="button" class="tab'+(_tplTab===t?' active':'')+'" onclick="_tplSetTab(\''+t+'\')">'+t+' ('+counts[t]+')</button>'; }).join('')+
+    '<button type="button" class="tab'+(_tplTab==='Archived'?' active':'')+'" onclick="_tplSetTab(\'Archived\')">Archived ('+archived.length+')</button>'+
+  '</div>';
+
   if(!list.length){
-    host.innerHTML=head+'<div class="card"><div class="card-body">No templates yet. Click New template to add one.</div></div>';
+    var emptyMsg=(_tplTab==='Archived')?'Nothing archived. Archive a template to move it out of the picker without deleting it.':'No templates here yet. Click New template to add one.';
+    host.innerHTML=head+tabHtml+'<div class="card"><div class="card-body">'+emptyMsg+'</div></div>';
     return;
   }
+
   var cards=list.map(function(t){
     var aud=_tplAudience(t.name);
-    return '<div class="card" style="display:flex;flex-direction:column">'+
+    var isOpen=(_tplOpen===t.id);
+    var isArch=!!t.archived;
+    var sends=Number(t.sends)||0;
+    var bodyHtml=isOpen
+      ? '<div style="line-height:1.6;white-space:pre-wrap;border-top:1px solid var(--brd);padding-top:8px">'+_tplHighlightTokens(t.body||'')+'</div>'
+      : '<div class="muted" style="line-height:1.5;flex:1">'+_esc(_tplBodyPreview(t.body))+'</div>';
+    var actions=isArch
+      ? '<button type="button" class="btn btn-sm" onclick="event.stopPropagation();_tplRestore('+t.id+')">Restore</button>'
+      : '<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();_tplSend('+t.id+')">Send</button>'+
+        '<button type="button" class="btn btn-sm" onclick="event.stopPropagation();_tplEdit('+t.id+')">Edit</button>'+
+        '<button type="button" class="btn btn-sm" onclick="event.stopPropagation();_tplDuplicate('+t.id+')">Duplicate</button>'+
+        '<button type="button" class="btn btn-sm" onclick="event.stopPropagation();_tplArchive('+t.id+')">Archive</button>';
+    return '<div class="card" style="display:flex;flex-direction:column;cursor:pointer'+(isOpen?';grid-column:1/-1':'')+'" onclick="_tplToggleOpen('+t.id+')">'+
       '<div class="card-body" style="display:flex;flex-direction:column;gap:8px;flex:1">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
           '<div class="card-title" style="font-size:var(--fz-lg)">'+_esc(t.name)+'</div>'+
           '<span class="tag '+_tplAudienceTag(aud)+'">'+_esc(aud)+'</span>'+
         '</div>'+
-        '<div style="font-weight:600">'+_esc(t.subject||'(no subject)')+'</div>'+
-        '<div class="muted" style="line-height:1.5;flex:1">'+_esc(_tplBodyPreview(t.body))+'</div>'+
-        '<div style="display:flex;gap:6px;margin-top:4px">'+
-          '<button type="button" class="btn btn-primary btn-sm" onclick="_tplSend('+t.id+')">Send</button>'+
-          '<button type="button" class="btn btn-sm" onclick="_tplEdit('+t.id+')">Edit</button>'+
+        '<div style="font-weight:600">'+(isOpen?_tplHighlightTokens(t.subject||'(no subject)'):_esc(t.subject||'(no subject)'))+'</div>'+
+        bodyHtml+
+        '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'+actions+
+          '<span class="muted" style="margin-left:auto;font-size:var(--fz-xs)">'+(sends?('Sent '+sends+(sends===1?' time':' times')):'Never sent')+(isOpen?' &middot; click to collapse':'')+'</span>'+
         '</div>'+
       '</div>'+
     '</div>';
   }).join('');
-  host.innerHTML=head+'<div class="grid-3" style="align-items:stretch">'+cards+'</div>';
+  host.innerHTML=head+tabHtml+'<div class="grid-3" style="align-items:stretch">'+cards+'</div>';
+}
+function _tplArchive(id){
+  var t=_tplFind(id); if(!t) return;
+  t.archived=true; t.updated=_today();
+  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastUndo==='function') toastUndo('Template archived', t.name, function(){ t.archived=false; try{ save(); }catch(e){} renderTemplates(); });
+  else if(typeof toastSuccess==='function') toastSuccess('Template archived', t.name);
+  renderTemplates();
+}
+function _tplRestore(id){
+  var t=_tplFind(id); if(!t) return;
+  t.archived=false; t.updated=_today();
+  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Template restored', t.name);
+  renderTemplates();
+}
+function _tplDuplicate(id){
+  var t=_tplFind(id); if(!t) return;
+  var base=t.name+' (copy)', nm=base, n=2;
+  while(TEMPLATES.some(function(x){ return x.name===nm; })){ nm=base+' '+n; n++; }
+  var c={id:_nextId(TEMPLATES),name:nm,subject:t.subject,category:t.category||'Partner Outreach',channel:'email',updated:_today(),sends:0,body:t.body};
+  TEMPLATES.push(c);
+  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Template duplicated', nm);
+  renderTemplates();
+  _tplEdit(c.id);
 }
 function _tplFind(id){ for(var i=0;i<TEMPLATES.length;i++) if(TEMPLATES[i].id===id) return TEMPLATES[i]; return null; }
 function _tplNew(){ _tplEdit(null); }
@@ -9538,6 +9629,27 @@ function _bdDashCard(k,label,val,desc,onclick,sub){
     (sub?'<div class="kpi-card-foot"><span class="kpi-card-sub">'+sub+'</span></div>':'')+
     '</div>';
 }
+/* Reply tracker: partners with an inbound email reply that has no outbound
+   activity logged after it. When you answer (log any outbound touch dated at or
+   after the reply), the row clears itself. Oldest-waiting first; amber past 3 days. */
+function _bdRepliesAwaiting(){
+  var out=[];
+  PARTNERS.forEach(function(p){
+    var acts=_combinedActsForPartner(p)||[];
+    var lastIn=null, lastOut=null;
+    acts.forEach(function(a){
+      if(!a||!a.d) return;
+      var t=new Date(a.d).getTime(); if(isNaN(t)) return;
+      if(a.inbound){ if(lastIn===null||t>lastIn.t) lastIn={t:t,a:a}; }
+      else if(a.type!=='Created'){ if(lastOut===null||t>lastOut) lastOut=t; }
+    });
+    if(lastIn && (lastOut===null || lastOut<lastIn.t)){
+      out.push({p:p, when:lastIn.a.d, subj:lastIn.a.subj||'', wait:daysSince(lastIn.a.d)});
+    }
+  });
+  out.sort(function(a,b){ return new Date(a.when)-new Date(b.when); });
+  return out;
+}
 function renderDash(){
   var host=document.getElementById('dash-content'); if(!host) return;
   var _me=_curName().split(' ')[0]; var _mine=_bdDashMine();
@@ -9584,12 +9696,39 @@ function renderDash(){
   });
   var _wqDormant=PARTNERS.filter(function(p){ return _own(p) && (p.relStage==='Dormant'||daysSince(p.lastContact)>60); }).length;
   html+=scoreboard;
+
+  // Replies to Answer - inbound replies with no outbound response logged since.
+  var _repl=_bdRepliesAwaiting().filter(function(r){ return _own(r.p); });
+  var _replStale=_repl.filter(function(r){ return r.wait!=null && r.wait>=3; }).length;
+  html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Replies to Answer</span>'+
+    '<span class="card-hd-meta">'+(_repl.length?(_repl.length+' waiting'+(_replStale?', '+_replStale+' over 3 days':'')):'All caught up')+'</span></div>';
+  if(!_repl.length){
+    html+='<div class="card-bd"><div class="muted">No replies waiting on you. Every partner who wrote back has had a response logged.</div></div>';
+  } else {
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:110px"><col style="width:86px"><col><col style="width:140px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
+    _repl.forEach(function(r){
+      var p=r.p, nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
+      var waitCls=(r.wait!=null&&r.wait>=3)?'c-amb':'c-grn';
+      var waitTxt=(r.wait==null?'-':(r.wait===0?'today':r.wait+'d'));
+      var tb=_tierBadge(p);
+      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="openPartner('+p.id+')">'+_esc(nm)+(p.firm&&nm!==p.firm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
+        '<td class="nowrap">'+(tb||'<span class="muted">-</span>')+'</td>'+
+        '<td>'+catPill(p.cat)+'</td>'+
+        '<td>'+fmtDate(r.when)+'</td>'+
+        '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
+        '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
+        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="openPartner('+p.id+')">Reply</button></td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='</div>';
+
   html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">My Day</span>'+
-    '<span class="card-hd-meta">'+overdue.length+' overdue, '+dueSoon.length+' due soon, '+_wqNoTouch.length+' to start</span></div>';
+    '<span class="card-hd-meta">'+overdue.length+' overdue, '+dueSoon.length+' due soon</span></div>';
   if(!_wqRows.length){
     html+='<div class="card-bd"><div class="muted">Nothing needs a reach-out right now. Every active contact is fresh.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:170px"><col><col style="width:140px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
     _wqRows.slice(0,12).forEach(function(row){
       var p=row.p, r=reachState(p);
       var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
@@ -10168,9 +10307,26 @@ function _bdApplyEmbed(){
     return (p.page||'scorecard');
   }catch(_){ return null; }
 }
+/* Heal (2026-08-24): the reply-tracker preview file seeded demo activities and
+   the autosave persisted them into real storage. Strip anything carrying the
+   demo signature on every boot, not once, so re-opening the preview cannot
+   re-contaminate. Real logged replies are untouched. */
+function _healDemoPreviewActs(){
+  var hit=false;
+  (PARTNERS||[]).forEach(function(p){
+    if(p&&p.act&&p.act.length){
+      var b=p.act.length;
+      p.act=p.act.filter(function(a){ return !(a&&(a.notes==='(demo reply for preview)'||a.notes==='(demo outbound)')); });
+      if(p.act.length!==b) hit=true;
+    }
+  });
+  if(hit){ try{ save(); }catch(e){} }
+  return hit;
+}
 function init(){
   var _embedPage=_bdApplyEmbed();
   loadState();
+  _healDemoPreviewActs();
   publishMailContract();
   publishPartnersSteward();
   renderTopLevelNav();
