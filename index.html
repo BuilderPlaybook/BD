@@ -6173,16 +6173,36 @@ function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&sc
    manual rows only - auto rows recompute from the activity log after
    adopt, so the published readings are always the computed truth. */
 var _bdmLastPub='';
+function _bdmIso(d){ try{ var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), dd=('0'+d.getDate()).slice(-2); return y+'-'+m+'-'+dd; }catch(_){ return ''; } }
+function _bdmCellNoteText(m,i){ try{
+  if(!m||!m.auto||m.manualOverride||typeof BD_AUTO_FEED==='undefined'||!BD_AUTO_FEED[m.auto]) return '';
+  var monthly=((m.cadence||'weekly')==='monthly');
+  var w=monthly?_bdScMonth(i):_bdScWk(i);
+  var items=(typeof _bdCellTipItems==='function')?_bdCellTipItems(m.auto,w.s,w.e):[];
+  if(!items.length) return '';
+  var lead=items.length+' '+(m.title||'').toLowerCase()+((typeof m.autoSrc!=='undefined'&&m.autoSrc)?'':'')+': ';
+  var names=items.map(function(it){ return it[0]+(it[1]?(' ('+it[1]+')'):''); });
+  return items.length+' logged: '+names.join('; ');
+}catch(_){ return ''; } }
 function _bdmScorecardPayload(){ try{ var sec=(typeof scorecard!=='undefined'&&scorecard&&scorecard[0])?scorecard[0]:null; if(!sec) return null;
-  return { ownerId:'DS', seat:'Business Development Manager',
-    metrics:(sec.metrics||[]).map(function(m){ return { id:m.id, title:m.title, goal:m.goal, goalType:m.goalType, unit:m.unit, cadence:(m.cadence||'weekly'), readings:Array.isArray(m.readings)?m.readings.slice():[], showTotal:m.showTotal, showAverage:m.showAverage, rollupAs:m.rollupAs, indicator:m.indicator, auto:m.auto, _autoKey:m._autoKey }; }),
+  var wk0=(typeof scWeekDate==='function')?_bdmIso(scWeekDate(0)):'2025-12-29';
+  var monthYear=(typeof SC_PLAN_START_DATE!=='undefined')?SC_PLAN_START_DATE.getFullYear():2026;
+  return { ownerId:'DS', seat:'Business Development Manager', weekStartIso:wk0, monthAnchorYear:monthYear,
+    metrics:(sec.metrics||[]).map(function(m){
+      var monthly=((m.cadence||'weekly')==='monthly');
+      var rd=Array.isArray(m.readings)?m.readings.slice():[];
+      var notes={};
+      rd.forEach(function(v,i){ if(typeof v==='number'&&v>0){ var key=monthly?String(i):_bdmIso(_bdScWk(i).s); var txt=_bdmCellNoteText(m,i); if(txt) notes[key]=txt; } });
+      return { id:m.id, title:m.title, goal:m.goal, goalType:m.goalType, unit:m.unit, cadence:(m.cadence||'weekly'), readings:rd, cellNotes:notes, showTotal:m.showTotal, showAverage:m.showAverage, rollupAs:m.rollupAs, indicator:m.indicator, auto:m.auto, _autoKey:m._autoKey };
+    }),
     savedAt:new Date().toISOString() };
 }catch(_){ return null; } }
 function _bdmPublishScorecard(){ try{ var p=_bdmScorecardPayload(); if(!p) return; var body=JSON.stringify(p.metrics); if(body===_bdmLastPub){ window.SMB_BDM_SCORECARD=window.SMB_BDM_SCORECARD||p; return; } _bdmLastPub=body; window.SMB_BDM_SCORECARD=p; try{ localStorage.setItem('smb_bdm_scorecard_v1', JSON.stringify(p)); }catch(_){ } }catch(_){ } }
 function _bdmAdoptScorecard(){ try{ var rawS=null; try{ rawS=localStorage.getItem('smb_bdm_scorecard_v1'); }catch(_){ } if(!rawS) return false; var inc=JSON.parse(rawS); if(!inc||!Array.isArray(inc.metrics)) return false; var sec=(typeof scorecard!=='undefined'&&scorecard&&scorecard[0])?scorecard[0]:null; if(!sec||!sec.metrics) return false; var changed=false;
   inc.metrics.forEach(function(im){ if(!im||im.id==null) return; var loc=null; sec.metrics.forEach(function(m){ if(m&&m.id===im.id) loc=m; });
     if(loc){ ['title','goal','goalType','unit','showTotal','showAverage','rollupAs','indicator'].forEach(function(k){ if(im[k]!==undefined && JSON.stringify(im[k])!==JSON.stringify(loc[k])){ loc[k]=im[k]; changed=true; } });
-      if(Array.isArray(im.readings) && !loc.auto && JSON.stringify(im.readings)!==JSON.stringify(loc.readings)){ loc.readings=im.readings.slice(); changed=true; } }
+      if(Array.isArray(im.readings) && !loc.auto && JSON.stringify(im.readings)!==JSON.stringify(loc.readings)){ loc.readings=im.readings.slice(); changed=true; }
+      if(im.cellNotes!==undefined && JSON.stringify(im.cellNotes)!==JSON.stringify(loc.cellNotes)){ loc.cellNotes=im.cellNotes; changed=true; } }
     else { sec.metrics.push({ id:im.id, title:im.title||'', goal:im.goal, goalType:im.goalType||'\u2265', unit:im.unit||'#', cadence:im.cadence||'weekly', indicator:'leading', readings:Array.isArray(im.readings)?im.readings.slice():_nulls(_cadLen(im.cadence||'weekly')), showTotal:im.showTotal, showAverage:im.showAverage, rollupAs:im.rollupAs }); changed=true; }
   });
   return changed; }catch(_){ return false; } }
