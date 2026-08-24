@@ -1369,15 +1369,18 @@ td:hover > .sc-note-pop{display:block}
 .pnd-cell{position:relative}
 .pnd-cell:hover,.pnd-cell:focus-within{overflow:visible;z-index:60}
 .pnd-tip-hd{font-weight:700;margin-bottom:7px}
-.pnd-tip-r{display:flex;justify-content:space-between;gap:14px;padding:1px 0}
+.pnd-tip-r{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:1px 0}
+.pnd-tip-r>span:first-child{min-width:0;flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word}
+.pnd-tip-r>span:last-child{flex:0 0 auto;white-space:nowrap;text-align:right}
 .pnd-tip-r.pnd-out{opacity:.62}
-.pnd-tip-sum{display:flex;justify-content:space-between;gap:14px;margin-top:7px;padding-top:7px;
+.pnd-tip-sum{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-top:7px;padding-top:7px;
   border-top:1px solid rgba(255,255,255,.28);font-weight:700}
+.pnd-tip-sum>span:last-child{flex:0 0 auto;white-space:nowrap;text-align:right}
 .pnd-tip{display:none}
 #pnd-float .pnd-tip{display:block}
 #pnd-float{display:none;position:fixed;
   background:var(--sb);color:#fff;padding:11px 13px;border-radius:6px;font-size:var(--fz-body);font-weight:400;
-  line-height:1.45;letter-spacing:0;text-transform:none;width:280px;max-width:280px;white-space:normal;
+  line-height:1.45;letter-spacing:0;text-transform:none;width:360px;max-width:min(360px,calc(100vw - 24px));white-space:normal;
   text-align:left;box-shadow:0 4px 12px rgba(15,23,42,0.22);z-index:1000;pointer-events:none;font-variant-numeric:tabular-nums}
 #pnd-float::before{content:"";position:absolute;top:-5px;left:var(--pnd-ax,50%);transform:translateX(-50%);
   border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid var(--sb)}
@@ -1385,9 +1388,9 @@ td:hover > .sc-note-pop{display:block}
 #pnd-float.on{display:block}
 #pnd-float .pnd-tt{ font-size:var(--fz-body); font-weight:700; margin-bottom:6px; }
 #pnd-float .pnd-body{ display:flex; flex-direction:column; gap:3px; font-size:var(--fz-body); }
-#pnd-float .pnd-row{ display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
-#pnd-float .pnd-row > span:first-child{ opacity:.75; }
-#pnd-float .pnd-row > span:last-child{ text-align:right; }
+#pnd-float .pnd-row{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+#pnd-float .pnd-row > span:first-child{ opacity:.75; min-width:0; flex:1 1 auto; overflow-wrap:anywhere; }
+#pnd-float .pnd-row > span:last-child{ flex:0 0 auto; white-space:nowrap; text-align:right; }
 #pnd-float .pnd-eq{ margin-top:4px; border-top:1px solid rgba(255,255,255,.18); padding-top:4px; font-weight:700; }
 #pnd-float .pnd-note{ margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,.18); font-size:var(--fz-body); opacity:.85; }
 #pnd-float .pnd-sub{ font-size:var(--fz-body); opacity:.85; }
@@ -1769,7 +1772,8 @@ var RENDER_FOR = {
   reports:     function(){ renderReports(); },
   prospecting: function(){ renderProspecting(); },
   followups:   function(){ renderFollowups(); },
-  scorecard:   function(){ renderScorecard(); }
+  scorecard:   function(){ renderScorecard(); },
+  templates:   function(){ renderTemplates(); }
 };
 
 /* Accessibility v1: stamp scope="col" on every table header (direct or
@@ -4216,9 +4220,32 @@ function _composeEmail(to,name,onSend,opts){
      and an injected signature return when the shared send backend is connected. */
   to=String(to).trim();
   var cc=(opts&&opts.cc)?String(opts.cc).trim():'';
+  /* Subject-only prefill from the chosen template (Dave, 2026-08-24): a
+     prefilled mailto BODY suppresses the user's Outlook signature, so we
+     prefill the subject only and leave the body empty. The signature (and its
+     book/QR banner) is appended by Outlook. Template tokens {{first_name}} /
+     {{area}} are substituted into the subject. Full body prefill returns with
+     the send backend, which injects body and signature server-side. */
+  var _subject='';
+  try{
+    var _tplName=(opts&&opts.defaultTemplate)?String(opts.defaultTemplate):'';
+    if(_tplName){
+      var _tpl=null;
+      for(var _i=0;_i<TEMPLATES.length;_i++){ if(TEMPLATES[_i] && (TEMPLATES[_i].name===_tplName || TEMPLATES[_i].id===opts.defaultTemplate)){ _tpl=TEMPLATES[_i]; break; } }
+      if(_tpl && _tpl.subject){
+        _subject=String(_tpl.subject);
+        var _tk=(opts&&opts.tokens)?opts.tokens:{};
+        _subject=_subject.replace(/\{\{\s*first_name\s*\}\}/g,(_tk.first_name!=null?_tk.first_name:'there'))
+                         .replace(/\{\{\s*area\s*\}\}/g,(_tk.area!=null?_tk.area:'your area'));
+      }
+    }
+  }catch(e){ _subject=''; }
   try{
     var href='mailto:'+encodeURIComponent(to).replace(/%40/g,'@');
-    if(cc && cc.toLowerCase()!==to.toLowerCase()){ href+='?cc='+encodeURIComponent(cc).replace(/%40/g,'@'); }
+    var _qs=[];
+    if(cc && cc.toLowerCase()!==to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(cc).replace(/%40/g,'@')); }
+    if(_subject){ _qs.push('subject='+encodeURIComponent(_subject)); }
+    if(_qs.length){ href+='?'+_qs.join('&'); }
     var a=document.createElement('a'); a.href=href;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }catch(e){}
@@ -5330,6 +5357,7 @@ function orFreezeFor(kind,id){ var hit=false; OUTREACH.drafts.forEach(function(d
 var MK_SUBNAV=[
   ['dashboard','Dashboard'],
   ['partners','Partners'],
+  ['templates','Templates'],
   ['scorecard','Scorecard'],
   ['reports','Reports']
 ];
@@ -8337,6 +8365,131 @@ function publishTemplatesSteward(){
 function publishMailContract(){
   if(!window.SMB_MAIL || typeof window.SMB_MAIL.send!=='function'){ window.SMB_MAIL={ send:_bdMailSend, _stub:true }; }
   publishTemplatesSteward();
+}
+
+/* ============================================================
+   Templates page: one-stop email template library.
+   Browse, edit, and send from every seeded template. Send uses the
+   same signature-safe path as the record buttons (subject prefill only;
+   body blank so Outlook keeps the signature), auto-logs the touch with
+   undo, and mirrors onto the partner when one is picked. Edits write
+   through the shared TEMPLATES store so Marketing sees the same set (D-45).
+   ============================================================ */
+function _tplAudience(name){
+  var n=String(name||'').toLowerCase();
+  if(n.indexOf('lot agent')===0||n.indexOf('multi-family lot')===0) return 'Lot Agent';
+  if(n.indexOf('realtor')===0) return 'Realtor';
+  if(n.indexOf('architect')===0) return 'Architect';
+  if(n.indexOf('partner')===0) return 'Partner';
+  return 'Outreach';
+}
+function _tplAudienceTag(aud){
+  switch(aud){
+    case 'Lot Agent': return 'tag-blue';
+    case 'Realtor':   return 'tag-indigo';
+    case 'Architect': return 'tag-green';
+    case 'Partner':   return 'tag-yellow';
+    default:          return 'tag-gray';
+  }
+}
+function _tplBodyPreview(body){
+  var s=String(body||'').replace(/\r/g,'').replace(/\n+/g,' ').trim();
+  if(s.length>160) s=s.slice(0,160).replace(/\s+\S*$/,'')+'...';
+  return s;
+}
+function renderTemplates(){
+  var host=document.getElementById('templates-content'); if(!host) return;
+  var list=TEMPLATES.slice().filter(function(t){ return t && t.channel!=='sms'; });
+  list.sort(function(a,b){ var aa=_tplAudience(a.name), ba=_tplAudience(b.name); if(aa!==ba) return aa<ba?-1:1; return String(a.name)<String(b.name)?-1:1; });
+  var head='<div class="pg"><div><div class="pg-title">Templates</div>'+
+    '<div class="pg-sub">Your email template library. Send opens Outlook with the subject filled in and your signature intact; the body stays blank so Outlook keeps your signature. Edits are shared with Marketing.</div></div>'+
+    '<div class="pg-actions"><button type="button" class="btn btn-primary btn-sm" onclick="_tplNew()">New template</button></div></div>';
+  if(!list.length){
+    host.innerHTML=head+'<div class="card"><div class="card-body">No templates yet. Click New template to add one.</div></div>';
+    return;
+  }
+  var cards=list.map(function(t){
+    var aud=_tplAudience(t.name);
+    return '<div class="card" style="display:flex;flex-direction:column">'+
+      '<div class="card-body" style="display:flex;flex-direction:column;gap:8px;flex:1">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
+          '<div class="card-title" style="font-size:var(--fz-lg)">'+_esc(t.name)+'</div>'+
+          '<span class="tag '+_tplAudienceTag(aud)+'">'+_esc(aud)+'</span>'+
+        '</div>'+
+        '<div style="font-weight:600">'+_esc(t.subject||'(no subject)')+'</div>'+
+        '<div class="muted" style="line-height:1.5;flex:1">'+_esc(_tplBodyPreview(t.body))+'</div>'+
+        '<div style="display:flex;gap:6px;margin-top:4px">'+
+          '<button type="button" class="btn btn-primary btn-sm" onclick="_tplSend('+t.id+')">Send</button>'+
+          '<button type="button" class="btn btn-sm" onclick="_tplEdit('+t.id+')">Edit</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  host.innerHTML=head+'<div class="grid-3" style="align-items:stretch">'+cards+'</div>';
+}
+function _tplFind(id){ for(var i=0;i<TEMPLATES.length;i++) if(TEMPLATES[i].id===id) return TEMPLATES[i]; return null; }
+function _tplNew(){ _tplEdit(null); }
+function _tplEdit(id){
+  var t=(id!=null)?_tplFind(id):null;
+  var body='<div class="smb-form-grid">'+
+    '<div class="smb-fld full"><label for="tpl-name">Name</label><input type="text" id="tpl-name" value="'+_esc(t?t.name:'')+'"></div>'+
+    '<div class="smb-fld full"><label for="tpl-subject">Subject</label><input type="text" id="tpl-subject" value="'+_esc(t?t.subject:'')+'"></div>'+
+    '<div class="smb-fld full"><label for="tpl-body">Body</label><textarea id="tpl-body" class="autogrow" rows="10" style="font-family:inherit">'+_esc(t?t.body:'')+'</textarea></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Tokens {{first_name}} and {{area}} are filled in when you send. The body is for your reference and for when the send backend is connected; today only the subject is prefilled into Outlook so your signature is kept.</div></div>'+
+  '</div>';
+  openModal({ title:(t?'Edit template':'New template'), sub:(t?t.name:''), body:body, saveLabel:(t?'Save':'Create'),
+    onSave:function(){ _tplSaveEdit(id); } });
+}
+function _tplSaveEdit(id){
+  var nm=String((document.getElementById('tpl-name')||{}).value||'').trim();
+  var sub=String((document.getElementById('tpl-subject')||{}).value||'').trim();
+  var bd=String((document.getElementById('tpl-body')||{}).value||'');
+  if(!nm){ modalErr('Give the template a name.'); return; }
+  var dup=null; for(var i=0;i<TEMPLATES.length;i++){ if(TEMPLATES[i].name===nm && TEMPLATES[i].id!==id){ dup=TEMPLATES[i]; break; } }
+  if(dup){ modalErr('A template with that name already exists.'); return; }
+  var t=(id!=null)?_tplFind(id):null;
+  if(t){ t.name=nm; t.subject=sub; t.body=bd; t.updated=_today(); }
+  else { t={id:_nextId(TEMPLATES),name:nm,subject:sub,category:'Partner Outreach',channel:'email',updated:_today(),sends:0,body:bd}; TEMPLATES.push(t); }
+  try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  closeModal();
+  if(typeof toastSuccess==='function') toastSuccess(id!=null?'Template saved':'Template created', nm);
+  renderTemplates();
+}
+function _tplSend(id){
+  var t=_tplFind(id); if(!t) return;
+  var opts=PARTNERS.slice().filter(function(p){ return p && p.email; }).sort(function(a,b){ var an=((a.cf||'')+' '+(a.cl||'')).trim().toLowerCase(), bn=((b.cf||'')+' '+(b.cl||'')).trim().toLowerCase(); return an<bn?-1:an>bn?1:0; });
+  var optHtml='<option value="">Type an address below</option>'+opts.map(function(p){ var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||p.email); return '<option value="'+p.id+'">'+_esc(nm)+(p.firm?(' - '+_esc(p.firm)):'')+'</option>'; }).join('');
+  var body='<div class="smb-form-grid">'+
+    '<div class="smb-fld full"><label for="tpl-send-partner">Send to a partner</label><select id="tpl-send-partner" onchange="_tplSendPickPartner()">'+optHtml+'</select></div>'+
+    '<div class="smb-fld full"><label for="tpl-send-email">Or type an email</label><input type="email" id="tpl-send-email" value="" placeholder="name@example.com"></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Subject "'+_esc(t.subject||'')+'" will be prefilled. The body stays blank so your Outlook signature is applied. Picking a partner logs the email on their record.</div></div>'+
+  '</div>';
+  openModal({ title:'Send template', sub:t.name, body:body, saveLabel:'Open in Outlook',
+    onSave:function(){ _tplDoSend(id); } });
+}
+function _tplSendPickPartner(){
+  var sel=document.getElementById('tpl-send-partner'); var em=document.getElementById('tpl-send-email');
+  if(!sel||!em) return;
+  var pid=sel.value; if(pid===''){ return; }
+  var p=_partnerFind(parseInt(pid,10)); if(p&&p.email){ em.value=p.email; }
+}
+function _tplDoSend(id){
+  var t=_tplFind(id); if(!t) return;
+  var sel=document.getElementById('tpl-send-partner');
+  var emEl=document.getElementById('tpl-send-email');
+  var pid=(sel&&sel.value!=='')?parseInt(sel.value,10):null;
+  var p=(pid!=null)?_partnerFind(pid):null;
+  var to=(p&&p.email)?p.email:String((emEl||{}).value||'').trim();
+  if(!to){ modalErr('Pick a partner or type an email address.'); return; }
+  closeModal();
+  var tokens={first_name:(p?(p.cf||'there'):'there'), area:(p?(p.city||'your area'):'your area')};
+  if(p){
+    _composeEmail(to, ((p.cf||'')+' '+(p.cl||'')).trim(), function(s,m){ partnerLogEmail(p.id,s,m); },
+      {tokens:tokens, defaultTemplate:t.name, undo:function(){ return _mktgActResolve('partner',p.id); }});
+  } else {
+    _composeEmail(to, to, function(){}, {tokens:tokens, defaultTemplate:t.name});
+  }
 }
 
 /* ---- Templates page: browse and edit the shared email template library from
