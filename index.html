@@ -3240,6 +3240,15 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
     '</div>'+
+    '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
+    '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
+      'This browser now saves an automatic snapshot of your data every time BD loads, before anything else runs. If data ever looks wrong, restore the most recent good snapshot here. You can also inspect exactly what is stored for any contact to confirm whether an email or referral is present.'+
+    '</p>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
+      '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
+    '</div>'+
+    '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
       'Connect your work inbox to sync sent and received emails to each partner automatically. '+
@@ -3272,8 +3281,51 @@ function openBdSettings(){
       '<div class="integ-btns"><button class="integ-btn pending" onclick="connectIntegrationPlaceholder(\'Microsoft Calendar\')">Connect Microsoft Calendar</button></div></div>';
   openModal({title:'BD Settings',body:body,saveLabel:'Done',onSave:closeModal});
 }
-
-// Book a meeting with a partner. Collects type, start time, duration,
+function _esc2(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function bdOpenRecovery(){
+  var out=document.getElementById('bd-health-out'); if(!out) return;
+  var keys=_bdListBackups();
+  if(!keys.length){ out.innerHTML='<div style="color:var(--txm);font-size:var(--fz-body)">No snapshots yet. One is taken automatically each time BD loads; reload once and they will appear here.</div>'; return; }
+  var rows=keys.map(function(k){
+    var stamp=k.slice('bd_backup:'.length).replace(/-/g,function(m,i){ return i===10?' ':m; });
+    var d=k.slice('bd_backup:'.length,'bd_backup:'.length+10);
+    var t=k.slice('bd_backup:'.length+11).replace(/-/g,':').slice(0,8);
+    var cnt=''; try{ var raw=localStorage.getItem(k); var o=JSON.parse(raw); var arr=o&&(o.PARTNERS||o.partners); if(arr&&arr.length) cnt=arr.length+' partners'; }catch(e){}
+    return '<tr><td style="padding:6px 10px">'+d+' '+t+'</td><td style="padding:6px 10px;color:var(--txm)">'+cnt+'</td>'+
+      '<td style="padding:6px 10px;text-align:right"><button type="button" class="btn btn-sm" onclick="bdRestoreBackup(\''+k+'\')">Restore this</button></td></tr>';
+  }).join('');
+  out.innerHTML='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left">Snapshot (newest first)</th><th scope="col" style="text-align:left">Size</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function bdRestoreBackup(key){
+  try{
+    var raw=localStorage.getItem(key); if(!raw){ alert('That snapshot is no longer available.'); return; }
+    if(!confirm('Restore this snapshot? Your current data will be snapshotted first, so this is reversible.')) return;
+    _bdBackupSnapshot();
+    localStorage.setItem(_tkey(STORE_KEY), raw);
+    location.reload();
+  }catch(e){ alert('Restore failed: '+e.message); }
+}
+function bdInspectPrompt(){
+  var name=prompt('Type part of a contact name or firm to inspect (e.g. Moody):','Moody');
+  if(name==null) return;
+  var out=document.getElementById('bd-health-out'); if(!out) return;
+  var hits=_bdInspectPartner(name);
+  if(!hits.length){ out.innerHTML='<div style="color:var(--txm);font-size:var(--fz-body)">No contact matching "'+_esc2(name)+'" is in the current data.</div>'; return; }
+  out.innerHTML=hits.map(function(h){
+    var actRows=h.acts.length? h.acts.map(function(a){
+      return '<tr><td style="padding:4px 8px">'+_esc2(a.d)+'</td><td style="padding:4px 8px">'+_esc2(a.type)+(a.inbound?' (in)':'')+'</td><td style="padding:4px 8px">'+_esc2(a.subj||'-')+'</td><td style="padding:4px 8px;color:var(--txm)">'+_esc2(a.notes||'')+'</td></tr>';
+    }).join('') : '<tr><td colspan="4" style="padding:4px 8px;color:var(--txm)">No activity entries stored.</td></tr>';
+    var refTxt=(h.linkedLeads.length||h.crmLeads.length||h.referralDiscussions)
+      ? ('linkedLeads: '+h.linkedLeads.length+' &middot; crmLeads: '+h.crmLeads.length+' &middot; referralDiscussions: '+h.referralDiscussions)
+      : 'No referrals or linked leads stored on this record.';
+    return '<div style="border:1px solid var(--brd);border-radius:6px;padding:10px 12px;margin-bottom:10px">'+
+      '<div style="font-weight:700">'+_esc2(h.name)+' <span style="color:var(--txm);font-weight:400">'+_esc2(h.firm)+'</span></div>'+
+      '<div style="color:var(--txm);font-size:var(--fz-xs);margin-bottom:6px">id '+h.id+' &middot; email: '+(_esc2(h.email)||'(none stored)')+'</div>'+
+      '<div style="font-size:var(--fz-xs);color:var(--txm);margin-bottom:6px">Referrals: '+refTxt+'</div>'+
+      '<table style="width:100%;font-size:var(--fz-sm)"><thead><tr><th scope="col" style="text-align:left">Date</th><th scope="col" style="text-align:left">Type</th><th scope="col" style="text-align:left">Subject</th><th scope="col" style="text-align:left">Notes</th></tr></thead><tbody>'+actRows+'</tbody></table>'+
+    '</div>';
+  }).join('');
+}
 // assigned internal user, additional attendees, location/link, notes.
 // On save, stored on partner.meetings with integrationStatus
 // 'pending-backend' so the calendar worker can send real invites on cutover.
@@ -10323,9 +10375,45 @@ function _healDemoPreviewActs(){
   if(hit){ try{ save(); }catch(e){} }
   return hit;
 }
+/* Boot backup (2026-08-24): before any heal, migration, or autosave touches the
+   data, snapshot whatever is currently in storage to a dated key. Keeps the
+   last 20. This is the safety net: no file we open can wipe data past recovery,
+   because the pre-load state is always saved first. */
+function _bdBackupSnapshot(){
+  try{
+    var raw=localStorage.getItem(_tkey(STORE_KEY));
+    if(!raw) return null;
+    var stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    localStorage.setItem('bd_backup:'+stamp, raw);
+    var keys=[]; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('bd_backup:')===0) keys.push(k); }
+    keys.sort();
+    while(keys.length>20){ try{ localStorage.removeItem(keys.shift()); }catch(_){} }
+    return stamp;
+  }catch(e){ return null; }
+}
+function _bdListBackups(){
+  var out=[]; try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('bd_backup:')===0) out.push(k); } }catch(e){}
+  out.sort(); out.reverse(); return out;
+}
+/* Data Health: read-only view of what is actually stored for a partner, so the
+   real machine's data can be inspected directly rather than guessed at. */
+function _bdInspectPartner(name){
+  var q=String(name||'').toLowerCase();
+  var hits=(PARTNERS||[]).filter(function(p){ return (((p.cf||'')+' '+(p.cl||'')).toLowerCase().indexOf(q)>=0)||((p.firm||'').toLowerCase().indexOf(q)>=0); });
+  return hits.map(function(p){
+    return {
+      id:p.id, name:((p.cf||'')+' '+(p.cl||'')).trim(), firm:p.firm||'', email:p.email||'',
+      acts:(p.act||[]).map(function(a){ return {d:a.d, type:a.type, subj:a.subj||'', inbound:!!a.inbound, notes:a.notes||''}; }),
+      linkedLeads:(p.linkedLeads||[]).slice(),
+      crmLeads:(p.crmLeads||[]).slice(),
+      referralDiscussions:p.referralDiscussions||0
+    };
+  });
+}
 function init(){
   var _embedPage=_bdApplyEmbed();
   loadState();
+  _bdBackupSnapshot();
   _healDemoPreviewActs();
   publishMailContract();
   publishPartnersSteward();
