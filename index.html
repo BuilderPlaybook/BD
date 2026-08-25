@@ -10572,7 +10572,7 @@ var BD_MS_CLIENT_ID='6b0771e0-31ce-4493-8c9c-651fe119baae';
 var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
 var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read';
 var BD_MS_KEY='smb.bd.msauth';
-var BD_MS_SEEN_KEY='smb.bd.msseen.v1';
+var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
 var BD_MS_POLL_MS=5*60*1000;
 var _bdMsPollTimer=null;
 function _bdMsRedirectUri(){ return location.origin + location.pathname; }
@@ -10672,15 +10672,18 @@ function _bdMsLocalDate(iso){
   try{ var d=new Date(iso); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }catch(e){ return _today(); }
 }
 function _bdMsProcessMessages(msgs, ix, seen){
-  // Log any inbound message from a known partner/lot address that we have not
-  // logged before. Returns the number newly logged. Mutates seen.
+  // Log any inbound message from a known partner/lot address that is not already
+  // on that record. Dedupe is by msgId ON THE RECORD (the source of truth), not
+  // by the seen-list: a message the seen-list marked but that never actually got
+  // logged (e.g. a first-run hiccup) must still be logged on a later scan.
+  // seen[] is only a cheap skip for messages from unknown senders.
   var logged=0;
   (msgs||[]).forEach(function(m){
-    var mid=m.internetMessageId||m.id; if(!mid || seen[mid]) return;
+    var mid=m.internetMessageId||m.id; if(!mid) return;
     var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
     if(!from){ seen[mid]=1; return; }
     var hit=ix[from];
-    if(!hit){ seen[mid]=1; return; }
+    if(!hit){ seen[mid]=1; return; }  // unknown sender: safe to remember and skip
     var rec=hit.rec;
     if(!rec.act) rec.act=[];
     var dup=false;
@@ -10696,7 +10699,8 @@ function _bdMsProcessMessages(msgs, ix, seen){
       rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
       logged++;
     }
-    seen[mid]=1;
+    // NOTE: do not add matched messages to seen[]; the msgId-on-record check
+    // above is the real dedupe and it re-verifies every scan.
   });
   return logged;
 }
