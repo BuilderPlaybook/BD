@@ -10671,55 +10671,79 @@ function _bdMsEmailIndex(){
 function _bdMsLocalDate(iso){
   try{ var d=new Date(iso); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }catch(e){ return _today(); }
 }
+function _bdMsProcessMessages(msgs, ix, seen){
+  // Log any inbound message from a known partner/lot address that we have not
+  // logged before. Returns the number newly logged. Mutates seen.
+  var logged=0;
+  (msgs||[]).forEach(function(m){
+    var mid=m.internetMessageId||m.id; if(!mid || seen[mid]) return;
+    var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
+    if(!from){ seen[mid]=1; return; }
+    var hit=ix[from];
+    if(!hit){ seen[mid]=1; return; }
+    var rec=hit.rec;
+    if(!rec.act) rec.act=[];
+    var dup=false;
+    for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid){ dup=true; break; } }
+    if(!dup){
+      rec.act.unshift({
+        d:_bdMsLocalDate(m.receivedDateTime), type:'Email',
+        subj:(m.subject||'Reply received'),
+        notes:(m.bodyPreview||'').slice(0,500),
+        na:'', nc:'', by:'Outlook', owner:'', inbound:true,
+        msgId:mid, loggedAt:new Date().toISOString()
+      });
+      rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
+      logged++;
+    }
+    seen[mid]=1;
+  });
+  return logged;
+}
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
     if(!tok){ _bdMsPaintStatus(); return 0; }
-    var url='https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
-      +'?$top=30&$orderby=receivedDateTime desc'
+    var ix=_bdMsEmailIndex();
+    var seen=_bdMsSeen();
+    var logged=0;
+    // Page back over a 30-day window so a reply from yesterday can never fall
+    // off the edge behind a busy inbox. Up to 10 pages of 50 = 500 messages;
+    // stop early once messages predate the window.
+    var sinceMs=Date.now()-30*24*60*60*1000;
+    var firstUrl='https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
+      +'?$top=50&$orderby=receivedDateTime desc'
       +'&$select=internetMessageId,subject,bodyPreview,from,receivedDateTime';
-    return fetch(url,{headers:{Authorization:'Bearer '+tok}})
-      .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
-      .then(function(res){
-        var msgs=(res&&res.value)||[];
-        var ix=_bdMsEmailIndex();
-        var seen=_bdMsSeen();
-        var logged=0;
-        msgs.forEach(function(m){
-          var mid=m.internetMessageId||m.id; if(!mid || seen[mid]) return;
-          var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
-          if(!from){ seen[mid]=1; return; }
-          var hit=ix[from];
-          if(!hit){ seen[mid]=1; return; }
-          var rec=hit.rec;
-          if(!rec.act) rec.act=[];
-          var dup=false;
-          for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid){ dup=true; break; } }
-          if(!dup){
-            rec.act.unshift({
-              d:_bdMsLocalDate(m.receivedDateTime), type:'Email',
-              subj:(m.subject||'Reply received'),
-              notes:(m.bodyPreview||'').slice(0,500),
-              na:'', nc:'', by:'Outlook', owner:'', inbound:true,
-              msgId:mid, loggedAt:new Date().toISOString()
-            });
-            rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
-            logged++;
+    function fetchPage(url, pagesLeft){
+      return fetch(url,{headers:{Authorization:'Bearer '+tok}})
+        .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
+        .then(function(res){
+          var msgs=(res&&res.value)||[];
+          logged+=_bdMsProcessMessages(msgs, ix, seen);
+          var oldest=msgs.length?msgs[msgs.length-1].receivedDateTime:null;
+          var oldestMs=oldest?new Date(oldest).getTime():0;
+          var next=res&&res['@odata.nextLink'];
+          if(next && pagesLeft>1 && oldestMs>=sinceMs){
+            return fetchPage(next, pagesLeft-1);
           }
-          seen[mid]=1;
+          return logged;
         });
+    }
+    return fetchPage(firstUrl, 10)
+      .then(function(total){
         _bdMsMarkSeen(seen);
-        if(logged){
+        if(total){
           try{ _bdGrpCache=null; }catch(e){}
           try{ save(); }catch(e){}
-          if(typeof toastSuccess==='function') toastSuccess('Replies synced', logged+' new '+(logged===1?'reply':'replies')+' from your Inbox logged.');
+          if(typeof toastSuccess==='function') toastSuccess('Replies synced', total+' new '+(total===1?'reply':'replies')+' from your Inbox logged.');
           try{ if(typeof state!=='undefined' && state.page==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
         }
         _bdMsPaintStatus();
-        return logged;
+        return total;
       })
       .catch(function(err){
+        _bdMsMarkSeen(seen);
         _bdMsPaintStatus(String(err&&err.message||''));
-        return 0;
+        return logged;
       });
   });
 }
