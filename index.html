@@ -10953,6 +10953,49 @@ function _bdMsProcessMessages(msgs, ix, seen){
   });
   return logged;
 }
+function _bdMsProcessSent(msgs, ix){
+  // Process the user's SENT mail: match by RECIPIENT address, log as OUTBOUND.
+  // Two jobs: (1) fill the body of a reply that was logged blank when the user
+  // sent via Outlook (match a recent bodyless outbound with the same subject),
+  // and (2) log a sent message we have not captured at all. Returns count of
+  // NEW outbound messages logged (body-fills are silent updates, not counted).
+  var logged=0;
+  (msgs||[]).forEach(function(m){
+    var mid=m.internetMessageId||m.id; if(!mid) return;
+    var tos=(m.toRecipients||[]).map(function(x){ return (x&&x.emailAddress&&x.emailAddress.address||'').toLowerCase(); }).filter(Boolean);
+    var hit=null;
+    for(var i=0;i<tos.length;i++){ if(ix[tos[i]]){ hit=ix[tos[i]]; break; } }
+    if(!hit) return;
+    var rec=hit.rec; if(!rec.act) rec.act=[];
+    // Already have this exact sent message by msgId?
+    for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid){ return; } }
+    var subj=(m.subject||''); var body=(m.bodyPreview||'').slice(0,500);
+    var when=m.sentDateTime||m.receivedDateTime||'';
+    // Try to fill a bodyless outbound with the same subject logged in the last 3 days.
+    var filled=false;
+    var cutoff=Date.now()-3*24*60*60*1000;
+    for(var j=0;j<rec.act.length;j++){
+      var a=rec.act[j];
+      if(a && !a.inbound && a.type==='Email' && !a.msgId && (a.subj||'')===subj){
+        var at=new Date(a.loggedAt||a.d).getTime();
+        if(isNaN(at) || at>=cutoff){
+          a.notes=body||a.notes; a.msgId=mid; a.sentAt=when; a.by=a.by||'Outlook';
+          filled=true; break;
+        }
+      }
+    }
+    if(filled) return; // silent body-fill, not a new log
+    // Otherwise log the sent message as a new outbound activity.
+    rec.act.unshift({
+      d:_bdMsLocalDate(when), type:'Email', subj:(subj||'Email sent'),
+      notes:body, na:'', nc:'', by:'Outlook', owner:'', inbound:false,
+      msgId:mid, sentAt:when, loggedAt:new Date().toISOString()
+    });
+    if(_bdMsLocalDate(when)>(rec.lastContact||'')) rec.lastContact=_bdMsLocalDate(when);
+    logged++;
+  });
+  return logged;
+}
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
     if(!tok){ _bdMsPaintStatus(); return 0; }
@@ -10981,15 +11024,37 @@ function bdMsCheckNow(){
           return logged;
         });
     }
+    // Also read the SENT folder so the real text of replies the user sent from
+    // Outlook is captured (and blank "Sent" rows get their body filled).
+    var sentUrl='https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages'
+      +'?$top=50&$orderby=sentDateTime desc'
+      +'&$select=id,internetMessageId,subject,bodyPreview,toRecipients,sentDateTime';
+    function fetchSent(url, pagesLeft){
+      return fetch(url,{headers:{Authorization:'Bearer '+tok}})
+        .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
+        .then(function(res){
+          var msgs=(res&&res.value)||[];
+          _bdMsProcessSent(msgs, ix);
+          var oldest=msgs.length?(msgs[msgs.length-1].sentDateTime):null;
+          var oldestMs=oldest?new Date(oldest).getTime():0;
+          var next=res&&res['@odata.nextLink'];
+          if(next && pagesLeft>1 && oldestMs>=sinceMs){ return fetchSent(next, pagesLeft-1); }
+          return true;
+        });
+    }
     return fetchPage(firstUrl, 10)
       .then(function(total){
+        return fetchSent(sentUrl, 6).then(function(){ return total; }).catch(function(){ return total; });
+      })
+      .then(function(total){
         _bdMsMarkSeen(seen);
+        // Always persist: sent-folder body-fills change data even when no new inbound.
+        try{ _bdGrpCache=null; }catch(e){}
+        try{ save(); }catch(e){}
         if(total){
-          try{ _bdGrpCache=null; }catch(e){}
-          try{ save(); }catch(e){}
           if(typeof toastSuccess==='function') toastSuccess('Replies synced', total+' new '+(total===1?'reply':'replies')+' from your Inbox logged.');
-          try{ if(typeof state!=='undefined' && state.page==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
         }
+        try{ if(typeof state!=='undefined' && state.page==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
         _bdMsPaintStatus();
         return total;
       })
