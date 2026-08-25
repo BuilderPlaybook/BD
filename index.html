@@ -4288,15 +4288,22 @@ function _cmpTplList(aud){
   return list;
 }
 function _copyToClipboard(text){
-  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text); return true; } }catch(e){}
+  /* Synchronous copy FIRST. The async clipboard API returns a promise that
+     never resolves once the mailto opens Outlook and steals focus, so the
+     write silently fails. execCommand('copy') completes synchronously inside
+     the click gesture, before Outlook opens, so the body is actually on the
+     clipboard when the user presses Ctrl+V. */
   try{
     var ta=document.createElement('textarea'); ta.value=text;
-    ta.style.position='fixed'; ta.style.opacity='0';
+    ta.style.position='fixed'; ta.style.top='0'; ta.style.left='0'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();
+    ta.setSelectionRange(0, text.length);
     var ok=document.execCommand('copy');
     document.body.removeChild(ta);
-    return !!ok;
-  }catch(e){ return false; }
+    if(ok) return true;
+  }catch(e){}
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text); return true; } }catch(e){}
+  return false;
 }
 var _cmpCtx=null;
 function _composeEmail(to,name,onSend,opts){
@@ -4333,7 +4340,7 @@ function _composeEmail(to,name,onSend,opts){
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
     '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills To and Subject and copies this body to your clipboard: press Ctrl+V in the Outlook window to drop it in above your signature, edit if needed, and hit Send. The email is logged here with this subject and body and counts as a touch; Undo is on the toast if you do not send. Direct send from this screen arrives with the email backend.</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To, Subject, and message body, then opens Outlook ready to send above your signature. Review and edit in Outlook, then hit Send. The email is logged here with this subject and body and counts as a touch; Undo is on the toast if you do not send. Direct send from this screen arrives with the email backend.</div></div>'+
   '</div>';
   openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
     onSave:function(){ _cmpDoSend(); } });
@@ -4359,10 +4366,10 @@ function _showPasteBanner(bodyText){
   bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--sur);color:var(--txt);border-bottom:3px solid var(--gp);padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.25);font-size:var(--fz-body)';
   var txt=document.createElement('div');
   txt.style.cssText='flex:1';
-  txt.innerHTML='<strong>Body copied.</strong> Click in the Outlook email and press <strong>Ctrl+V</strong>. It pastes above your signature.';
+  txt.innerHTML='<strong>Your email body is copied.</strong> Click in the Outlook window, put your cursor above your signature, and press <strong>Ctrl+V</strong>. Nothing pasted? Click <strong>Copy again</strong>, then Ctrl+V.';
   var again=document.createElement('button');
-  again.type='button'; again.className='btn btn-sm'; again.textContent='Copy again';
-  again.onclick=function(){ _copyToClipboard(bodyText); if(typeof toastSuccess==='function') toastSuccess('Copied','Body copied to clipboard again.'); };
+  again.type='button'; again.className='btn btn-primary btn-sm'; again.textContent='Copy again';
+  again.onclick=function(){ var ok=_copyToClipboard(bodyText); if(typeof toastSuccess==='function') toastSuccess(ok?'Copied':'Copy failed', ok?'Body copied. Switch to Outlook and press Ctrl+V.':'Select the text manually and copy.'); };
   var x=document.createElement('button');
   x.type='button'; x.className='btn btn-sm'; x.textContent='Done';
   x.onclick=function(){ bar.remove(); };
@@ -4376,21 +4383,28 @@ function _cmpDoSend(){
   var body=String((document.getElementById('cmp-body')||{}).value||'');
   var selEl=document.getElementById('cmp-tpl');
   var tid=(selEl&&selEl.value!=='')?parseInt(selEl.value,10):null;
-  closeModal();
-  _cmpCtx=null;
   if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
+  /* Copy the body to the clipboard as a silent fallback only. The body is now
+     placed directly into the Outlook handoff below, so no paste is needed in
+     the normal case; the clipboard copy only rescues the rare case where a very
+     long body exceeds the mailto length limit and Outlook truncates it. */
   var copied=false;
   if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
-  if(copied){ _showPasteBanner(body); }
-  try{
-    var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
-    var _qs=[];
-    if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
-    if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
-    if(_qs.length){ href+='?'+_qs.join('&'); }
-    var a=document.createElement('a'); a.href=href;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  }catch(e){}
+  closeModal();
+  _cmpCtx=null;
+  var _openOutlook=function(){
+    try{
+      var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
+      var _qs=[];
+      if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
+      if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
+      if(body.replace(/\s/g,'')!==''){ _qs.push('body='+encodeURIComponent(body)); }
+      if(_qs.length){ href+='?'+_qs.join('&'); }
+      var a=document.createElement('a'); a.href=href;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }catch(e){}
+  };
+  _openOutlook();
   /* Log-by-default with undo (Dave, 2026-08-24): the mail window is open, so
      the touch is logged immediately and an Undo toast lets the user reverse it
      if they did not actually send. Undo removes the just-logged activity via
@@ -4400,7 +4414,7 @@ function _cmpDoSend(){
   try{ if(_undoCtx){ var c0=_undoCtx(); _before=(c0&&c0.arr&&c0.arr[0]&&c0.arr[0].loggedAt)?c0.arr[0].loggedAt:null; } }catch(e){}
   try{ if(typeof c.onSend==='function') c.onSend(subj,body); }catch(e){}
   try{ save(); }catch(e){}
-  var msg=(c.name||c.to)+(copied?'. Body copied, Ctrl+V in Outlook above your signature.':'');
+  var msg=(c.name||c.to)+'. Outlook opened with your email ready to send.';
   if(_undoCtx){
     try{
       toastUndo('Email logged',msg,function(){
