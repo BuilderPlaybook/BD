@@ -9769,12 +9769,17 @@ function _bdRepliesAwaiting(){
     var lastIn=null, lastOut=null;
     (acts||[]).forEach(function(a){
       if(!a||!a.d) return;
-      var t=new Date(a.d).getTime(); if(isNaN(t)) return;
-      /* Same-day tiebreak: date-only timestamps tie when the send and the reply
-         land on the same day, which hid same-day replies. Add the loggedAt
-         time-of-day as a sub-day fraction so ordering within a day follows the
-         order things were actually logged. */
-      try{ if(a.loggedAt){ var lt=new Date(a.loggedAt).getTime(); if(!isNaN(lt)) t+=(lt%86400000)/86400000; } }catch(e){}
+      /* Order by the TRUE moment the activity happened, not the date string.
+         A reply that arrived at 9:23 PM Pacific carries an early-morning UTC
+         receivedAt and a local date of the prior day, while a send can be
+         stamped the next calendar day - so comparing date strings alone hid
+         genuinely-newer replies. Use receivedAt (inbound) / loggedAt when
+         present; fall back to the date. */
+      var t;
+      var stamp = a.receivedAt || a.loggedAt || null;
+      if(stamp){ t=new Date(stamp).getTime(); }
+      if(t==null || isNaN(t)){ t=new Date(a.d).getTime(); }
+      if(isNaN(t)) return;
       if(a.inbound){ if(lastIn===null||t>lastIn.t) lastIn={t:t,a:a}; }
       else if(a.type!=='Created'){ if(lastOut===null||t>lastOut) lastOut=t; }
     });
@@ -9874,7 +9879,7 @@ function renderDash(){
         '<td>'+fmtDate(r.when)+'</td>'+
         '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
         '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
-        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button> <button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></td></tr>';
+        '<td class="right nowrap"><div style="display:inline-flex;gap:4px;justify-content:flex-end"><button type="button" class="btn btn-sm" style="padding:3px 8px" onclick="'+replyFn+'">Reply</button><button type="button" class="btn btn-sm" style="padding:3px 8px" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -10743,7 +10748,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
         subj:(m.subject||'Reply received'),
         notes:(m.bodyPreview||'').slice(0,500),
         na:'', nc:'', by:'Outlook', owner:'', inbound:true,
-        msgId:mid, loggedAt:new Date().toISOString()
+        msgId:mid, receivedAt:(m.receivedDateTime||''), loggedAt:new Date().toISOString()
       });
       rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
       logged++;
