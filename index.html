@@ -9933,7 +9933,7 @@ function renderDash(){
   if(!_repl.length){
     html+='<div class="card-bd"><div class="muted">No replies waiting on you. Every partner who wrote back has had a response logged.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:22%"><col style="width:52px"><col style="width:175px"><col style="width:74px"><col style="width:78px"><col><col style="width:180px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
     _repl.forEach(function(r){
       var p=r.p, isLot=(r.kind==='lot');
       var nm=isLot?(String(p.contactName||p.contactFirm||'Lot contact')):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact');
@@ -9945,12 +9945,12 @@ function renderDash(){
       var waitTxt=(r.wait==null?'-':(r.wait===0?'today':r.wait+'d'));
       var tb=isLot?'':_tierBadge(p);
       var cat=isLot?'':catPill(p.cat);
-      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="'+openFn+'">'+_esc(nm)+(subFirm?' <span class="muted">'+_esc(subFirm)+'</span>':'')+'</td>'+
-        '<td class="nowrap">'+(tb||'<span class="muted">-</span>')+'</td>'+
-        '<td>'+(cat||'<span class="muted">-</span>')+'</td>'+
-        '<td class="nowrap">'+fmtDateShort(r.when)+'</td>'+
-        '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
-        '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
+      html+='<tr><td class="cell-firm" style="cursor:pointer;width:100%;min-width:180px" onclick="'+openFn+'">'+_esc(nm)+(subFirm?' <span class="muted">'+_esc(subFirm)+'</span>':'')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+(tb||'<span class="muted">-</span>')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+(cat||'<span class="muted">-</span>')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+fmtDateShort(r.when)+'</td>'+
+        '<td class="nowrap" style="padding-right:18px"><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
+        '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</div></td>'+
         '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button><button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
     });
     html+='</tbody></table></div>';
@@ -9962,7 +9962,7 @@ function renderDash(){
   if(!_wqRows.length){
     html+='<div class="card-bd"><div class="muted">Nothing needs a reach-out right now. Every active contact is fresh.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:22%"><col style="width:52px"><col style="width:175px"><col style="width:150px"><col><col style="width:180px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Last contact</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Last contact</th><th scope="col"></th></tr></thead><tbody>';
     _wqRows.slice(0,12).forEach(function(row){
       var p=row.p, r=reachState(p);
       var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
@@ -9970,11 +9970,11 @@ function renderDash(){
       var reason=row.rank===0?_esc(r.label):(row.rank===1?_esc(r.label):'Never contacted');
       var action=row.rank===2?'Start outreach':'Check in';
       var tb=_tierBadge(p);
-      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="openPartner('+p.id+')">'+_esc(nm)+(p.firm&&nm!==p.firm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
-        '<td class="nowrap" title="'+_esc(partnerCadenceLabel(p))+'">'+(tb||'<span class="muted">-</span>')+'</td>'+
-        '<td>'+catPill(p.cat)+'</td>'+
-        '<td><span class="chip '+reasonCls+'">'+reason+'</span></td>'+
-        '<td class="nowrap muted">'+(p.lastContact?fmtDateShort(p.lastContact):'-')+'</td>'+
+      html+='<tr><td class="cell-firm" style="cursor:pointer;width:100%;min-width:180px" onclick="openPartner('+p.id+')">'+_esc(nm)+(p.firm&&nm!==p.firm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px" title="'+_esc(partnerCadenceLabel(p))+'">'+(tb||'<span class="muted">-</span>')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+catPill(p.cat)+'</td>'+
+        '<td class="nowrap" style="padding-right:18px"><span class="chip '+reasonCls+'">'+reason+'</span></td>'+
+        '<td class="nowrap muted" style="padding-right:18px">'+(p.lastContact?fmtDateShort(p.lastContact):'-')+'</td>'+
         '<td class="right nowrap" style="padding-right:16px"><button class="btn btn-sm" onclick="reachCheckin('+p.id+')">'+action+'</button></td></tr>';
     });
     html+='</tbody></table></div>';
