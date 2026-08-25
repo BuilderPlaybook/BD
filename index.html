@@ -6382,7 +6382,7 @@ function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a
 function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
 function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
-function _bdActReal(a){ return !!(a && !a.inbound && a.type!=='Created'); }
+function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
 function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
 function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
@@ -9735,6 +9735,33 @@ function _bdDashCard(k,label,val,desc,onclick,sub){
 /* Reply tracker: partners with an inbound email reply that has no outbound
    activity logged after it. When you answer (log any outbound touch dated at or
    after the reply), the row clears itself. Oldest-waiting first; amber past 3 days. */
+/* Dismiss a reply the user has decided not to answer (Dave, 2026-08-25).
+   Logs a dated "No reply needed" note on the record so the history shows the
+   decision was made on purpose, and because that note is a fresh outbound
+   activity it becomes the newest touch - so the row drops off Replies to
+   Answer automatically. Works for both partner and lot-prospect rows. */
+function bdDismissReply(kind, id){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; if(!rec){ (PROSPECTS||[]).forEach(function(p){ if(p.id===id) rec=p; }); } }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec) return;
+  var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
+  if(!confirm('Mark the reply from '+nm+' as no reply needed? It will be logged on their history and removed from this list.')) return;
+  if(!rec.act) rec.act=[];
+  rec.act.unshift({
+    d:_today(), type:'Email', subj:'No reply needed',
+    notes:'Reply reviewed; no response required.',
+    na:'', nc:'', by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),
+    owner:'', inbound:false, dismissed:true, loggedAt:new Date().toISOString()
+  });
+  if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
+  try{ _bdGrpCache=null; }catch(e){}
+  try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ if(kind==='lot' && typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Marked no reply needed', nm+'. Removed from Replies to Answer.');
+  try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+}
 function _bdRepliesAwaiting(){
   var out=[];
   var seenIdent={};
@@ -9847,7 +9874,7 @@ function renderDash(){
         '<td>'+fmtDate(r.when)+'</td>'+
         '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
         '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
-        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button></td></tr>';
+        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button> <button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></td></tr>';
     });
     html+='</tbody></table></div>';
   }
