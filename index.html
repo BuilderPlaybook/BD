@@ -4676,6 +4676,7 @@ function _emailThreadCard(kind,id,acts,name,email){
   var emails=(acts||[]).filter(function(a){ return a.type==='Email'; }).slice().sort(function(a,b){ return new Date(b.loggedAt||b.d)-new Date(a.loggedAt||a.d); });
   var btns='';
   if(email) btns+='<button class="btn btn-sm" onclick="_emailThreadWrite(\''+kind+'\','+id+')" title="Compose, log, and open your mail app (Outlook if it is your default)">Open in Outlook</button>';
+  if(email && typeof _bdMsConnected==='function' && _bdMsConnected()) btns+='<button class="btn btn-sm" onclick="bdLoadFullHistory(\''+kind+'\','+id+')" title="Search your whole mailbox for every email to and from this contact">Load full history</button>';
   btns+='<button class="btn btn-sm" onclick="_logEmailReply(\''+kind+'\','+id+')" title="Record a reply you received">Log reply</button>';
   var head='<div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="card-title">Email Thread</span><span style="display:flex;gap:6px">'+btns+'</span></div>';
   var inner;
@@ -9948,11 +9949,8 @@ function bdReplyToContact(kind, id){
 }
 function bdOpenReplyContact(kind, id){
   if(kind==='lot'){
-    _curPage='prospecting';
-    try{ if(typeof nav==='function'){ NAV_HIST.push('dashboard'); } }catch(e){}
-    if(typeof renderTopLevelNav==='function') try{ renderTopLevelNav(); }catch(e){}
-    MLEAD_VIEW={kind:'lot',id:id};
-    if(typeof renderProspecting==='function') renderProspecting();
+    if(typeof nav==='function') nav('prospecting');
+    if(typeof mleadOpenLot==='function') mleadOpenLot(id);
   } else {
     if(typeof openPartner==='function') openPartner(id);
   }
@@ -11002,10 +11000,9 @@ function bdMsCheckNow(){
     var ix=_bdMsEmailIndex();
     var seen=_bdMsSeen();
     var logged=0;
-    // Page back over a 30-day window so a reply from yesterday can never fall
-    // off the edge behind a busy inbox. Up to 10 pages of 50 = 500 messages;
-    // stop early once messages predate the window.
-    var sinceMs=Date.now()-30*24*60*60*1000;
+    // Page back over a 1-year window so older threads are captured, not just the
+    // last month. Stops early once messages predate the window.
+    var sinceMs=Date.now()-365*24*60*60*1000;
     var firstUrl='https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
       +'?$top=50&$orderby=receivedDateTime desc'
       +'&$select=id,internetMessageId,subject,bodyPreview,from,receivedDateTime,webLink';
@@ -11042,9 +11039,9 @@ function bdMsCheckNow(){
           return true;
         });
     }
-    return fetchPage(firstUrl, 10)
+    return fetchPage(firstUrl, 40)
       .then(function(total){
-        return fetchSent(sentUrl, 6).then(function(){ return total; }).catch(function(){ return total; });
+        return fetchSent(sentUrl, 40).then(function(){ return total; }).catch(function(){ return total; });
       })
       .then(function(total){
         _bdMsMarkSeen(seen);
@@ -11063,6 +11060,83 @@ function bdMsCheckNow(){
         _bdMsPaintStatus(String(err&&err.message||''));
         return logged;
       });
+  });
+}
+function bdLoadFullHistory(kind, id){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec) return;
+  var email=((kind==='lot')?(rec.contactEmail||''):(rec.email||'')).toLowerCase();
+  if(!email){ if(typeof toastInfo==='function') toastInfo('No email on record','Add an email address to load history.'); return; }
+  if(typeof _bdMsConnected!=='function' || !_bdMsConnected()){ if(typeof toastInfo==='function') toastInfo('Outlook not connected','Connect Outlook in Settings first.'); return; }
+  if(typeof toastInfo==='function') toastInfo('Searching mailbox...','Pulling every email with '+email+'.');
+  _bdMsToken().then(function(tok){
+    if(!tok) return;
+    var added=0, filled=0;
+    // Search BOTH inbox+all folders via /me/messages with $search on the address.
+    // $search matches from/to/cc; we then confirm the address is actually a party.
+    var url='https://graph.microsoft.com/v1.0/me/messages'
+      +'?$search="'+encodeURIComponent(email)+'"'
+      +'&$top=50&$select=id,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,sentDateTime,receivedDateTime,webLink';
+    var acct=((_bdMsStore()||{}).account||'').toLowerCase();
+    function has(list){ return (list||[]).some(function(x){ return (x&&x.emailAddress&&x.emailAddress.address||'').toLowerCase()===email; }); }
+    function page(u, left){
+      return fetch(u,{headers:{Authorization:'Bearer '+tok, 'ConsistencyLevel':'eventual'}})
+        .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
+        .then(function(res){
+          var msgs=(res&&res.value)||[];
+          msgs.forEach(function(m){
+            var mid=m.internetMessageId||m.id; if(!mid) return;
+            var fromA=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
+            var inbound=(fromA===email);
+            // Outbound only when YOU are the sender and this contact is a recipient.
+            // A third party who merely cc's this contact is neither, and is skipped.
+            var outbound=(acct && fromA===acct && (has(m.toRecipients)||has(m.ccRecipients)));
+            if(!inbound && !outbound) return;
+            if(!rec.act) rec.act=[];
+            // already have it?
+            var exists=false;
+            for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid){ exists=true; break; } }
+            if(exists) return;
+            var when=m.sentDateTime||m.receivedDateTime||'';
+            var subj=(m.subject||(inbound?'Email received':'Email sent'));
+            var body=(m.bodyPreview||'').slice(0,500);
+            // Try to fill a blank same-subject act of the same direction first.
+            var didFill=false;
+            for(var j=0;j<rec.act.length;j++){
+              var a=rec.act[j];
+              if(a && a.type==='Email' && !a.msgId && !!a.inbound===inbound && (a.subj||'')===subj && !(a.notes||'').trim()){
+                a.notes=body; a.msgId=mid; if(inbound){a.receivedAt=when;} else {a.sentAt=when;} a.webLink=a.webLink||m.webLink||'';
+                didFill=true; filled++; break;
+              }
+            }
+            if(didFill) return;
+            rec.act.push({
+              d:_bdMsLocalDate(when), type:'Email', subj:subj, notes:body,
+              na:'', nc:'', by:(inbound?'Outlook':'Outlook'), owner:'', inbound:inbound,
+              msgId:mid, webLink:(m.webLink||''), receivedAt:(inbound?when:''), sentAt:(inbound?'':when), loggedAt:new Date().toISOString()
+            });
+            added++;
+          });
+          var next=res&&res['@odata.nextLink'];
+          if(next && left>1) return page(next, left-1);
+          return true;
+        });
+    }
+    page(url, 20).then(function(){
+      // Sort acts newest-first so the thread reads correctly.
+      try{ rec.act.sort(function(a,b){ return new Date(b.receivedAt||b.sentAt||b.loggedAt||b.d)-new Date(a.receivedAt||a.sentAt||a.loggedAt||a.d); }); }catch(e){}
+      try{ _bdGrpCache=null; }catch(e){}
+      try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+      try{ save(); }catch(e){}
+      // Re-render the open record.
+      try{ if(kind==='lot'){ if(typeof renderProspecting==='function') renderProspecting(); } else { if(typeof openPartner==='function') openPartner(id); } }catch(e){}
+      if(typeof toastSuccess==='function') toastSuccess('History loaded', added+' email'+(added===1?'':'s')+' added'+(filled?(', '+filled+' filled in'):'')+'.');
+    }).catch(function(err){
+      if(typeof toastError==='function') toastError('History search failed', String(err&&err.message||'').slice(0,120));
+      else if(typeof toastInfo==='function') toastInfo('History search failed', String(err&&err.message||'').slice(0,120));
+    });
   });
 }
 function _bdMsStartPolling(){
