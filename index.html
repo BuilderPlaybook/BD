@@ -3087,6 +3087,7 @@ function openPartner(id){
     '<div class="pg-title">'+_esc(p.firm)+'</div>'+
     '<div class="pg-sub">'+_esc(p.cf+' '+p.cl)+(p.title?' &middot; '+_esc(p.title):'')+'</div></div>'+
     '<div class="pg-actions">'+
+      '<button class="btn btn-sm" onclick="bdBookMeeting(\'partner\','+p.id+')" title="Book a meeting and send an Outlook invite" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Book meeting</button>'+
       ((p.email)?('<button class="btn btn-sm" onclick="partnerComposeEmail('+p.id+')" title="Compose, log, and open your mail app" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>Email</button>'):'')+
       ((p.phone||p.mobile)?('<a class="btn btn-sm" href="tel:'+_esc((p.phone||p.mobile).replace(/[^0-9+]/g,''))+'" title="Call '+_esc(p.phone||p.mobile)+'" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call</a>'):'')+
       '<button class="btn btn-sm" onclick="openBookMeetingModal('+p.id+')" title="Book a meeting with this partner and an assigned team member (calendar invites pending backend)" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Book Meeting</button>'+
@@ -9776,6 +9777,128 @@ function bdDismissReply(kind, id){
    live via Graph by internetMessageId (Mail.Read is sufficient). After opening,
    the standard "Did you send it?" confirm logs the outbound reply so the row
    clears. Falls back to a mailto Re: draft when Outlook is not connected. */
+/* ============================================================
+   BD MEETING BOOKING v1 (2026-08-25, Dave). Books a real Outlook
+   calendar event with the partner as attendee, using the same
+   Microsoft connection as the reply sync (Calendars.ReadWrite is
+   on the app registration, same as VSP). Logs a Meeting activity
+   on the record, which also feeds the "Meetings held" scorecard.
+   Falls back to saving the meeting locally + a mailto if Outlook
+   is not connected.
+   ============================================================ */
+function bdBookMeeting(kind, id){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec) return;
+  var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
+  var email=(kind==='lot')?(rec.contactEmail||''):(rec.email||'');
+  var d=new Date(); d.setDate(d.getDate()+1);
+  var pad=function(n){return String(n).padStart(2,'0');};
+  var defDate=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  var connected=(typeof _bdMsConnected==='function' && _bdMsConnected());
+  var body=''+
+    '<div class="smb-fld"><label for="bk-title">Title</label>'+
+      '<input id="bk-title" type="text" value="'+_esc('Coffee with '+nm)+'"></div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+      '<div class="smb-fld" style="flex:1;min-width:150px"><label for="bk-date">Date</label><input id="bk-date" type="date" value="'+defDate+'"></div>'+
+      '<div class="smb-fld" style="flex:1;min-width:120px"><label for="bk-time">Time</label><input id="bk-time" type="time" value="10:00"></div>'+
+      '<div class="smb-fld" style="flex:1;min-width:120px"><label for="bk-dur">Length</label>'+
+        '<select id="bk-dur"><option value="30">30 min</option><option value="60" selected>1 hour</option><option value="90">1.5 hours</option></select></div>'+
+    '</div>'+
+    '<div class="smb-fld"><label for="bk-loc">Location</label><input id="bk-loc" type="text" placeholder="Coffee shop, office, video call..."></div>'+
+    '<div class="smb-fld"><label for="bk-notes">Notes (optional)</label><textarea id="bk-notes" rows="2" placeholder="Anything to include in the invite"></textarea></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">'+
+      (email?(connected
+        ? ('Creates a real Outlook event and sends '+_esc(nm)+' an invite at '+_esc(email)+'. Logs a meeting on their record.')
+        : ('Outlook is not connected, so this saves the meeting on their record and opens an email invite you can send to '+_esc(email)+'. Connect Outlook in Settings for automatic invites.'))
+        : ('No email on record for '+_esc(nm)+', so this logs the meeting on their record only - no invite is sent.'))+
+    '</div></div>';
+  openModal({ title:'Book a meeting', sub:nm, body:body, saveLabel:(connected&&email)?'Create & send invite':'Save meeting',
+    onSave:function(){ _bdBookMeetingSave(kind, id); } });
+}
+function _bdBookMeetingSave(kind, id){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec) return;
+  var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
+  var email=(kind==='lot')?(rec.contactEmail||''):(rec.email||'');
+  var g=function(x){ var el=document.getElementById(x); return el?el.value:''; };
+  var title=(g('bk-title')||('Meeting with '+nm)).trim();
+  var date=g('bk-date'); var time=g('bk-time')||'10:00';
+  var durationMin=parseInt(g('bk-dur'),10)||60;
+  var loc=(g('bk-loc')||'').trim();
+  var notes=(g('bk-notes')||'').trim();
+  if(!date){ var er=document.getElementById('smb-modal-err'); if(er) er.textContent='Please pick a date.'; return; }
+  function _logMeeting(outlookId){
+    if(!rec.act) rec.act=[];
+    var dLabel=title+' - '+_bdPrettyWhen(date,time);
+    rec.act.unshift({ d:date, type:'Meeting', subj:title, notes:(loc?('Location: '+loc+'. '):'')+(notes||''),
+      na:'', nc:'', by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'), owner:'', inbound:false,
+      meetingAt:date+'T'+time, durationMin:durationMin, outlookEventId:(outlookId||''), loggedAt:new Date().toISOString() });
+    if(date>(rec.lastContact||'')) rec.lastContact=date;
+    try{ _bdGrpCache=null; }catch(e){}
+    try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    try{ save(); }catch(e){}
+    try{ closeModal(); }catch(e){}
+    try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+  }
+  var connected=(typeof _bdMsConnected==='function' && _bdMsConnected());
+  if(connected && email){
+    _bdMsCreateEvent({ title:title, date:date, time:time, durationMin:durationMin, location:loc, notes:notes, email:email, name:nm })
+      .then(function(ev){
+        if(ev && ev.id){
+          _logMeeting(ev.id);
+          if(typeof toastSuccess==='function') toastSuccess('Meeting booked', nm+'. Outlook invite sent to '+email+'.');
+        } else {
+          _logMeeting('');
+          if(typeof toastInfo==='function') toastInfo('Meeting saved', nm+'. Outlook invite could not be sent; logged on their record.');
+        }
+      });
+  } else {
+    _logMeeting('');
+    if(email){
+      var when=_bdPrettyWhen(date,time);
+      var mailBody='Hi '+(nm.split(' ')[0]||'there')+',\n\nWould '+when+' work for a meeting?'+(loc?(' Location: '+loc+'.'):'')+(notes?('\n\n'+notes):'')+'\n\nThanks,';
+      var mu='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(mailBody);
+      var a=document.createElement('a'); a.href=mu; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      if(typeof toastSuccess==='function') toastSuccess('Meeting logged', nm+'. Opened an email invite for you to send.');
+    } else {
+      if(typeof toastSuccess==='function') toastSuccess('Meeting logged', nm+'.');
+    }
+  }
+}
+function _bdPrettyWhen(date, time){
+  try{
+    var d=new Date(date+'T'+(time||'10:00')+':00');
+    var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var h=d.getHours(), mm=d.getMinutes(); var ap=h>=12?'PM':'AM'; var h12=((h+11)%12)+1;
+    return mo[d.getMonth()]+' '+d.getDate()+' at '+h12+(mm?(':'+String(mm).padStart(2,'0')):'')+' '+ap;
+  }catch(e){ return date; }
+}
+function _bdMsCreateEvent(m){
+  return _bdMsToken().then(function(tok){
+    if(!tok) return null;
+    var pad=function(n){return String(n).padStart(2,'0');};
+    var tm=(m.time||'10:00').split(':'); var sh=parseInt(tm[0],10)||10, smn=parseInt(tm[1],10)||0;
+    var startDT=m.date+'T'+pad(sh)+':'+pad(smn)+':00';
+    var endTot=sh*60+smn+(m.durationMin||60);
+    var endDT=m.date+'T'+pad(Math.floor(endTot/60)%24)+':'+pad(endTot%60)+':00';
+    var payload={
+      subject:m.title,
+      body:{ contentType:'Text', content:(m.notes||'')+(m.location?('\n\nLocation: '+m.location):'') },
+      start:{ dateTime:startDT, timeZone:'Pacific Standard Time' },
+      end:{ dateTime:endDT, timeZone:'Pacific Standard Time' },
+      location:{ displayName:m.location||'' },
+      attendees:[{ emailAddress:{ address:m.email, name:m.name||m.email }, type:'required' }]
+    };
+    return fetch('https://graph.microsoft.com/v1.0/me/events',{
+      method:'POST', headers:{ Authorization:'Bearer '+tok, 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.json(); }).catch(function(){ return null; });
+  });
+}
 function bdReplyToContact(kind, id){
   var rec=null;
   if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
@@ -10696,7 +10819,7 @@ function _migrateLotAgentOutreach(){
    ============================================================ */
 var BD_MS_CLIENT_ID='6b0771e0-31ce-4493-8c9c-651fe119baae';
 var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
-var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read';
+var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Calendars.ReadWrite';
 var BD_MS_KEY='smb.bd.msauth';
 var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
 var BD_MS_POLL_MS=5*60*1000;
