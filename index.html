@@ -6389,7 +6389,7 @@ function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a
 function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
 function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
-function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && a.type!=='Created'); }
+function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
 function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
 function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
@@ -10983,10 +10983,11 @@ function _bdMsProcessSent(msgs, ix){
       }
     }
     if(filled) return; // silent body-fill, not a new log
-    // Otherwise log the sent message as a new outbound activity.
+    // Otherwise log the sent message as a new outbound activity. synced:true
+    // keeps mailbox history OFF the scorecard - only deliberate BD actions score.
     rec.act.unshift({
       d:_bdMsLocalDate(when), type:'Email', subj:(subj||'Email sent'),
-      notes:body, na:'', nc:'', by:'Outlook', owner:'', inbound:false,
+      notes:body, na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:true,
       msgId:mid, sentAt:when, loggedAt:new Date().toISOString()
     });
     if(_bdMsLocalDate(when)>(rec.lastContact||'')) rec.lastContact=_bdMsLocalDate(when);
@@ -11172,7 +11173,7 @@ function bdLoadFullHistory(kind, id){
             if(didFill) return;
             rec.act.push({
               d:_bdMsLocalDate(when), type:'Email', subj:subj, notes:body,
-              na:'', nc:'', by:(inbound?'Outlook':'Outlook'), owner:'', inbound:inbound,
+              na:'', nc:'', by:'Outlook', owner:'', inbound:inbound, synced:true,
               msgId:mid, webLink:(m.webLink||''), receivedAt:(inbound?when:''), sentAt:(inbound?'':when), loggedAt:new Date().toISOString()
             });
             added++;
@@ -11196,6 +11197,26 @@ function bdLoadFullHistory(kind, id){
       else if(typeof toastInfo==='function') toastInfo('History search failed', String(err&&err.message||'').slice(0,120));
     });
   });
+}
+function _bdHealSyncedActs(){
+  /* Heal (runs on EVERY load, idempotent): stamp synced:true on outbound Email
+     acts created by the mailbox sync before the flag existed, so historical
+     correspondence never counts as BD outreach on the scorecard. The mark of a
+     sync-created outbound is by:'Outlook' - deliberate BD sends carry the
+     user's name. Calendar-booked Meetings stay countable by design. Runs on
+     every apply because cloud/import re-pulls can re-introduce unflagged rows. */
+  var changed=0;
+  function scrub(list){
+    (list||[]).forEach(function(p){
+      (p&&p.act||[]).forEach(function(a){
+        if(a && a.type==='Email' && !a.inbound && !a.synced && a.by==='Outlook'){ a.synced=true; changed++; }
+      });
+    });
+  }
+  try{ scrub(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
+  try{ scrub(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
+  if(changed){ try{ _bdGrpCache=null; }catch(e){} try{ save(); }catch(e){} }
+  return changed;
 }
 function _bdMsStartPolling(){
   if(_bdMsPollTimer) return;
@@ -11228,6 +11249,7 @@ function _bdMsPaintStatus(errText){
 function init(){
   var _embedPage=_bdApplyEmbed();
   loadState();
+  try{ _bdHealSyncedActs(); }catch(e){}
   try{ _bdMsHandleRedirect(); }catch(e){}
   try{ _bdMsStartPolling(); }catch(e){}
   try{ if(_bdMsConnected()) setTimeout(function(){ try{ bdMsCheckNow(); }catch(e){} }, 2500); }catch(e){}
