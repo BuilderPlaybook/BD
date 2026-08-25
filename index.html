@@ -4648,9 +4648,16 @@ function _mktgActsCard(arr,kind,id){
   list.forEach(function(a){
     var idx=arr.indexOf(a);
     var nextLine=(a.na||a.nc)?(' &middot; Next: '+_esc(a.na||'')+(a.nc?' ('+fmtDate(a.nc)+')':'')):'';
+    var mMark='';
+    if(a.type==='Meeting' && a.synced){
+      var mref=String(a.outlookEventId||a.loggedAt||'').replace(/'/g,'');
+      mMark=' <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation();bdCountAsTouch(\''+kind+'\','+id+',\''+_esc(mref)+'\')" title="This was a real BD meeting - count it on the scorecard">Count as BD touch</button>';
+    } else if(a.type==='Meeting' && !a.inbound){
+      mMark=' <span class="chip c-grn" title="Counted on the scorecard">BD touch</span>';
+    }
     h+='<div class="act-item" style="cursor:pointer" onclick="mktgLogActivity(\''+kind+'\','+id+','+idx+')" title="Click to view or edit">'+
       '<div class="act-dot">'+actIcon(a.type)+'</div>'+
-      '<div class="act-text">'+_esc(a.type)+(a.inbound?' <span class="chip c-grn" style="font-size:var(--fz-xs)">Reply</span>':'')+(a.subj?' &middot; '+_esc(a.subj):'')+'</div>'+
+      '<div class="act-text">'+_esc(a.type)+(a.inbound?' <span class="chip c-grn" style="font-size:var(--fz-xs)">Reply</span>':'')+(a.subj?' &middot; '+_esc(a.subj):'')+mMark+'</div>'+
       (a.notes?'<div class="act-sub">'+_esc(a.notes)+'</div>':'')+
       '<div class="act-meta">'+(a.loggedAt?fmtDateTime(a.loggedAt):fmtDate(a.d))+(a.by?' &middot; '+_esc(a.by):'')+nextLine+'</div></div>';
   });
@@ -4689,8 +4696,8 @@ function _emailThreadCard(kind,id,acts,name,email){
       var mark='';
       if(!a.inbound && a.synced){
         var ref=_esc(String(a.msgId||a.loggedAt||''));
-        mark=' <button type="button" class="btn btn-sm" style="padding:1px 8px;font-size:var(--fz-xs)" onclick="bdCountAsTouch(\''+kind+'\','+id+',\''+ref+'\')" title="This was real BD outreach - count it on the scorecard">Count as BD touch</button>';
-      } else if(!a.inbound && a.bdTouch){
+        mark=' <button type="button" class="btn btn-primary btn-sm" onclick="bdCountAsTouch(\''+kind+'\','+id+',\''+ref+'\')" title="This was real BD outreach - count it on the scorecard">Count as BD touch</button>';
+      } else if(!a.inbound){
         mark=' <span class="chip c-grn" title="Counted on the scorecard">BD touch</span>';
       }
       return '<div style="padding:10px 0;border-top:1px solid var(--brd)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:600;font-size:var(--fz-lg)">'+_esc(a.subj||'(no subject)')+'</span>'+dir+mark+'</div>'+(a.notes?'<div class="act-sub" style="white-space:pre-wrap;margin-top:4px">'+_esc(a.notes)+'</div>':'')+'<div class="act-meta" style="margin-top:4px">'+when+(a.by?' &middot; '+_esc(a.by):'')+'</div></div>';
@@ -6395,11 +6402,11 @@ function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var map={}, order
 function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
 function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
 function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
-function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
-function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
-function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
+function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ if(_inWk(r.date,s,e)) n++; }); }); return n; }
 var BD_AUTO_FEED={ 'bd.newPartnerOutreach':_bdFeedNewOutreach, 'bd.existingTouches':_bdFeedExistingTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.newActiveRelationships':_bdFeedStageReached('Meeting'), 'bd.eventsAttended':_bdFeedDistinctDays(/networking|mixer/i), 'bd.siteTours':_bdFeedDistinctDays(/site\s*(visit|tour)/i), 'bd.booksDelivered':_bdFeedBooks };
 function _bdScMonth(i){ var y=SC_PLAN_START_DATE.getFullYear(); return {s:new Date(y,i,1), e:new Date(y,i+1,1)}; }
@@ -6589,11 +6596,11 @@ function _bdCellTipItems(key,s,e){
   function push(l,r){ out.push([l,r]); }
   if(key==='bd.newPartnerOutreach'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) push(g.label,f); }); }
   else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) push(g.label+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
-  else if(key==='bd.relationshipMeetings'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
+  else if(key==='bd.relationshipMeetings'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   else if(key==='bd.newActiveRelationships'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates['Meeting']; if(d&&_inWk(d,s,e)) push(_bdPersonLabel(p),d); }); }
   else if(key==='bd.referralsReceived'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ ((p.crmLeads)||[]).forEach(function(r){ if(_inWk(r.date,s,e)) push((r.name||'Referral')+' \u00b7 '+_bdPersonLabel(p),r.date||''); }); }); }
-  else if(key==='bd.eventsAttended'||key==='bd.siteTours'){ var re=(key==='bd.eventsAttended')?/networking|mixer/i:/site\s*(visit|tour)/i; var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)){ if(!days[a.d]) days[a.d]=[]; if(days[a.d].indexOf(g.label)<0) days[a.d].push(g.label); } }); }); Object.keys(days).sort().forEach(function(d){ push(days[d].slice(0,3).join(', '),d); }); }
-  else if(key==='bd.booksDelivered'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(a&&!a.inbound&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
+  else if(key==='bd.eventsAttended'||key==='bd.siteTours'){ var re=(key==='bd.eventsAttended')?/networking|mixer/i:/site\s*(visit|tour)/i; var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)){ if(!days[a.d]) days[a.d]=[]; if(days[a.d].indexOf(g.label)<0) days[a.d].push(g.label); } }); }); Object.keys(days).sort().forEach(function(d){ push(days[d].slice(0,3).join(', '),d); }); }
+  else if(key==='bd.booksDelivered'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   return out;
 }
 function _bdCellTip(m,weekIdx,isWeekly){
@@ -11028,7 +11035,7 @@ function _bdMsProcessEvents(events, ix){
     rec.act.unshift({
       d:dOnly, type:'Meeting', subj:(ev.subject||'Meeting'),
       notes:(loc?('Location: '+loc+'. '):'')+'Booked via calendar.',
-      na:'', nc:'', by:'Outlook', owner:'', inbound:false,
+      na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:true,
       outlookEventId:ev.id, meetingAt:startISO, loggedAt:new Date().toISOString()
     });
     if(dOnly>(rec.lastContact||'')) rec.lastContact=dOnly;
@@ -11091,23 +11098,48 @@ function bdMsCheckNow(){
       +'&endDateTime='+encodeURIComponent(calEnd)
       +'&$top=50&$orderby=start/dateTime desc'
       +'&$select=id,subject,start,end,location,attendees,organizer,createdDateTime';
+    var calSeen={};
     function fetchCal(url, pagesLeft){
       return fetch(url,{headers:{Authorization:'Bearer '+tok, 'Prefer':'outlook.timezone="Pacific Standard Time"'}})
         .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
         .then(function(res){
           var evs=(res&&res.value)||[];
+          evs.forEach(function(ev){ if(ev&&ev.id) calSeen[ev.id]=1; });
           _bdMsProcessEvents(evs, ix);
           var next=res&&res['@odata.nextLink'];
           if(next && pagesLeft>1) return fetchCal(next, pagesLeft-1);
           return true;
         });
     }
+    function pruneCancelled(){
+      /* A FUTURE meeting act whose Outlook event no longer exists was cancelled:
+         remove it so it never scores and stops showing. Only future dates are
+         pruned - past events can fall outside the scan's page cap, so deleting
+         on absence there would be wrong. */
+      var nowMs=Date.now(), removed=0;
+      function sweep(list){
+        (list||[]).forEach(function(p){
+          if(!p||!p.act) return;
+          for(var i=p.act.length-1;i>=0;i--){
+            var a=p.act[i];
+            if(a && a.type==='Meeting' && a.outlookEventId && a.meetingAt){
+              var t=new Date(a.meetingAt).getTime();
+              if(!isNaN(t) && t>nowMs && !calSeen[a.outlookEventId]){ p.act.splice(i,1); removed++; }
+            }
+          }
+        });
+      }
+      try{ sweep(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
+      try{ sweep(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
+      if(removed && typeof toastInfo==='function') toastInfo('Meeting cancelled', removed+' cancelled '+(removed===1?'meeting':'meetings')+' removed from the record.');
+      return removed;
+    }
     return fetchPage(firstUrl, 40)
       .then(function(total){
         return fetchSent(sentUrl, 40).then(function(){ return total; }).catch(function(){ return total; });
       })
       .then(function(total){
-        return fetchCal(calUrl, 10).then(function(){ return total; }).catch(function(){ return total; });
+        return fetchCal(calUrl, 10).then(function(){ try{ pruneCancelled(); }catch(e){} return total; }).catch(function(){ return total; });
       })
       .then(function(total){
         _bdMsMarkSeen(seen);
@@ -11216,7 +11248,7 @@ function _bdHealSyncedActs(){
   function scrub(list){
     (list||[]).forEach(function(p){
       (p&&p.act||[]).forEach(function(a){
-        if(a && a.type==='Email' && !a.inbound && !a.synced && a.by==='Outlook'){ a.synced=true; changed++; }
+        if(a && (a.type==='Email'||a.type==='Meeting') && !a.inbound && !a.synced && !a.bdTouch && a.by==='Outlook'){ a.synced=true; changed++; }
       });
     });
   }
@@ -11233,7 +11265,7 @@ function bdCountAsTouch(kind, id, ref){
   var hitAct=null;
   for(var i=0;i<rec.act.length;i++){
     var a=rec.act[i]; if(!a) continue;
-    if((a.msgId&&String(a.msgId)===ref)||(!a.msgId&&String(a.loggedAt||'')===ref)){ hitAct=a; break; }
+    if((a.msgId&&String(a.msgId)===ref)||(a.outlookEventId&&String(a.outlookEventId)===ref)||(!a.msgId&&!a.outlookEventId&&String(a.loggedAt||'')===ref)){ hitAct=a; break; }
   }
   if(!hitAct) return;
   hitAct.synced=false; hitAct.bdTouch=true;
