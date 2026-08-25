@@ -9856,7 +9856,7 @@ function renderDash(){
   if(!_repl.length){
     html+='<div class="card-bd"><div class="muted">No replies waiting on you. Every partner who wrote back has had a response logged.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:110px"><col style="width:86px"><col><col style="width:140px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:110px"><col style="width:86px"><col><col style="width:170px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
     _repl.forEach(function(r){
       var p=r.p, isLot=(r.kind==='lot');
       var nm=isLot?(String(p.contactName||p.contactFirm||'Lot contact')):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact');
@@ -9885,7 +9885,7 @@ function renderDash(){
   if(!_wqRows.length){
     html+='<div class="card-bd"><div class="muted">Nothing needs a reach-out right now. Every active contact is fresh.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:170px"><col><col style="width:140px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:170px"><col><col style="width:170px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
     _wqRows.slice(0,12).forEach(function(row){
       var p=row.p, r=reachState(p);
       var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
