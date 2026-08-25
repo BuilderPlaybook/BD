@@ -4686,8 +4686,15 @@ function _emailThreadCard(kind,id,acts,name,email){
     inner=emails.map(function(a){
       var dir=a.inbound?'<span class="chip c-grn">Received</span>':'<span class="chip c-blu">Sent</span>';
       var when=a.loggedAt?fmtDateTime(a.loggedAt):fmtDate(a.d);
-      return '<div style="padding:10px 0;border-top:1px solid var(--brd)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:600;font-size:var(--fz-lg)">'+_esc(a.subj||'(no subject)')+'</span>'+dir+'</div>'+(a.notes?'<div class="act-sub" style="white-space:pre-wrap;margin-top:4px">'+_esc(a.notes)+'</div>':'')+'<div class="act-meta" style="margin-top:4px">'+when+(a.by?' &middot; '+_esc(a.by):'')+'</div></div>';
-    }).join('')+'<div class="muted" style="font-size:var(--fz-xs);margin-top:8px">Connecting Gmail or Outlook will sync this automatically. Pending the email integration backend.</div>';
+      var mark='';
+      if(!a.inbound && a.synced){
+        var ref=_esc(String(a.msgId||a.loggedAt||''));
+        mark=' <button type="button" class="btn btn-sm" style="padding:1px 8px;font-size:var(--fz-xs)" onclick="bdCountAsTouch(\''+kind+'\','+id+',\''+ref+'\')" title="This was real BD outreach - count it on the scorecard">Count as BD touch</button>';
+      } else if(!a.inbound && a.bdTouch){
+        mark=' <span class="chip c-grn" title="Counted on the scorecard">BD touch</span>';
+      }
+      return '<div style="padding:10px 0;border-top:1px solid var(--brd)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:600;font-size:var(--fz-lg)">'+_esc(a.subj||'(no subject)')+'</span>'+dir+mark+'</div>'+(a.notes?'<div class="act-sub" style="white-space:pre-wrap;margin-top:4px">'+_esc(a.notes)+'</div>':'')+'<div class="act-meta" style="margin-top:4px">'+when+(a.by?' &middot; '+_esc(a.by):'')+'</div></div>';
+    }).join('')+'<div class="muted" style="font-size:var(--fz-xs);margin-top:8px">Synced emails are history only; click Count as BD touch on any you sent as real BD outreach to score it.</div>';
   }
   return '<div class="card" style="margin-top:16px">'+head+'<div class="card-body">'+inner+'</div></div>';
 }
@@ -11217,6 +11224,25 @@ function _bdHealSyncedActs(){
   try{ scrub(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
   if(changed){ try{ _bdGrpCache=null; }catch(e){} try{ save(); }catch(e){} }
   return changed;
+}
+function bdCountAsTouch(kind, id, ref){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec||!rec.act) return;
+  var hitAct=null;
+  for(var i=0;i<rec.act.length;i++){
+    var a=rec.act[i]; if(!a) continue;
+    if((a.msgId&&String(a.msgId)===ref)||(!a.msgId&&String(a.loggedAt||'')===ref)){ hitAct=a; break; }
+  }
+  if(!hitAct) return;
+  hitAct.synced=false; hitAct.bdTouch=true;
+  if(hitAct.d>(rec.lastContact||'')) rec.lastContact=hitAct.d;
+  try{ _bdGrpCache=null; }catch(e){}
+  try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Counted as BD touch','It now scores on the scorecard.');
+  try{ if(kind==='lot'){ if(typeof renderProspecting==='function') renderProspecting(); } else { if(typeof openPartner==='function') openPartner(id); } }catch(e){}
 }
 function _bdMsStartPolling(){
   if(_bdMsPollTimer) return;
