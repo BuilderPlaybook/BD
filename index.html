@@ -10508,22 +10508,28 @@ function bdRenderEmailRemoval(name){
 function bdRemoveEmailAt(i){
   var hits=window._bdEmailHits||[]; var h=hits[i]; if(!h) return;
   if(!confirm('Remove the logged email to '+h.label+' on '+(h.act.d||'')+'? This cannot be undone.')) return;
-  var arr=h.rec.act||[];
-  // Re-find by identity in case indices shifted; match same object.
-  var pos=arr.indexOf(h.act);
-  if(pos<0){ pos=h.ix; }
-  if(pos>=0 && arr[pos]===h.act){ arr.splice(pos,1); }
-  // Also remove the mirrored copy on a linked partner, if this was a lot prospect.
-  try{
-    if(h.kind==='lot' && h.rec.linkedPartnerId!=null){
-      var pn=_partnerFind(h.rec.linkedPartnerId);
-      if(pn && pn.act){ for(var k=0;k<pn.act.length;k++){ var b=pn.act[k]; if(b&&b.type==='Email'&&b.d===h.act.d&&(b.subj||'')===(h.act.subj||'')){ pn.act.splice(k,1); break; } } }
-    }
-  }catch(e){}
+  var d=h.act.d, subj=(h.act.subj||'');
+  var removed=0;
+  // Remove this Email touch (same date + subject) from EVERY record that shares
+  // this contact's identity, across both partners and lot prospects, plus any
+  // linked-partner mirror. A test-open can leave a copy on more than one record,
+  // so clearing just one would leave the scorecard count unchanged.
+  function scrub(rec){
+    if(!rec||!rec.act) return;
+    for(var k=rec.act.length-1;k>=0;k--){ var b=rec.act[k]; if(b&&b.type==='Email'&&b.d===d&&(b.subj||'')===subj){ rec.act.splice(k,1); removed++; } }
+  }
+  var idkey=(typeof _bdIdentKey==='function')?_bdIdentKey(h.rec):null;
+  (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ if(idkey && _bdIdentKey(p)===idkey) scrub(p); });
+  (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){ if(idkey && _bdIdentKey(p)===idkey){ scrub(p); if(p.linkedPartnerId!=null){ var pn=_partnerFind(p.linkedPartnerId); scrub(pn); } } });
+  // Fallback: if identity matching removed nothing, scrub the exact record we listed.
+  if(!removed) scrub(h.rec);
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ _bdGrpCache=null; }catch(e){}
   try{ save(); }catch(e){}
-  if(typeof toastSuccess==='function') toastSuccess('Email removed', h.label+'. Scorecard count updated.');
-  // Re-render the list against the same contact, minus the removed one.
+  try{ if(typeof _recalcAll==='function') _recalcAll(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Email removed', h.label+'. Removed '+removed+' logged '+(removed===1?'touch':'touches')+'.');
+  // Re-render the removal list. The scorecard recomputes from the cleared data
+  // on its next render (cache was invalidated and _recalcAll ran).
   bdRenderEmailRemoval((h.label||'').split(' ')[0]);
 }
 /* One-time content migration (2026-08-25): upgrade the Lot Agent Outreach
