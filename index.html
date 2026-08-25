@@ -9000,7 +9000,7 @@ function pullFromMarketing(){
   }catch(e){ if(typeof toastError==='function') toastError('Import failed', e&&e.message?e.message:String(e)); }
 }
 function _statePayload(){
-  return {_v:BD_STORAGE_VERSION,EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
+  return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
     PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH};
 }
@@ -11436,5 +11436,154 @@ else init();
   try{ poll(); setInterval(poll,15000); setTimeout(push,4000); }catch(e){}
 })();
 </script>
+<!-- ============================================================
+     SMB BD STAGING ADAPTER v1  (2026-08-25, Dave)
+     Shares BD's data across computers/teammates via a shared Firebase
+     Realtime DB node, the same approach VSP uses. Mirrors the single BD
+     state key (bd_state_v3:lida-001) to bd/lida-001/data over REST:
+       - On load: pull the shared copy and adopt it (newest wins by savedAt).
+       - On save: push this browser's state to the shared node.
+       - Polls every few seconds to adopt teammates'/other-device saves.
+     STAGING ONLY: not part of the audited module; delete this block to
+     return to pure local behavior. Guarded so it never throws.
+     ============================================================ -->
+<div id="bd-stage-badge" style="position:fixed;right:12px;bottom:12px;z-index:99999;display:flex;align-items:center;gap:7px;background:#12203a;color:#eaf1ff;border:1px solid #24406e;border-radius:20px;padding:6px 12px;font:600 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer" title="Shared sync - tap to refresh from the shared copy">
+  <span class="bd-stage-dot" style="width:9px;height:9px;border-radius:50%;background:#f0b428;display:inline-block"></span>
+  <span class="bd-stage-lbl">Connecting sync...</span>
+</div>
+<script>
+(function(){
+  var FB_URL   = 'https://smb-staging-666a3-default-rtdb.firebaseio.com';
+  var ENDPOINT = FB_URL.replace(/\/+$/,'') + '/bd/lida-001/data.json';
+  var KEY      = 'bd_state_v3:lida-001';
+  var POLL_MS  = 5000;
+  var lastPushedRaw = null;
+  var lastInputTs   = 0;
+  var origSet = null;
+  var booted  = false;
+
+  function badge(kind, text){
+    try{
+      var el=document.getElementById('bd-stage-badge'); if(!el) return;
+      var dot=el.querySelector('.bd-stage-dot'), lbl=el.querySelector('.bd-stage-lbl');
+      var col = kind==='ok' ? '#2ea043' : kind==='sync' ? '#f0b428' : '#c83c3c';
+      if(dot) dot.style.background=col;
+      if(lbl && text) lbl.textContent=text;
+    }catch(e){}
+  }
+  function rest(){ badge('ok','Live sync on'); }
+  function flash(kind,text,back){ badge(kind,text); setTimeout(rest, back||1500); }
+  function parse(v){ try{ return JSON.parse(v); }catch(e){ return null; } }
+  function savedAtOf(raw){
+    var o=parse(raw); if(!o) return 0;
+    var t=o.savedAt||o._savedAt||null;
+    return t?(new Date(t).getTime()||0):0;
+  }
+  function stamp(raw){
+    // ensure the payload carries a savedAt so newest-wins works
+    var o=parse(raw); if(!o) return raw;
+    if(!o.savedAt) o.savedAt=new Date().toISOString();
+    return JSON.stringify(o);
+  }
+  function isEditing(){
+    try{
+      var ae=document.activeElement;
+      if(ae){ var t=(ae.tagName||'').toUpperCase();
+        if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT') return true;
+        if(ae.isContentEditable) return true; }
+    }catch(e){}
+    if(Date.now()-lastInputTs<4000) return true;
+    try{ if(document.querySelector('.smb-modal, .modal-overlay, .modal[style*="display: block"]')) return true; }catch(e){}
+    return false;
+  }
+  document.addEventListener('input', function(){ lastInputTs=Date.now(); }, true);
+  document.addEventListener('keydown', function(){ lastInputTs=Date.now(); }, true);
+
+  function pull(cb){
+    try{
+      fetch(ENDPOINT, {cache:'no-store'}).then(function(r){ return r.ok?r.text():null; })
+        .then(function(txt){
+          if(txt===null||txt==='null'){ cb && cb(null); return; }
+          var v=parse(txt);
+          // Firebase may hand back the state as a JSON string, or a string that
+          // itself contains a JSON string. Unwrap until we reach an object.
+          var guard=0;
+          while(typeof v==='string' && guard<4){ var nv=parse(v); if(nv===null) break; v=nv; guard++; }
+          var remoteRaw = (v && typeof v==='object') ? JSON.stringify(v) : null;
+          cb && cb(remoteRaw);
+        }).catch(function(){ cb && cb(null); });
+    }catch(e){ cb && cb(null); }
+  }
+  function push(raw){
+    try{
+      var body=JSON.stringify(raw); // store the state as a JSON string value
+      fetch(ENDPOINT, {method:'PUT', headers:{'Content-Type':'application/json'}, body:body})
+        .then(function(r){ if(r.ok){ lastPushedRaw=raw; flash('sync','Saved to shared',900); } })
+        .catch(function(){ badge('err','Sync offline'); });
+    }catch(e){ badge('err','Sync offline'); }
+  }
+
+  function adopt(remoteRaw){
+    try{
+      if(!remoteRaw) return false;
+      var localRaw = null;
+      try{ localRaw = localStorage.getItem(KEY); }catch(e){}
+      // Newest wins by savedAt. Ties or missing stamps: prefer remote only if it differs and local is empty.
+      var rT=savedAtOf(remoteRaw), lT=savedAtOf(localRaw);
+      if(localRaw && rT<=lT) return false;         // ours is same/newer -> keep
+      if(remoteRaw===localRaw) return false;
+      // Write remote into local and reload the module's state.
+      try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, remoteRaw); }catch(e){ try{ localStorage.setItem(KEY, remoteRaw); }catch(_){ } }
+      if(typeof window.loadState==='function'){
+        try{ window.loadState(); }catch(e){}
+        try{ if(typeof window._bdHealSyncedActs==='function') window._bdHealSyncedActs(); }catch(e){}
+        try{ if(typeof window._bdGrpCache!=='undefined') window._bdGrpCache=null; }catch(e){}
+        try{ if(typeof window.route==='function') window.route(); else if(typeof window.render==='function') window.render(); else if(typeof window.renderDash==='function') window.renderDash(); }catch(e){}
+      }
+      flash('sync','Updated from shared',1200);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // Intercept saves: when BD writes its state key, push to the shared node.
+  try{
+    origSet = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(k, v){
+      origSet(k, v);
+      if(k===KEY && booted){
+        try{
+          var raw=stamp(v);
+          if(raw!==v){ origSet(KEY, raw); } // persist the stamped version locally too
+          if(raw!==lastPushedRaw) push(raw);
+        }catch(e){}
+      }
+    };
+  }catch(e){}
+
+  // Boot: pull first, adopt if newer, then start pushing/polling.
+  function boot(){
+    badge('sync','Connecting sync...');
+    pull(function(remoteRaw){
+      var adopted=adopt(remoteRaw);
+      // If shared is empty, seed it from this browser so the other computer can pull.
+      if(!remoteRaw){
+        try{ var lr=localStorage.getItem(KEY); if(lr){ push(stamp(lr)); } }catch(e){}
+      }
+      booted=true;
+      rest();
+      setInterval(function(){
+        if(isEditing()) return;
+        pull(function(rr){ if(rr) adopt(rr); });
+      }, POLL_MS);
+    });
+  }
+  // Tap badge = manual refresh.
+  try{ document.getElementById('bd-stage-badge').addEventListener('click', function(){ if(isEditing()){ flash('sync','Finish typing first',1200); return; } badge('sync','Refreshing...'); pull(function(rr){ adopt(rr); rest(); }); }); }catch(e){}
+
+  if(document.readyState==='complete' || document.readyState==='interactive'){ setTimeout(boot, 800); }
+  else { window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 800); }); }
+})();
+</script>
+
 </body>
 </html>
