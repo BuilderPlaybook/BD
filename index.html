@@ -1673,7 +1673,7 @@ function avatar(name){
     _esc(init.toUpperCase())+'</span>';
 }
 
-function _today(){ return new Date().toISOString().slice(0,10); }
+function _today(){ var d=new Date(); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }
 function _nowIso(){ return new Date().toISOString(); }
 function _nextId(arr){ var mx=-1; arr.forEach(function(x){ if(x.id>mx) mx=x.id; }); return mx+1; }
 function _curInit(){ var t=window.SMB_TENANT||{}; return (t.currentUser&&t.currentUser.initials)||'DS'; }
@@ -3247,6 +3247,7 @@ function openBdSettings(){
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
       '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailPrompt()">Remove a mislogged email</button>'+
     '</div>'+
     '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
@@ -4306,6 +4307,7 @@ function _copyToClipboard(text){
   return false;
 }
 var _cmpCtx=null;
+var _cmpConfirmCb=null;
 function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
   /* One compose flow for every email surface (Dave, 2026-08-24): pick a
@@ -4340,7 +4342,7 @@ function _composeEmail(to,name,onSend,opts){
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
     '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To, Subject, and message body, then opens Outlook ready to send above your signature. Review and edit in Outlook, then hit Send. The email is logged here with this subject and body and counts as a touch; Undo is on the toast if you do not send. Direct send from this screen arrives with the email backend.</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To, Subject, and message body, then opens Outlook ready to send above your signature. After Outlook opens, BD asks whether you sent it; it only logs as a touch on the scorecard if you confirm you sent it. Direct send from this screen arrives with the email backend.</div></div>'+
   '</div>';
   openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
     onSave:function(){ _cmpDoSend(); } });
@@ -4405,30 +4407,44 @@ function _cmpDoSend(){
     }catch(e){}
   };
   _openOutlook();
-  /* Log-by-default with undo (Dave, 2026-08-24): the mail window is open, so
-     the touch is logged immediately and an Undo toast lets the user reverse it
-     if they did not actually send. Undo removes the just-logged activity via
-     c.undo() (an _mktgActResolve context) when supplied. */
-  var _undoCtx=c.undo;
-  var _before=null;
-  try{ if(_undoCtx){ var c0=_undoCtx(); _before=(c0&&c0.arr&&c0.arr[0]&&c0.arr[0].loggedAt)?c0.arr[0].loggedAt:null; } }catch(e){}
-  try{ if(typeof c.onSend==='function') c.onSend(subj,body); }catch(e){}
-  try{ save(); }catch(e){}
-  var msg=(c.name||c.to)+'. Outlook opened with your email ready to send.';
-  if(_undoCtx){
-    try{
-      toastUndo('Email logged',msg,function(){
-        try{
-          var cx=_undoCtx(); if(!cx||!cx.arr||!cx.arr.length) return;
-          var top=cx.arr[0]; if(!top||top.type!=='Email') return;
-          if(top.loggedAt && top.loggedAt===_before) return;
-          cx.arr.shift();
-          try{ if(typeof cx.persist==='function') cx.persist(); else save(); }catch(_){}
-          try{ if(typeof cx.rerender==='function') cx.rerender(); }catch(_){}
-        }catch(_){}
-      });
-    }catch(e){}
-  } else if(typeof toastSuccess==='function'){ toastSuccess('Email logged',msg); }
+  /* Confirm-before-log (Dave, 2026-08-25): opening Outlook no longer logs the
+     touch on its own, because a test-open or an abandoned draft would inflate
+     the scorecard. Instead we ask "Did you send it?" and only run the onSend
+     logging callback when the user confirms Sent. If they did not send,
+     nothing is logged. */
+  var _who=(c.name||c.to);
+  var _doLog=function(){
+    try{ if(typeof c.onSend==='function') c.onSend(subj,body); }catch(e){}
+    try{ save(); }catch(e){}
+    if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.');
+  };
+  var _skipLog=function(){
+    if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.');
+    else if(typeof toastSuccess==='function') toastSuccess('Not logged', _who+'. Nothing was recorded.');
+  };
+  _cmpConfirmSend(_who, _doLog, _skipLog);
+}
+/* Post-Outlook confirmation modal: did the email actually get sent? Only a
+   Yes logs the touch. Reuses the standard openModal chrome; the two footer
+   buttons are provided via opts.extra so both choices are explicit. */
+function _cmpConfirmSend(who, onSent, onNotSent){
+  _cmpConfirmCb={sent:onSent,notSent:onNotSent};
+  var esc=(typeof _esc==='function')?_esc:function(x){return String(x==null?'':x);};
+  openModal({
+    title:'Did you send it?',
+    body:'<div style="font-size:var(--fz-body);color:var(--txb)">Outlook opened with your email to <strong>'+esc(who)+'</strong>. Log this as a sent touch on the scorecard only if you actually sent it.</div>',
+    saveLabel:'Yes, sent it',
+    extra:'<button type="button" class="btn btn-sm" onclick="_cmpConfirmResolve(false)">No, didn\'t send</button>',
+    onSave:function(){ _cmpConfirmResolve(true); }
+  });
+}
+function _cmpConfirmResolve(didSend){
+  var cb=_cmpConfirmCb; _cmpConfirmCb=null;
+  try{ closeModal(); }catch(e){}
+  try{
+    if(didSend){ if(cb&&typeof cb.sent==='function') cb.sent(); }
+    else { if(cb&&typeof cb.notSent==='function') cb.notSent(); }
+  }catch(e){}
 }
 function mleadComposeEmail(kind,id,tplName){
   if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
@@ -4595,6 +4611,7 @@ function mktgLogActivity(kind,id,editIdx){
       if(a.inbound && ctx.setReply) ctx.setReply(true,a.d);
       if(a.nc){ ctx.applyNext(a.nc); if(ctx.applyFollow) ctx.applyFollow(a.na,a.owner); }
       ctx.persist(); closeModal();
+      try{ _bdGrpCache=null; }catch(_){}
       if(typeof toastSuccess==='function') toastSuccess(isEdit?'Activity updated':'Activity logged',a.type+(a.subj?' - '+a.subj:''));
       ctx.rerender();
     }});
@@ -9157,6 +9174,7 @@ function mergeDuplicateAgentsPrompt(){
   }});
 }
 function save(){
+  try{ _bdGrpCache=null; }catch(_){}
   var key=STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x');
   var payload=JSON.stringify(_statePayload());
   var ok=false;
@@ -10449,6 +10467,64 @@ function _bdInspectPartner(name){
       referralDiscussions:p.referralDiscussions||0
     };
   });
+}
+/* Remove a mislogged email touch. Lists every Email activity for a searched
+   contact (across partners and lot prospects) with a Remove button on each, so
+   a test-open or accidental log can be cleared. Only removes activities of
+   type 'Email'; never touches referrals, notes, or any other activity. */
+function bdRemoveEmailPrompt(){
+  var name=prompt('Whose email touch do you want to remove? Type part of the name or firm.');
+  if(name==null) return;
+  bdRenderEmailRemoval(String(name||'').trim());
+}
+function _bdEmailTouchHits(q){
+  q=String(q||'').toLowerCase(); if(!q) return [];
+  var hits=[];
+  (PARTNERS||[]).forEach(function(p){
+    var nm=(((p.cf||'')+' '+(p.cl||'')+' '+(p.firm||'')).toLowerCase());
+    if(nm.indexOf(q)<0) return;
+    (p.act||[]).forEach(function(a,ix){ if(a && a.type==='Email') hits.push({kind:'partner',rec:p,ix:ix,act:a,label:((p.cf||'')+' '+(p.cl||'')).trim()+(p.firm?(' ('+p.firm+')'):'')}); });
+  });
+  (PROSPECTS||[]).forEach(function(p){
+    var nm=((String(p.contactName||'')+' '+String(p.contactFirm||'')).toLowerCase());
+    if(nm.indexOf(q)<0) return;
+    (p.act||[]).forEach(function(a,ix){ if(a && a.type==='Email') hits.push({kind:'lot',rec:p,ix:ix,act:a,label:(p.contactName||p.contactFirm||'Lot contact')}); });
+  });
+  return hits;
+}
+function bdRenderEmailRemoval(name){
+  var out=document.getElementById('bd-health-out'); if(!out) return;
+  var hits=_bdEmailTouchHits(name);
+  window._bdEmailHits=hits;
+  if(!hits.length){ out.innerHTML='<div style="font-size:var(--fz-body);color:var(--txm)">No logged emails found for that name.</div>'; return; }
+  var rows=hits.map(function(h,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--brd)">'+
+      '<div style="font-size:var(--fz-body);color:var(--txt)"><strong>'+_esc(h.label)+'</strong><br><span style="color:var(--txm)">'+_esc(h.act.d||'')+' &middot; '+_esc(h.act.subj||'(no subject)')+'</span></div>'+
+      '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailAt('+i+')">Remove</button>'+
+    '</div>';
+  }).join('');
+  out.innerHTML='<div style="font-size:var(--fz-body);color:var(--txm);margin-bottom:6px">Click Remove to delete a logged email touch. This only removes the email from the scorecard count; it does not delete the contact.</div>'+rows;
+}
+function bdRemoveEmailAt(i){
+  var hits=window._bdEmailHits||[]; var h=hits[i]; if(!h) return;
+  if(!confirm('Remove the logged email to '+h.label+' on '+(h.act.d||'')+'? This cannot be undone.')) return;
+  var arr=h.rec.act||[];
+  // Re-find by identity in case indices shifted; match same object.
+  var pos=arr.indexOf(h.act);
+  if(pos<0){ pos=h.ix; }
+  if(pos>=0 && arr[pos]===h.act){ arr.splice(pos,1); }
+  // Also remove the mirrored copy on a linked partner, if this was a lot prospect.
+  try{
+    if(h.kind==='lot' && h.rec.linkedPartnerId!=null){
+      var pn=_partnerFind(h.rec.linkedPartnerId);
+      if(pn && pn.act){ for(var k=0;k<pn.act.length;k++){ var b=pn.act[k]; if(b&&b.type==='Email'&&b.d===h.act.d&&(b.subj||'')===(h.act.subj||'')){ pn.act.splice(k,1); break; } } }
+    }
+  }catch(e){}
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  if(typeof toastSuccess==='function') toastSuccess('Email removed', h.label+'. Scorecard count updated.');
+  // Re-render the list against the same contact, minus the removed one.
+  bdRenderEmailRemoval((h.label||'').split(' ')[0]);
 }
 /* One-time content migration (2026-08-25): upgrade the Lot Agent Outreach
    template to Dave's rewritten wording on existing installs whose stored copy
