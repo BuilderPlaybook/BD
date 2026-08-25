@@ -9737,10 +9737,10 @@ function _bdDashCard(k,label,val,desc,onclick,sub){
    after the reply), the row clears itself. Oldest-waiting first; amber past 3 days. */
 function _bdRepliesAwaiting(){
   var out=[];
-  PARTNERS.forEach(function(p){
-    var acts=_combinedActsForPartner(p)||[];
+  var seenIdent={};
+  function scan(p, acts, kind){
     var lastIn=null, lastOut=null;
-    acts.forEach(function(a){
+    (acts||[]).forEach(function(a){
       if(!a||!a.d) return;
       var t=new Date(a.d).getTime(); if(isNaN(t)) return;
       /* Same-day tiebreak: date-only timestamps tie when the send and the reply
@@ -9752,8 +9752,24 @@ function _bdRepliesAwaiting(){
       else if(a.type!=='Created'){ if(lastOut===null||t>lastOut) lastOut=t; }
     });
     if(lastIn && (lastOut===null || lastOut<lastIn.t)){
-      out.push({p:p, when:lastIn.a.d, subj:lastIn.a.subj||'', wait:daysSince(lastIn.a.d)});
+      out.push({p:p, kind:(kind||'partner'), when:lastIn.a.d, subj:lastIn.a.subj||'', wait:daysSince(lastIn.a.d)});
     }
+  }
+  PARTNERS.forEach(function(p){
+    try{ var k=(typeof _bdIdentKey==='function')?_bdIdentKey(p):('p'+p.id); if(k) seenIdent[k]=1; }catch(e){}
+    scan(p, _combinedActsForPartner(p)||[], 'partner');
+  });
+  // Lot prospects that are NOT already represented by a partner (by identity):
+  // a reply from a lot agent who was never promoted to a partner would otherwise
+  // never appear in this list.
+  (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){
+    try{
+      if(p.linkedPartnerId!=null) return;
+      var k=(typeof _bdIdentKey==='function')?_bdIdentKey(p):null;
+      if(k && seenIdent[k]) return;
+      if(k) seenIdent[k]=1;
+    }catch(e){}
+    scan(p, p.act||[], 'lot');
   });
   out.sort(function(a,b){ return new Date(a.when)-new Date(b.when); });
   return out;
@@ -9815,17 +9831,23 @@ function renderDash(){
   } else {
     html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:110px"><col style="width:86px"><col><col style="width:140px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
     _repl.forEach(function(r){
-      var p=r.p, nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
+      var p=r.p, isLot=(r.kind==='lot');
+      var nm=isLot?(String(p.contactName||p.contactFirm||'Lot contact')):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact');
+      var subFirm=isLot?(p.contactFirm&&nm!==p.contactFirm?p.contactFirm:''):(p.firm&&nm!==p.firm?p.firm:'');
+      var hasEmail=isLot?!!p.contactEmail:!!p.email;
+      var openFn=isLot?('mleadOpenLot('+p.id+')'):('openPartner('+p.id+')');
+      var replyFn=hasEmail?(isLot?('mleadComposeEmail(\''+'lot\','+p.id+')'):('partnerComposeEmail('+p.id+')')):openFn;
       var waitCls=(r.wait!=null&&r.wait>=3)?'c-amb':'c-grn';
       var waitTxt=(r.wait==null?'-':(r.wait===0?'today':r.wait+'d'));
-      var tb=_tierBadge(p);
-      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="openPartner('+p.id+')">'+_esc(nm)+(p.firm&&nm!==p.firm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
+      var tb=isLot?'':_tierBadge(p);
+      var cat=isLot?'':catPill(p.cat);
+      html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="'+openFn+'">'+_esc(nm)+(subFirm?' <span class="muted">'+_esc(subFirm)+'</span>':'')+'</td>'+
         '<td class="nowrap">'+(tb||'<span class="muted">-</span>')+'</td>'+
-        '<td>'+catPill(p.cat)+'</td>'+
+        '<td>'+(cat||'<span class="muted">-</span>')+'</td>'+
         '<td>'+fmtDate(r.when)+'</td>'+
         '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
         '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
-        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="openPartner('+p.id+')">Reply</button></td></tr>';
+        '<td class="right nowrap"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button></td></tr>';
     });
     html+='</tbody></table></div>';
   }
