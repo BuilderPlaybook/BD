@@ -1598,6 +1598,11 @@ function fmtDate(s){ if(!s) return '-';
   var d; if(typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) d=new Date(s+'T00:00:00'); else d=(s instanceof Date)?s:new Date(s);
   if(isNaN(d.getTime())) return '-';
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtDateShort(s){ if(!s) return '-';
+  var d; if(typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) d=new Date(s+'T00:00:00'); else d=(s instanceof Date)?s:new Date(s);
+  if(isNaN(d.getTime())) return '-';
+  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return mo[d.getMonth()]+' '+d.getDate(); }
 function fmtDateTime(s){ if(!s) return '-';
   var d=(s instanceof Date)?s:new Date(s); if(isNaN(d.getTime())) return '-';
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+
@@ -9762,6 +9767,73 @@ function bdDismissReply(kind, id){
   if(typeof toastSuccess==='function') toastSuccess('Marked no reply needed', nm+'. Removed from Replies to Answer.');
   try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
 }
+/* Open a contact from the Replies list. Partners open in their modal from
+   anywhere; lot prospects need the Prospecting page active first, so route
+   through nav then set the record and render. */
+/* Reply to the actual email (Dave, 2026-08-25). Opens the sender's real
+   message in Outlook so the user replies in-thread with the original quoted.
+   webLink is stored at sync time; older synced replies without it are resolved
+   live via Graph by internetMessageId (Mail.Read is sufficient). After opening,
+   the standard "Did you send it?" confirm logs the outbound reply so the row
+   clears. Falls back to a mailto Re: draft when Outlook is not connected. */
+function bdReplyToContact(kind, id){
+  var rec=null;
+  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
+  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  if(!rec) return;
+  var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
+  var email=(kind==='lot')?(rec.contactEmail||''):(rec.email||'');
+  // newest inbound act
+  var inb=null;
+  (rec.act||[]).forEach(function(a){ if(a&&a.inbound){ var t=new Date(a.receivedAt||a.loggedAt||a.d).getTime(); if(!inb||t>inb._t){ a._t=t; inb=a; } } });
+  var subj=(inb&&inb.subj)||'';
+  var reSubj=/^re:/i.test(subj)?subj:('Re: '+(subj||'your email'));
+  function _logReply(){
+    if(!rec.act) rec.act=[];
+    rec.act.unshift({d:_today(),type:'Email',subj:reSubj,notes:'',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+    if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
+    try{ _bdGrpCache=null; }catch(e){}
+    try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    try{ save(); }catch(e){}
+    if(typeof toastSuccess==='function') toastSuccess('Reply logged', nm+'. Removed from Replies to Answer.');
+    try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+  }
+  function _confirmAfterOpen(){
+    if(typeof _cmpConfirmSend==='function'){ _cmpConfirmSend(nm, _logReply, function(){ if(typeof toastInfo==='function') toastInfo('Not logged', nm+'. Nothing was recorded.'); }); }
+  }
+  function _openLink(link){ try{ window.open(link,'_blank'); }catch(e){ location.assign(link); } _confirmAfterOpen(); }
+  function _mailtoFallback(){
+    var mu='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(reSubj);
+    var a=document.createElement('a'); a.href=mu; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    _confirmAfterOpen();
+  }
+  if(inb && inb.webLink){ _openLink(inb.webLink); return; }
+  if(inb && inb.msgId && typeof _bdMsConnected==='function' && _bdMsConnected()){
+    _bdMsToken().then(function(tok){
+      if(!tok){ _mailtoFallback(); return; }
+      var fid=String(inb.msgId).replace(/'/g,"''");
+      var url='https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq \''+fid+'\'&$select=id,webLink';
+      fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(function(r){ return r.ok?r.json():null; }).then(function(res){
+        var m=res&&res.value&&res.value[0];
+        if(m&&m.webLink){ inb.webLink=m.webLink; inb.graphId=m.id||''; try{ save(); }catch(e){} _openLink(m.webLink); }
+        else { _mailtoFallback(); }
+      }).catch(_mailtoFallback);
+    });
+    return;
+  }
+  _mailtoFallback();
+}
+function bdOpenReplyContact(kind, id){
+  if(kind==='lot'){
+    _curPage='prospecting';
+    try{ if(typeof nav==='function'){ NAV_HIST.push('dashboard'); } }catch(e){}
+    if(typeof renderTopLevelNav==='function') try{ renderTopLevelNav(); }catch(e){}
+    MLEAD_VIEW={kind:'lot',id:id};
+    if(typeof renderProspecting==='function') renderProspecting();
+  } else {
+    if(typeof openPartner==='function') openPartner(id);
+  }
+}
 function _bdRepliesAwaiting(){
   var out=[];
   var seenIdent={};
@@ -9861,14 +9933,14 @@ function renderDash(){
   if(!_repl.length){
     html+='<div class="card-bd"><div class="muted">No replies waiting on you. Every partner who wrote back has had a response logged.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:110px"><col style="width:86px"><col><col style="width:170px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:22%"><col style="width:52px"><col style="width:175px"><col style="width:74px"><col style="width:78px"><col><col style="width:180px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
     _repl.forEach(function(r){
       var p=r.p, isLot=(r.kind==='lot');
       var nm=isLot?(String(p.contactName||p.contactFirm||'Lot contact')):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact');
       var subFirm=isLot?(p.contactFirm&&nm!==p.contactFirm?p.contactFirm:''):(p.firm&&nm!==p.firm?p.firm:'');
       var hasEmail=isLot?!!p.contactEmail:!!p.email;
-      var openFn=isLot?('mleadOpenLot('+p.id+')'):('openPartner('+p.id+')');
-      var replyFn=hasEmail?(isLot?('mleadComposeEmail(\''+'lot\','+p.id+')'):('partnerComposeEmail('+p.id+')')):openFn;
+      var openFn='bdOpenReplyContact(\''+r.kind+'\','+p.id+')';
+      var replyFn='bdReplyToContact(\''+r.kind+'\','+p.id+')';
       var waitCls=(r.wait!=null&&r.wait>=3)?'c-amb':'c-grn';
       var waitTxt=(r.wait==null?'-':(r.wait===0?'today':r.wait+'d'));
       var tb=isLot?'':_tierBadge(p);
@@ -9876,10 +9948,10 @@ function renderDash(){
       html+='<tr><td class="cell-firm" style="cursor:pointer" onclick="'+openFn+'">'+_esc(nm)+(subFirm?' <span class="muted">'+_esc(subFirm)+'</span>':'')+'</td>'+
         '<td class="nowrap">'+(tb||'<span class="muted">-</span>')+'</td>'+
         '<td>'+(cat||'<span class="muted">-</span>')+'</td>'+
-        '<td>'+fmtDate(r.when)+'</td>'+
+        '<td class="nowrap">'+fmtDateShort(r.when)+'</td>'+
         '<td><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
         '<td class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</td>'+
-        '<td class="right nowrap"><div style="display:inline-flex;gap:4px;justify-content:flex-end"><button type="button" class="btn btn-sm" style="padding:3px 8px" onclick="'+replyFn+'">Reply</button><button type="button" class="btn btn-sm" style="padding:3px 8px" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
+        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button><button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -9890,7 +9962,7 @@ function renderDash(){
   if(!_wqRows.length){
     html+='<div class="card-bd"><div class="muted">Nothing needs a reach-out right now. Every active contact is fresh.</div></div>';
   } else {
-    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:24%"><col style="width:56px"><col style="width:190px"><col style="width:170px"><col><col style="width:170px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Next action</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:22%"><col style="width:52px"><col style="width:175px"><col style="width:150px"><col><col style="width:180px"></colgroup><thead><tr><th scope="col">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Reason</th><th scope="col">Last contact</th><th scope="col"></th></tr></thead><tbody>';
     _wqRows.slice(0,12).forEach(function(row){
       var p=row.p, r=reachState(p);
       var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
@@ -9902,8 +9974,8 @@ function renderDash(){
         '<td class="nowrap" title="'+_esc(partnerCadenceLabel(p))+'">'+(tb||'<span class="muted">-</span>')+'</td>'+
         '<td>'+catPill(p.cat)+'</td>'+
         '<td><span class="chip '+reasonCls+'">'+reason+'</span></td>'+
-        '<td class="muted">'+action+'</td>'+
-        '<td class="right nowrap"><button class="btn btn-sm" onclick="reachCheckin('+p.id+')">'+action+'</button></td></tr>';
+        '<td class="nowrap muted">'+(p.lastContact?fmtDateShort(p.lastContact):'-')+'</td>'+
+        '<td class="right nowrap" style="padding-right:16px"><button class="btn btn-sm" onclick="reachCheckin('+p.id+')">'+action+'</button></td></tr>';
     });
     html+='</tbody></table></div>';
     if(_wqRows.length>12){
@@ -10748,7 +10820,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
         subj:(m.subject||'Reply received'),
         notes:(m.bodyPreview||'').slice(0,500),
         na:'', nc:'', by:'Outlook', owner:'', inbound:true,
-        msgId:mid, receivedAt:(m.receivedDateTime||''), loggedAt:new Date().toISOString()
+        msgId:mid, graphId:(m.id||''), webLink:(m.webLink||''), receivedAt:(m.receivedDateTime||''), loggedAt:new Date().toISOString()
       });
       rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
       logged++;
@@ -10770,7 +10842,7 @@ function bdMsCheckNow(){
     var sinceMs=Date.now()-30*24*60*60*1000;
     var firstUrl='https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
       +'?$top=50&$orderby=receivedDateTime desc'
-      +'&$select=internetMessageId,subject,bodyPreview,from,receivedDateTime';
+      +'&$select=id,internetMessageId,subject,bodyPreview,from,receivedDateTime,webLink';
     function fetchPage(url, pagesLeft){
       return fetch(url,{headers:{Authorization:'Bearer '+tok}})
         .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
