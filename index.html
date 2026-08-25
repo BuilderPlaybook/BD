@@ -3260,9 +3260,9 @@ function openBdSettings(){
       '<span class="integ-status pending">Backend pending</span></div>'+
       '<div class="integ-btns"><button class="integ-btn pending" onclick="connectIntegrationPlaceholder(\'Gmail\')">Connect Gmail</button></div></div>'+
     '<div class="integ-card"><div class="integ-card-hd"><div><div class="integ-name">Microsoft 365 / Outlook</div>'+
-      '<div class="integ-desc">Per-user OAuth via Microsoft Graph. Reads Sent and Inbox, matches messages to partners, threads them on the partner page.</div></div>'+
-      '<span class="integ-status pending">Backend pending</span></div>'+
-      '<div class="integ-btns"><button class="integ-btn pending" onclick="connectIntegrationPlaceholder(\'Outlook\')">Connect Outlook</button></div></div>'+
+      '<div class="integ-desc">Signs into your Microsoft account in this browser and checks your Inbox every few minutes. Replies from known partners and lot agents are logged automatically as inbound emails and appear in Replies to Answer.</div></div>'+
+      '<span class="integ-status" id="bd-ms-status">checking...</span></div>'+
+      '<div class="integ-btns" id="bd-ms-btns"></div></div>'+
     '<div class="integ-card"><div class="integ-card-hd"><div><div class="integ-name">Other (IMAP / SMTP)</div>'+
       '<div class="integ-desc">For inboxes not on Gmail or Microsoft 365. Lower priority; will ship after the two primary providers.</div></div>'+
       '<span class="integ-status pending">Backend pending</span></div>'+
@@ -3281,6 +3281,7 @@ function openBdSettings(){
       '<span class="integ-status pending">Backend pending</span></div>'+
       '<div class="integ-btns"><button class="integ-btn pending" onclick="connectIntegrationPlaceholder(\'Microsoft Calendar\')">Connect Microsoft Calendar</button></div></div>';
   openModal({title:'BD Settings',body:body,saveLabel:'Done',onSave:closeModal});
+  try{ setTimeout(_bdMsPaintStatus, 50); }catch(e){}
 }
 function _esc2(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function bdOpenRecovery(){
@@ -9742,6 +9743,11 @@ function _bdRepliesAwaiting(){
     acts.forEach(function(a){
       if(!a||!a.d) return;
       var t=new Date(a.d).getTime(); if(isNaN(t)) return;
+      /* Same-day tiebreak: date-only timestamps tie when the send and the reply
+         land on the same day, which hid same-day replies. Add the loggedAt
+         time-of-day as a sub-day fraction so ordering within a day follows the
+         order things were actually logged. */
+      try{ if(a.loggedAt){ var lt=new Date(a.loggedAt).getTime(); if(!isNaN(lt)) t+=(lt%86400000)/86400000; } }catch(e){}
       if(a.inbound){ if(lastIn===null||t>lastIn.t) lastIn={t:t,a:a}; }
       else if(a.type!=='Created'){ if(lastOut===null||t>lastOut) lastOut=t; }
     });
@@ -10549,9 +10555,208 @@ function _migrateLotAgentOutreach(){
   if(changed){ try{ save(); }catch(e){} }
   return changed;
 }
+/* ============================================================
+   BD OUTLOOK REPLY SYNC v1 (2026-08-25, Dave). Browser-side
+   Microsoft sign-in (OAuth2 auth-code + PKCE against the LIDA
+   Entra app registration, same pattern as VSP Outlook Connect)
+   plus Graph Inbox polling. Every few minutes BD reads recent
+   Inbox mail, matches the sender address against partners and
+   lot-agent prospects, and logs not-yet-seen messages as
+   inbound Email activities (a.inbound=true, a.msgId set), so
+   real replies surface in Replies to Answer automatically.
+   Requires Mail.Read on the app registration and the /BD/
+   redirect URI registered. Tokens live in this browser only.
+   Only works on the deployed URL, not a local file.
+   ============================================================ */
+var BD_MS_CLIENT_ID='6b0771e0-31ce-4493-8c9c-651fe119baae';
+var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
+var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read';
+var BD_MS_KEY='smb.bd.msauth';
+var BD_MS_SEEN_KEY='smb.bd.msseen.v1';
+var BD_MS_POLL_MS=5*60*1000;
+var _bdMsPollTimer=null;
+function _bdMsRedirectUri(){ return location.origin + location.pathname; }
+function _bdMsStore(){ try{ return JSON.parse(localStorage.getItem(BD_MS_KEY)||'null'); }catch(e){ return null; } }
+function _bdMsSave(t){ try{ localStorage.setItem(BD_MS_KEY, JSON.stringify(t)); }catch(e){} }
+function _bdMsClear(){ try{ localStorage.removeItem(BD_MS_KEY); }catch(e){} }
+function _bdMsConnected(){ var t=_bdMsStore(); return !!(t&&t.refresh_token); }
+function _bdMsRandom(n){
+  var a=new Uint8Array(n); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function bdMsConnect(){
+  var verifier=_bdMsRandom(64);
+  try{ sessionStorage.setItem('smb.bd.pkce', verifier); }catch(e){}
+  crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(buf){
+    var challenge=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    var u=BD_MS_AUTHORITY+'/oauth2/v2.0/authorize'
+      +'?client_id='+encodeURIComponent(BD_MS_CLIENT_ID)
+      +'&response_type=code'
+      +'&redirect_uri='+encodeURIComponent(_bdMsRedirectUri())
+      +'&response_mode=query'
+      +'&scope='+encodeURIComponent(BD_MS_SCOPES)
+      +'&code_challenge='+challenge
+      +'&code_challenge_method=S256';
+    location.assign(u);
+  });
+}
+function bdMsDisconnect(){ _bdMsClear(); if(_bdMsPollTimer){ clearInterval(_bdMsPollTimer); _bdMsPollTimer=null; } _bdMsPaintStatus(); if(typeof toastInfo==='function') toastInfo('Outlook disconnected','Inbox checking is off.'); }
+function _bdMsTokenRequest(bodyParams){
+  var body=Object.keys(bodyParams).map(function(k){ return k+'='+encodeURIComponent(bodyParams[k]); }).join('&');
+  return fetch(BD_MS_AUTHORITY+'/oauth2/v2.0/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body
+  }).then(function(r){ return r.json(); });
+}
+function _bdMsHandleRedirect(){
+  try{
+    var q=new URLSearchParams(location.search);
+    var code=q.get('code');
+    if(!code) return;
+    var verifier=null; try{ verifier=sessionStorage.getItem('smb.bd.pkce'); }catch(e){}
+    history.replaceState(null,'',location.pathname);
+    if(!verifier) return;
+    _bdMsTokenRequest({
+      client_id:BD_MS_CLIENT_ID, grant_type:'authorization_code', code:code,
+      redirect_uri:_bdMsRedirectUri(), code_verifier:verifier
+    }).then(function(t){
+      if(t && t.access_token){
+        t.expires_at=Date.now()+((t.expires_in||3600)-60)*1000;
+        _bdMsSave(t);
+        fetch('https://graph.microsoft.com/v1.0/me',{headers:{Authorization:'Bearer '+t.access_token}})
+          .then(function(r){return r.json();}).then(function(me){
+            var cur=_bdMsStore()||t; cur.account=(me&&(me.mail||me.userPrincipalName))||''; _bdMsSave(cur);
+            if(typeof toastSuccess==='function') toastSuccess('Outlook connected', cur.account+'. BD now checks your Inbox for partner replies.');
+            _bdMsPaintStatus();
+            bdMsCheckNow();
+            _bdMsStartPolling();
+          }).catch(function(){ _bdMsPaintStatus(); });
+      } else {
+        if(typeof toastError==='function') toastError('Outlook sign-in failed', ((t&&t.error_description)||'unknown').slice(0,140));
+        else alert('Outlook sign-in failed: '+((t&&t.error_description)||'unknown').slice(0,140));
+      }
+    });
+  }catch(e){}
+}
+function _bdMsToken(){
+  var t=_bdMsStore();
+  if(!t) return Promise.resolve(null);
+  if(t.access_token && t.expires_at && Date.now()<t.expires_at) return Promise.resolve(t.access_token);
+  if(!t.refresh_token) return Promise.resolve(null);
+  return _bdMsTokenRequest({
+    client_id:BD_MS_CLIENT_ID, grant_type:'refresh_token', refresh_token:t.refresh_token,
+    scope:BD_MS_SCOPES
+  }).then(function(nt){
+    if(nt && nt.access_token){
+      nt.refresh_token=nt.refresh_token||t.refresh_token;
+      nt.account=t.account;
+      nt.expires_at=Date.now()+((nt.expires_in||3600)-60)*1000;
+      _bdMsSave(nt);
+      return nt.access_token;
+    }
+    return null;
+  }).catch(function(){ return null; });
+}
+function _bdMsSeen(){ try{ return JSON.parse(localStorage.getItem(BD_MS_SEEN_KEY)||'{}'); }catch(e){ return {}; } }
+function _bdMsMarkSeen(map){ try{ localStorage.setItem(BD_MS_SEEN_KEY, JSON.stringify(map)); }catch(e){} }
+function _bdMsEmailIndex(){
+  var ix={};
+  (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){
+    var e=String(p.email||'').trim().toLowerCase(); if(e && !ix[e]) ix[e]={kind:'partner',rec:p};
+  });
+  (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){
+    var e=String(p.contactEmail||'').trim().toLowerCase(); if(e && !ix[e]) ix[e]={kind:'lot',rec:p};
+  });
+  return ix;
+}
+function _bdMsLocalDate(iso){
+  try{ var d=new Date(iso); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }catch(e){ return _today(); }
+}
+function bdMsCheckNow(){
+  return _bdMsToken().then(function(tok){
+    if(!tok){ _bdMsPaintStatus(); return 0; }
+    var url='https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
+      +'?$top=30&$orderby=receivedDateTime desc'
+      +'&$select=internetMessageId,subject,bodyPreview,from,receivedDateTime';
+    return fetch(url,{headers:{Authorization:'Bearer '+tok}})
+      .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
+      .then(function(res){
+        var msgs=(res&&res.value)||[];
+        var ix=_bdMsEmailIndex();
+        var seen=_bdMsSeen();
+        var logged=0;
+        msgs.forEach(function(m){
+          var mid=m.internetMessageId||m.id; if(!mid || seen[mid]) return;
+          var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
+          if(!from){ seen[mid]=1; return; }
+          var hit=ix[from];
+          if(!hit){ seen[mid]=1; return; }
+          var rec=hit.rec;
+          if(!rec.act) rec.act=[];
+          var dup=false;
+          for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid){ dup=true; break; } }
+          if(!dup){
+            rec.act.unshift({
+              d:_bdMsLocalDate(m.receivedDateTime), type:'Email',
+              subj:(m.subject||'Reply received'),
+              notes:(m.bodyPreview||'').slice(0,500),
+              na:'', nc:'', by:'Outlook', owner:'', inbound:true,
+              msgId:mid, loggedAt:new Date().toISOString()
+            });
+            rec.lastContact=rec.lastContact||_bdMsLocalDate(m.receivedDateTime);
+            logged++;
+          }
+          seen[mid]=1;
+        });
+        _bdMsMarkSeen(seen);
+        if(logged){
+          try{ _bdGrpCache=null; }catch(e){}
+          try{ save(); }catch(e){}
+          if(typeof toastSuccess==='function') toastSuccess('Replies synced', logged+' new '+(logged===1?'reply':'replies')+' from your Inbox logged.');
+          try{ if(typeof state!=='undefined' && state.page==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
+        }
+        _bdMsPaintStatus();
+        return logged;
+      })
+      .catch(function(err){
+        _bdMsPaintStatus(String(err&&err.message||''));
+        return 0;
+      });
+  });
+}
+function _bdMsStartPolling(){
+  if(_bdMsPollTimer) return;
+  if(!_bdMsConnected()) return;
+  _bdMsPollTimer=setInterval(function(){ try{ bdMsCheckNow(); }catch(e){} }, BD_MS_POLL_MS);
+}
+function _bdMsPaintStatus(errText){
+  try{
+    var st=document.getElementById('bd-ms-status');
+    var btns=document.getElementById('bd-ms-btns');
+    if(!st||!btns) return;
+    if(_bdMsConnected()){
+      var acct=(_bdMsStore()||{}).account||'connected';
+      if(errText && errText.indexOf('403')>-1){
+        st.textContent='Permission needed'; st.className='integ-status pending';
+        btns.innerHTML='<div class="muted" style="font-size:var(--fz-xs);margin-bottom:6px">Signed in as '+acct+', but the app is missing the Mail.Read permission in Azure. Add it, then click Check now.</div>'+
+          '<button class="integ-btn" onclick="bdMsCheckNow()">Check now</button> '+
+          '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
+      } else {
+        st.textContent='Connected: '+acct; st.className='integ-status live';
+        btns.innerHTML='<button class="integ-btn" onclick="bdMsCheckNow().then(function(n){ if(!n&&typeof toastInfo!==\'undefined\') toastInfo(\'Inbox checked\',\'No new partner replies.\') })">Check now</button> '+
+          '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
+      }
+    } else {
+      st.textContent='Not connected'; st.className='integ-status pending';
+      btns.innerHTML='<button class="integ-btn" onclick="bdMsConnect()">Connect Outlook</button>';
+    }
+  }catch(e){}
+}
 function init(){
   var _embedPage=_bdApplyEmbed();
   loadState();
+  try{ _bdMsHandleRedirect(); }catch(e){}
+  try{ _bdMsStartPolling(); }catch(e){}
+  try{ if(_bdMsConnected()) setTimeout(function(){ try{ bdMsCheckNow(); }catch(e){} }, 2500); }catch(e){}
   _bdBackupSnapshot();
   _healDemoPreviewActs();
   publishMailContract();
