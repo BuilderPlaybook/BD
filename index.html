@@ -1734,7 +1734,7 @@ function _ensurePartnersSeed(){
 function _ensureOutreachAssets(){
   var V=5;
   var DEFS=[
-    {name:'Lot Agent Outreach',subject:'Helping your lot buyers build',body:'Hi {{first_name}},\n\nI came across your lot listings in {{area}} and wanted to reach out. I\'m the owner of LIDA Homes. We build custom homes and also take on renovations and developments across Vancouver Island.\n\nBuyers often have questions about feasibility, cost, and timelines, whether they are building new or renovating, and that uncertainty can stall a sale. We\'re glad to help your clients at no charge: renderings, ballpark estimates, or a quick feasibility call.\n\nWe also pay a $10,000 referral fee for any new-build contract that comes through an introduction. And if we buy the lot ourselves, we honour list-backs, so you\'d have the listing on the finished home.\n\nWorth a quick coffee or a 15-minute call? Reply here or give me a call anytime.\n\nCheers,'},
+    {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on [street name]',body:'Hi {{first_name}},\n\nI saw your lot listing on [street name]. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
     {name:'Lot Agent Nudge',subject:'Following up, {{first_name}}',body:'Hi {{first_name}},\n\nFollowing up on my note about helping your clients with feasibility, build, and renovation questions. The offer stands: free renderings, ballpark estimates, or a quick call, plus the $10,000 referral fee on a new-build contract.\n\nOne thing that may be useful to you: I wrote a homeowner guide, Build Your Dream Home Without the Nightmare, that walks buyers through the build process so they go in with realistic expectations. It is on Amazon here: https://a.co/d/04W0Xnh0. I am glad to drop off a few signed copies for clients who are weighing a build, a handy thing to put in the hands of someone on the fence.\n\nWant me to bring some by, or put together a quick feasibility sketch on one of your listings?\n\nBest,'},
     {name:'Lot Agent Check-in',subject:'Still happy to help your buyers, {{first_name}}',body:'Hi {{first_name}},\n\nJust keeping the door open. If you have a client who is unsure whether or what they can build or renovate, send them our way and we\'ll help at no charge. And the $10,000 referral fee applies whenever a new-build contract comes from an introduction.\n\nMy offer to drop off signed copies of my homeowner guide, Build Your Dream Home Without the Nightmare, still stands too. It is on Amazon here: https://a.co/d/04W0Xnh0, and it makes a nice gift for buyers starting a project.\n\nNo rush, just let me know when something fits.\n\nBest,'},
     {name:'Multi-Family Lot Outreach',subject:'Building on your multi-family lots, {{first_name}}',body:'Hi {{first_name}},\n\nI was going through your listings in {{area}} and noticed several are multi-family lots, duplex, townhouse, or small multiplex sites.\n\nA lot of the buyers for these aren\'t builders. They see the upside in the land but don\'t have a way to actually design, permit, and build the project, and that gap can make them hesitate or walk. I\'m the owner of LIDA Homes. We build multi-family and custom homes across Vancouver Island, and we can be the build partner that makes one of these lots pencil out for a buyer who doesn\'t build.\n\nWe\'re glad to help your clients at no charge: a feasibility review, a rough pro forma, or concept renderings so they can see what the site can become before they commit.\n\nWe also pay a $10,000 referral fee for any new-build contract that comes from an introduction. And if we buy the lot ourselves, we honour list-backs, so you\'d have the listing on the finished project.\n\nWorth a quick coffee or a 15-minute call? Reply here or call me anytime.\n\nBest,'},
@@ -8928,6 +8928,7 @@ function loadState(){
   try{ _bdBackfillFollowups(); }catch(e){}
   try{ _ensurePartnersSeed(); }catch(e){}
   try{ _ensureOutreachAssets(); }catch(e){}
+  try{ _migrateLotAgentOutreach(); }catch(e){}
   /* Tier normalisation runs LAST. The enrichment importers above
      (_bdImportV2, _bdImportDesigners, _bdSeedRealtors, _ensurePartnersSeed)
      carry their own priorityTier values in the legacy 'Tier 1/2/3' form, so
@@ -9156,9 +9157,26 @@ function mergeDuplicateAgentsPrompt(){
   }});
 }
 function save(){
-  try{ localStorage.setItem(STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'), JSON.stringify(_statePayload())); }catch(e){ console.warn('BD state save failed:',e); }
+  var key=STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x');
+  var payload=JSON.stringify(_statePayload());
+  var ok=false;
+  try{ localStorage.setItem(key, payload); ok=true; }
+  catch(e){
+    /* Storage full: the old boot-backup could fill the quota and silently drop
+       saves. Prune every backup snapshot and retry once so real data always
+       wins over backups. */
+    try{
+      var rm=[]; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('bd_backup:')===0) rm.push(k); }
+      rm.forEach(function(k){ try{ localStorage.removeItem(k); }catch(_){} });
+      localStorage.setItem(key, payload); ok=true;
+    }catch(e2){
+      console.warn('BD state save failed after prune:',e2);
+      try{ if(typeof toastError==='function') toastError('Save failed','Your browser storage is full, so this change was not saved. Export a backup, then clear space.'); else alert('Save failed: browser storage is full. Export a backup and clear space so changes can save.'); }catch(_){}
+    }
+  }
   try{ emitBdSignal(); }catch(e){}
   try{ var _si=document.getElementById('tb-save'); if(_si){ _si.classList.add('pulse'); clearTimeout(_si._h); _si._h=setTimeout(function(){ _si.classList.remove('pulse'); },600); } }catch(e){}
+  return ok;
 }
 
 /* ---- data backup ---- */
@@ -10398,10 +10416,18 @@ function _bdBackupSnapshot(){
     var raw=localStorage.getItem(_tkey(STORE_KEY));
     if(!raw) return null;
     var stamp=new Date().toISOString().replace(/[:.]/g,'-');
-    localStorage.setItem('bd_backup:'+stamp, raw);
-    var keys=[]; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('bd_backup:')===0) keys.push(k); }
+    var today=stamp.slice(0,10);
+    /* Dedupe by day: keep at most one snapshot per calendar day so repeated
+       loads in one session do not accumulate. Cap total at 3 so the snapshots
+       cannot fill the localStorage quota and starve real saves. */
+    var existing=[]; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&k.indexOf('bd_backup:')===0) existing.push(k); }
+    var haveToday=existing.some(function(k){ return k.indexOf('bd_backup:'+today)===0; });
+    if(!haveToday){
+      try{ localStorage.setItem('bd_backup:'+stamp, raw); }catch(e){ /* quota: skip snapshot rather than break */ }
+    }
+    var keys=[]; for(var j=0;j<localStorage.length;j++){ var kk=localStorage.key(j); if(kk&&kk.indexOf('bd_backup:')===0) keys.push(kk); }
     keys.sort();
-    while(keys.length>20){ try{ localStorage.removeItem(keys.shift()); }catch(_){} }
+    while(keys.length>3){ try{ localStorage.removeItem(keys.shift()); }catch(_){} }
     return stamp;
   }catch(e){ return null; }
 }
@@ -10423,6 +10449,23 @@ function _bdInspectPartner(name){
       referralDiscussions:p.referralDiscussions||0
     };
   });
+}
+/* One-time content migration (2026-08-25): upgrade the Lot Agent Outreach
+   template to Dave's rewritten wording on existing installs whose stored copy
+   is still the old seed. Only touches that one template, only when it still
+   holds the old seed body, and never when the user has edited it. Idempotent:
+   once upgraded, the old marker is gone so it never fires again. */
+function _migrateLotAgentOutreach(){
+  var NEWSUBJ='LIDA Homes: your lot listing on [street name]';
+  var NEWBODY='Hi {{first_name}},\n\nI saw your lot listing on [street name]. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,';
+  var changed=false;
+  (TEMPLATES||[]).forEach(function(t){
+    if(t && t.name==='Lot Agent Outreach' && !t._userEdited && (t.body||'').indexOf('I came across your lot listings')>=0){
+      t.subject=NEWSUBJ; t.body=NEWBODY; t.updated=_today(); changed=true;
+    }
+  });
+  if(changed){ try{ save(); }catch(e){} }
+  return changed;
 }
 function init(){
   var _embedPage=_bdApplyEmbed();
