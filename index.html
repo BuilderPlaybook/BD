@@ -10994,6 +10994,40 @@ function _bdMsProcessSent(msgs, ix){
   });
   return logged;
 }
+function _bdMsProcessEvents(events, ix){
+  // Log a Meeting on a BD record ONLY when an event attendee matches a known
+  // partner or lot agent. Clients, subs, or anyone else who books time is
+  // ignored, so the scorecard reflects real BD relationship meetings only.
+  // Dedupe by the Outlook event id stored on the activity.
+  var logged=0;
+  (events||[]).forEach(function(ev){
+    if(!ev || !ev.id) return;
+    var atts=(ev.attendees||[]);
+    // find the FIRST attendee that is a BD partner/lot agent (organizer is you)
+    var hit=null, hitEmail='';
+    for(var i=0;i<atts.length;i++){
+      var a=atts[i]; var em=(a&&a.emailAddress&&a.emailAddress.address||'').toLowerCase();
+      if(em && ix[em]){ hit=ix[em]; hitEmail=em; break; }
+    }
+    if(!hit) return; // no BD person on this meeting -> ignore entirely
+    var rec=hit.rec; if(!rec.act) rec.act=[];
+    // Already logged this event?
+    for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].outlookEventId===ev.id){ return; } }
+    var startISO=(ev.start&&ev.start.dateTime)||'';
+    var when=startISO?startISO:(ev.createdDateTime||'');
+    var dOnly=_bdMsLocalDate(when);
+    var loc=(ev.location&&ev.location.displayName)||'';
+    rec.act.unshift({
+      d:dOnly, type:'Meeting', subj:(ev.subject||'Meeting'),
+      notes:(loc?('Location: '+loc+'. '):'')+'Booked via calendar.',
+      na:'', nc:'', by:'Outlook', owner:'', inbound:false,
+      outlookEventId:ev.id, meetingAt:startISO, loggedAt:new Date().toISOString()
+    });
+    if(dOnly>(rec.lastContact||'')) rec.lastContact=dOnly;
+    logged++;
+  });
+  return logged;
+}
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
     if(!tok){ _bdMsPaintStatus(); return 0; }
@@ -11039,9 +11073,33 @@ function bdMsCheckNow(){
           return true;
         });
     }
+    // Read the CALENDAR so meetings booked by a BD partner/lot agent (e.g. via
+    // your Outlook booking link) log automatically. Window: 1 year back to
+    // ~90 days ahead, so both past and upcoming bookings are captured.
+    var calStart=new Date(Date.now()-365*24*60*60*1000).toISOString();
+    var calEnd=new Date(Date.now()+90*24*60*60*1000).toISOString();
+    var calUrl='https://graph.microsoft.com/v1.0/me/calendarView'
+      +'?startDateTime='+encodeURIComponent(calStart)
+      +'&endDateTime='+encodeURIComponent(calEnd)
+      +'&$top=50&$orderby=start/dateTime desc'
+      +'&$select=id,subject,start,end,location,attendees,organizer,createdDateTime';
+    function fetchCal(url, pagesLeft){
+      return fetch(url,{headers:{Authorization:'Bearer '+tok, 'Prefer':'outlook.timezone="Pacific Standard Time"'}})
+        .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
+        .then(function(res){
+          var evs=(res&&res.value)||[];
+          _bdMsProcessEvents(evs, ix);
+          var next=res&&res['@odata.nextLink'];
+          if(next && pagesLeft>1) return fetchCal(next, pagesLeft-1);
+          return true;
+        });
+    }
     return fetchPage(firstUrl, 40)
       .then(function(total){
         return fetchSent(sentUrl, 40).then(function(){ return total; }).catch(function(){ return total; });
+      })
+      .then(function(total){
+        return fetchCal(calUrl, 10).then(function(){ return total; }).catch(function(){ return total; });
       })
       .then(function(total){
         _bdMsMarkSeen(seen);
