@@ -1753,7 +1753,7 @@ function _ensureOutreachAssets(){
   DEFS.forEach(function(def){
     var ex=findTpl(def.name);
     if(!ex){ var id=_nextId(TEMPLATES); ex={id:id,name:def.name,subject:def.subject,category:'Partner Outreach',channel:'email',updated:_today(),sends:0,body:def.body,_v:V}; TEMPLATES.push(ex); }
-    else if(!ex._v||ex._v<V){ ex.subject=def.subject; ex.body=def.body; ex.channel='email'; ex.updated=_today(); ex._v=V; }
+    else if(!ex._userEdited && (!ex._v||ex._v<V)){ ex.subject=def.subject; ex.body=def.body; ex.channel='email'; ex.updated=_today(); ex._v=V; }
     ids[def.name]=ex.id;
   });
 }
@@ -8639,7 +8639,7 @@ function _tplDuplicate(id){
   var t=_tplFind(id); if(!t) return;
   var base=t.name+' (copy)', nm=base, n=2;
   while(TEMPLATES.some(function(x){ return x.name===nm; })){ nm=base+' '+n; n++; }
-  var c={id:_nextId(TEMPLATES),name:nm,subject:t.subject,category:t.category||'Partner Outreach',channel:'email',updated:_today(),sends:0,body:t.body};
+  var c={id:_nextId(TEMPLATES),name:nm,subject:t.subject,category:t.category||'Partner Outreach',channel:'email',updated:_today(),sends:0,body:t.body,_userEdited:true,_v:99};
   TEMPLATES.push(c);
   try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
   try{ save(); }catch(e){}
@@ -8668,8 +8668,8 @@ function _tplSaveEdit(id){
   var dup=null; for(var i=0;i<TEMPLATES.length;i++){ if(TEMPLATES[i].name===nm && TEMPLATES[i].id!==id){ dup=TEMPLATES[i]; break; } }
   if(dup){ modalErr('A template with that name already exists.'); return; }
   var t=(id!=null)?_tplFind(id):null;
-  if(t){ t.name=nm; t.subject=sub; t.body=bd; t.updated=_today(); }
-  else { t={id:_nextId(TEMPLATES),name:nm,subject:sub,category:'Partner Outreach',channel:'email',updated:_today(),sends:0,body:bd}; TEMPLATES.push(t); }
+  if(t){ t.name=nm; t.subject=sub; t.body=bd; t.updated=_today(); t._userEdited=true; t._v=99; }
+  else { t={id:_nextId(TEMPLATES),name:nm,subject:sub,category:'Partner Outreach',channel:'email',updated:_today(),sends:0,body:bd,_userEdited:true,_v:99}; TEMPLATES.push(t); }
   try{ if(typeof publishTemplatesSteward==='function') publishTemplatesSteward(); }catch(e){}
   try{ save(); }catch(e){}
   closeModal();
