@@ -1167,6 +1167,14 @@ summary:focus-visible,
   border-radius:6px;
 }
 /* === SHELL CHROME v1 END === */
+/* Module-level override for the recorded chrome candidate (Standards v2.28):
+   .card.has-hd overflow:hidden clips header info-icon tooltips, and adjacent
+   cards cover the remainder. CRM v2.16+ pattern; folds into the next chrome
+   bump. */
+.card{position:relative}
+.card.has-hd:hover,.card.has-hd:focus-within{overflow:visible;z-index:25}
+.card.has-hd:hover>.card-hd,.card.has-hd:focus-within>.card-hd{border-top-left-radius:8px;border-top-right-radius:8px}
+.info-icon .tip{z-index:40}
 
 /* === SMB COMPONENTS v1 BEGIN === DO NOT EDIT - change SMB Components source instead === */
 /* SMB Components v1 (Standards v2.38 / D-102).
@@ -6300,7 +6308,7 @@ var weekRanges=["Dec 29 - Jan 04","Jan 05 - Jan 11","Jan 12 - Jan 18","Jan 19 - 
 var SC_PLAN_LABEL="Feb 23 - Mar 01";
 var SC_PLAN_START_DATE=new Date(2026,1,23);
 var state={aiEnabled:false,collapsedSections:{},createMetricLink:null,createPanel:null,createPrefillNotes:"",createPrefillTitle:"",currentTeam:"bd",editMeasurablePanel:{open:false,metricId:null,ownerId:null},editingCell:null,emMenu:false,expandedGoals:{},expandedIssues:{},goalsFilter:"all",issueOwnerFilter:"all",meetAgendaDay:0,meetSectionDurations:{},meetStep:0,meetType:"weekly",newGroupPanel:false,newMeasurablePanel:{open:false,sectionIdx:null},newTeamPanel:false,scCustomEnd:"",scCustomStart:"",scMerged:false,scNoteEdit:null,scReorder:false,scorecardDateRange:"last13",scorecardMenu:false,scorecardPeriod:"weekly",scorecardSearch:"",scorecardSort:"manual",scorecardTeamMenu:false,selectedMetrics:{},showDateRangeMenu:false,showTeamMenu:false,timerRunning:false,timerSeconds:0,timerStepId:-1,timerStepSecs:300,todoOwnerFilter:"all"};
-var SC_TITLE_W={};
+var SC_TITLE_W={}; try{ var _sctw=JSON.parse(localStorage.getItem('vsp.scTitleW')||'{}'); if(_sctw&&typeof _sctw==='object'&&!Array.isArray(_sctw)) SC_TITLE_W=_sctw; }catch(e){}
 /* People come from HR (window.BOSHR / window.BOSPeople, same-reference alias),
    matching CRM and VSP. SC_OWNERS is the standalone fallback when HR is not loaded. */
 var SC_OWNERS={DS:{name:"Dave Stephens",color:"var(--cat-ind)"},TR:{name:"Terry Pearson",color:"var(--cat-pnk)"},WL:{name:"Will Liddell",color:"var(--cat-tea)"},MK:{name:"Mika Nishimura",color:"var(--cat-vio)"},LS:{name:"Lisa Stephens",color:"var(--cat-bro)"},VC:{name:"Vanessa Chang",color:"var(--cat-cyn)"},DT:{name:"Daniel Turgeon",color:"var(--cat-slate)"}};
