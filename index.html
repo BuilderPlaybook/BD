@@ -4254,7 +4254,7 @@ function _bdXsMerge(list){
       act:(a.act||[]).slice(), lastContact:a.lastContact, nextContact:a.nextContact,
       nextAction:a.nextAction, nextOwner:a.nextOwner };
     var pbefore={ act:(p.act||[]).slice(), lastContact:p.lastContact, nextContact:p.nextContact,
-      nextAction:p.nextAction, email:p.email, phone:p.phone, mobile:p.mobile };
+      nextAction:p.nextAction, email:p.email, phone:p.phone, mobile:p.mobile, firm:p.firm };
     if(!p.act) p.act=[];
     var seen={}; p.act.forEach(function(x){ seen[_bdXsActKey(x)]=true; });
     (a.act||[]).forEach(function(x){ var k=_bdXsActKey(x); if(seen[k]) return; seen[k]=true; p.act.push(x); moved++; });
@@ -4263,9 +4263,22 @@ function _bdXsMerge(list){
     if(el && el>String(p.lastContact||'')) p.lastContact=el;
     var an=String(a.nextContact||'');
     if(an && an>String(p.nextContact||'')){ p.nextContact=an; if(a.nextAction) p.nextAction=a.nextAction; }
-    if(!String(p.email||'').trim() && String(a.contactEmail||'').trim()) p.email=a.contactEmail;
-    if(!String(p.phone||'').trim() && String(a.contactPhone||'').trim()) p.phone=a.contactPhone;
-    if(!String(p.mobile||'').trim() && String(a.contactMobile||'').trim()) p.mobile=a.contactMobile;
+    /* Contact details. A lot-agent record carrying a realtor.ca profile URL was
+       scraped from the person's own profile, so its firm, email and phone are
+       the person's. A bulk-imported partner row typically carries the
+       brokerage switchboard, the brokerage office address and a generic
+       mailbox. Where the agent side is verified, it wins; otherwise fill
+       blanks only and never overwrite. Both paths are covered by undo. */
+    var _ver=!!String(a.profileUrl||'').trim();
+    var _take=function(field,val){
+      val=String(val||'').trim(); if(!val) return;
+      if(!String(p[field]||'').trim() || _ver) p[field]=val;
+    };
+    _take('email',a.contactEmail);
+    _take('phone',a.contactPhone);
+    _take('mobile',a.contactMobile);
+    if(_ver) _take('firm',a.contactFirm);
+    else if(!String(p.firm||'').trim()) _take('firm',a.contactFirm);
     a.linkedPartnerId=p.id; a.mergedIntoPartnerId=p.id;
     a.act=[]; a.lastContact=''; a.nextContact=''; a.nextAction=''; a.nextOwner='';
     snap.push({agentId:a.id, partnerId:p.id, before:before, pbefore:pbefore});
@@ -4284,7 +4297,8 @@ function _bdXsUndoMerge(){
       a.linkedPartnerId=s.before.linkedPartnerId; a.mergedIntoPartnerId=s.before.mergedIntoPartnerId;
       if(a.mergedIntoPartnerId==null) delete a.mergedIntoPartnerId; }
     if(p){ p.act=(s.pbefore.act||[]).slice(); p.lastContact=s.pbefore.lastContact; p.nextContact=s.pbefore.nextContact;
-      p.nextAction=s.pbefore.nextAction; p.email=s.pbefore.email; p.phone=s.pbefore.phone; p.mobile=s.pbefore.mobile; }
+      p.nextAction=s.pbefore.nextAction; p.email=s.pbefore.email; p.phone=s.pbefore.phone; p.mobile=s.pbefore.mobile;
+      if(Object.prototype.hasOwnProperty.call(s.pbefore,'firm')) p.firm=s.pbefore.firm; }
     n++;
   });
   _bdXsClearUndo();
