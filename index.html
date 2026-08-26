@@ -36,6 +36,10 @@
       per-contact override and wins when set. Due = last contact + cadence;
       resets on any logged touch; green / amber (final 7 days) / red
       (overdue); overdue rolls into a Reach-out count with one-click check-in.
+    - Cross-store agent / partner reconciliation: a lot agent who is also a
+      partner is linked by match (exact email or name-plus-firm link at boot,
+      name-only on confirmation), the linked pair shares one relationship
+      clock, and Settings offers a reviewed merge with snapshot and undo.
     - Partners is list-only. The kanban board was removed; Market Leads keeps
       its own board.
     - Dashboard leads with My Day (the queue) and then the Scoreboard (the
@@ -3609,13 +3613,14 @@ function openBdSettings(){
   var body=''+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Data</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
-      'BD pulls your existing entries from the Marketing module automatically the first time it opens in this browser. Use Pull entries from Marketing to re-pull at any time. Export a backup file to keep or move to another machine, or restore from one. Importing replaces everything currently in this browser. Merge duplicate agents collapses duplicate partner and lot-agent records into one record per person.'+
+      'BD pulls your existing entries from the Marketing module automatically the first time it opens in this browser. Use Pull entries from Marketing to re-pull at any time. Export a backup file to keep or move to another machine, or restore from one. Importing replaces everything currently in this browser. Merge duplicate agents collapses duplicate partner and lot-agent records into one record per person. Agent and partner duplicates reconciles a lot agent against their partner record so the pair shares one relationship clock, and can merge the two.'+
     '</p>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">'+
       '<button type="button" class="btn btn-primary btn-sm" onclick="pullFromMarketing()">Pull entries from Marketing</button>'+
       '<button type="button" class="btn btn-sm" onclick="exportBackup()">Export backup</button>'+
       '<button type="button" class="btn btn-sm" onclick="importBackupPick()">Import backup</button>'+
       '<button type="button" class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
+      '<button type="button" class="btn btn-sm" onclick="openAgentDupes()">Agent and partner duplicates</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
     '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
@@ -4101,13 +4106,292 @@ function prospectRestore(id){
    exists, and no contact since it came due. Same rule as partners. */
 function _lotAgentDue(p){
   if(!p||_prospArchived(p)) return false;
-  var nc=p.nextContact; var du=daysUntil(nc);
+  /* Merged records are listing carriers only. The relationship, and therefore
+     the chase, belongs to the partner record and surfaces on the dashboard.
+     Without this the same person is chased from two surfaces at once. */
+  if(_bdXsMerged(p)) return false;
+  /* Cross-store single clock: when this agent is also a partner record, the
+     relationship clock belongs to the pair, not to this record alone. Reading
+     only this record made a partner touched last week show as months overdue
+     here, because the two stores keep separate dates. */
+  var nc=_bdXsEffNext(p); var du=daysUntil(nc);
   if(du===null||du>=0) return false;
-  var last=_lastRealTouch(p);
+  var last=_bdXsEffLast(p);
   if(!last) return false;
   if(last>=String(nc)) return false;
   return true;
 }
+/* ============================================================
+   CROSS-STORE AGENT / PARTNER RECONCILIATION v1 (2026-08-26)
+
+   A realtor can exist twice in BD: once as a lot-agent PROSPECT
+   (carrying the listing) and once as a PARTNERS record (carrying
+   the relationship). The two stores kept separate lastContact /
+   nextContact, so a partner touched last week still read as
+   months overdue on Market Leads. Three layers fix it:
+
+     1. Link   - linkedPartnerId is populated by match. Exact
+                 email and name-plus-firm link automatically at
+                 boot (high confidence, non-destructive, and the
+                 field already drives View partner + stage track).
+                 Name-only matches wait for confirmation in the
+                 review modal.
+     2. Clock  - once linked, the pair shares one relationship
+                 clock: effective last touch is the later of the
+                 two records, effective next is the later of the
+                 two commitments. _lotAgentDue reads through it.
+     3. Merge  - consolidates the prospect's logged activity and
+                 dates onto the partner, fills partner blanks
+                 (never overwrites), and leaves the prospect as
+                 the listing carrier only.
+
+   Merge follows Gated Importer Pattern v1 (D-152): pre-apply
+   review of every matched record, no deletes, idempotent
+   re-apply, plus a pre-merge snapshot into the bd_backup ring
+   and a one-shot targeted undo.
+   ============================================================ */
+var BD_XS_UNDO_KEY='bd_xs_undo';
+var _BD_XS_FIRM_STOP=['ltd','inc','realty','real','estate','the','group','co','corp','llp','llc','company','limited','homes','properties','property','management'];
+function _bdXsNorm(s){ return String(s==null?'':s).toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _bdXsFirmWords(s){ return _bdXsNorm(s).split(' ').filter(function(w){ return w && _BD_XS_FIRM_STOP.indexOf(w)<0; }); }
+function _bdXsPartnerName(p){ return _bdXsNorm(((p&&p.cf)||'')+' '+((p&&p.cl)||'')); }
+function _bdXsEmail(s){ return String(s==null?'':s).trim().toLowerCase(); }
+function _bdXsAgents(){ return (PROSPECTS||[]).filter(function(p){ return (p.isAgent||p.type==='lot') && !_prospArchived(p); }); }
+function _bdXsPartnerById(id){ var out=null; (PARTNERS||[]).forEach(function(p){ if(p.id===id) out=p; }); return out; }
+
+/* Match agents to partners. Ambiguous candidates (more than one partner for
+   the same key) are skipped rather than guessed: a wrong merge is far more
+   expensive than a missed one. */
+function _bdXsMatches(){
+  var byName={}, byEmail={};
+  (PARTNERS||[]).forEach(function(p){
+    var n=_bdXsPartnerName(p); if(n) (byName[n]=byName[n]||[]).push(p);
+    var e=_bdXsEmail(p.email); if(e) (byEmail[e]=byEmail[e]||[]).push(p);
+  });
+  var out=[];
+  _bdXsAgents().forEach(function(a){
+    var e=_bdXsEmail(a.contactEmail), n=_bdXsNorm(a.contactName);
+    var cand=null, method='';
+    if(e && byEmail[e] && byEmail[e].length===1){ cand=byEmail[e][0]; method='email'; }
+    else if(n && byName[n] && byName[n].length===1){
+      cand=byName[n][0];
+      var pf=_bdXsFirmWords(cand.firm), af=_bdXsFirmWords(a.contactFirm), hit=false;
+      pf.forEach(function(w){ if(af.indexOf(w)>=0) hit=true; });
+      method=hit?'name+firm':'name';
+    }
+    if(cand) out.push({agentId:a.id, partnerId:cand.id, method:method});
+  });
+  return out;
+}
+function _bdXsMethodOf(agentId){
+  var m=_bdXsMatches(), out='';
+  m.forEach(function(x){ if(x.agentId===agentId) out=x.method; });
+  return out;
+}
+
+/* Boot migration. Links high-confidence matches only; idempotent. */
+function _bdXsLinkAuto(){
+  var n=0;
+  _bdXsMatches().forEach(function(m){
+    if(m.method==='name') return;
+    var a=_prospFind(m.agentId); if(!a) return;
+    if(a.linkedPartnerId!=null) return;
+    a.linkedPartnerId=m.partnerId; a.linkMethod=m.method; n++;
+  });
+  return n;
+}
+
+/* ---- single relationship clock across the linked pair ---- */
+function _bdXsPartner(a){ return (a&&a.linkedPartnerId!=null)?_bdXsPartnerById(a.linkedPartnerId):null; }
+function _bdXsEffLast(a){
+  var l=String(_lastRealTouch(a)||'');
+  var p=_bdXsPartner(a);
+  if(p){ var lp=String(_lastRealTouch(p)||''); if(lp>l) l=lp; }
+  return l;
+}
+function _bdXsEffNext(a){
+  var p=_bdXsPartner(a);
+  var an=String((a&&a.nextContact)||'');
+  if(!p) return an||null;
+  var pn=String(p.nextContact||'');
+  if(!an) return pn||null;
+  if(!pn) return an;
+  return an>pn?an:pn;
+}
+function _bdXsMerged(a){ return !!(a && a.mergedIntoPartnerId!=null); }
+
+/* ---- merge ---- */
+function _bdXsActKey(x){ return [x&&x.d,x&&x.type,x&&x.subj,x&&x.loggedAt].join('|'); }
+function _bdXsUndoStoreKey(){ return BD_XS_UNDO_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'); }
+function _bdXsReadUndo(){ try{ var r=localStorage.getItem(_bdXsUndoStoreKey()); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function _bdXsWriteUndo(o){ try{ localStorage.setItem(_bdXsUndoStoreKey(), JSON.stringify(o)); }catch(e){} }
+function _bdXsClearUndo(){ try{ localStorage.removeItem(_bdXsUndoStoreKey()); }catch(e){} }
+function _bdXsSnapshot(){
+  try{
+    var key=STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x');
+    var raw=localStorage.getItem(key); if(!raw) return;
+    var d=new Date(), pad=function(n){ return (n<10?'0':'')+n; };
+    var stamp=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'-'+pad(d.getHours())+'-'+pad(d.getMinutes())+'-'+pad(d.getSeconds());
+    localStorage.setItem('bd_backup:'+stamp, raw);
+  }catch(e){}
+}
+function _bdXsLink(list){
+  var n=0;
+  (list||[]).forEach(function(m){
+    var a=_prospFind(m.agentId); if(!a) return;
+    if(a.linkedPartnerId===m.partnerId) return;
+    a.linkedPartnerId=m.partnerId; a.linkMethod=m.method||_bdXsMethodOf(m.agentId); n++;
+  });
+  return n;
+}
+function _bdXsMerge(list){
+  var snap=[], moved=0, done=0;
+  (list||[]).forEach(function(m){
+    var a=_prospFind(m.agentId); if(!a) return;
+    var p=_bdXsPartnerById(m.partnerId); if(!p) return;
+    if(_bdXsMerged(a)) return;
+    var before={ linkedPartnerId:a.linkedPartnerId, mergedIntoPartnerId:a.mergedIntoPartnerId,
+      act:(a.act||[]).slice(), lastContact:a.lastContact, nextContact:a.nextContact,
+      nextAction:a.nextAction, nextOwner:a.nextOwner };
+    var pbefore={ act:(p.act||[]).slice(), lastContact:p.lastContact, nextContact:p.nextContact,
+      nextAction:p.nextAction, email:p.email, phone:p.phone, mobile:p.mobile };
+    if(!p.act) p.act=[];
+    var seen={}; p.act.forEach(function(x){ seen[_bdXsActKey(x)]=true; });
+    (a.act||[]).forEach(function(x){ var k=_bdXsActKey(x); if(seen[k]) return; seen[k]=true; p.act.push(x); moved++; });
+    p.act.sort(function(x,y){ return String((y&&y.d)||'').localeCompare(String((x&&x.d)||'')); });
+    var el=String(_lastRealTouch(a)||'');
+    if(el && el>String(p.lastContact||'')) p.lastContact=el;
+    var an=String(a.nextContact||'');
+    if(an && an>String(p.nextContact||'')){ p.nextContact=an; if(a.nextAction) p.nextAction=a.nextAction; }
+    if(!String(p.email||'').trim() && String(a.contactEmail||'').trim()) p.email=a.contactEmail;
+    if(!String(p.phone||'').trim() && String(a.contactPhone||'').trim()) p.phone=a.contactPhone;
+    if(!String(p.mobile||'').trim() && String(a.contactMobile||'').trim()) p.mobile=a.contactMobile;
+    a.linkedPartnerId=p.id; a.mergedIntoPartnerId=p.id;
+    a.act=[]; a.lastContact=''; a.nextContact=''; a.nextAction=''; a.nextOwner='';
+    snap.push({agentId:a.id, partnerId:p.id, before:before, pbefore:pbefore});
+    done++;
+  });
+  return {merged:done, moved:moved, snap:snap};
+}
+function _bdXsUndoMerge(){
+  var u=_bdXsReadUndo();
+  if(!u||!u.snap||!u.snap.length){ if(typeof toastInfo==='function') toastInfo('Nothing to undo','No merge has been run on this browser.'); return; }
+  var n=0;
+  u.snap.forEach(function(s){
+    var a=_prospFind(s.agentId), p=_bdXsPartnerById(s.partnerId);
+    if(a){ a.act=(s.before.act||[]).slice(); a.lastContact=s.before.lastContact; a.nextContact=s.before.nextContact;
+      a.nextAction=s.before.nextAction; a.nextOwner=s.before.nextOwner;
+      a.linkedPartnerId=s.before.linkedPartnerId; a.mergedIntoPartnerId=s.before.mergedIntoPartnerId;
+      if(a.mergedIntoPartnerId==null) delete a.mergedIntoPartnerId; }
+    if(p){ p.act=(s.pbefore.act||[]).slice(); p.lastContact=s.pbefore.lastContact; p.nextContact=s.pbefore.nextContact;
+      p.nextAction=s.pbefore.nextAction; p.email=s.pbefore.email; p.phone=s.pbefore.phone; p.mobile=s.pbefore.mobile; }
+    n++;
+  });
+  _bdXsClearUndo();
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ if(typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+  save(); closeModal();
+  if(_curPage==='prospecting') renderProspecting(); else if(_curPage==='dashboard') renderDash(); else if(_curPage==='partners') renderPartners();
+  if(typeof toastSuccess==='function') toastSuccess('Merge undone', n+' record'+(n===1?'':'s')+' restored to how they were before the merge.');
+}
+
+/* ---- review surface (Gated Importer Pattern v1) ---- */
+var _bdXsSel={};
+function _bdXsChip(method){
+  if(method==='email') return '<span class="chip c-grn">email</span>';
+  if(method==='name+firm') return '<span class="chip c-blu">name and firm</span>';
+  return '<span class="chip c-amb">name only</span>';
+}
+function _bdXsToggle(id,on){ if(on) _bdXsSel[id]=true; else delete _bdXsSel[id]; _bdXsCount(); }
+function _bdXsAll(on){
+  var rows=_bdXsMatches();
+  rows.forEach(function(m){ var a=_prospFind(m.agentId); if(!a||_bdXsMerged(a)) return; if(on) _bdXsSel[m.agentId]=true; else delete _bdXsSel[m.agentId]; });
+  var boxes=document.querySelectorAll('.bd-xs-cb');
+  for(var i=0;i<boxes.length;i++){ if(!boxes[i].disabled) boxes[i].checked=!!on; }
+  _bdXsCount();
+}
+function _bdXsCount(){
+  var el=document.getElementById('bd-xs-count'); if(!el) return;
+  var n=0; for(var k in _bdXsSel){ if(Object.prototype.hasOwnProperty.call(_bdXsSel,k)) n++; }
+  el.textContent=n+' selected';
+}
+function _bdXsSelected(){
+  var out=[];
+  _bdXsMatches().forEach(function(m){ if(_bdXsSel[m.agentId]) out.push(m); });
+  return out;
+}
+function openAgentDupes(){
+  if(typeof openModal!=='function') return;
+  var rows=_bdXsMatches();
+  _bdXsSel={};
+  if(!rows.length){
+    openModal({title:'Agent and partner duplicates', body:'<div style="font-size:var(--fz-body);color:var(--txm)">No lot agent matches a partner record. Nothing to reconcile.</div>', saveLabel:'Done', onSave:closeModal});
+    return;
+  }
+  var body='<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
+    'These lot agents also exist as partner records. Until they are linked, each side keeps its own contact dates, so a partner you touched recently can still read as overdue on Market Leads. '+
+    'Linking is reversible and moves no data. Merging also moves the agent\'s logged activity and dates onto the partner record and leaves the agent record carrying the listing only. '+
+    'A snapshot is taken before any merge, and the last merge can be undone.</p>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+      '<button type="button" class="btn btn-sm" onclick="_bdXsAll(true)">Select all</button>'+
+      '<button type="button" class="btn btn-sm" onclick="_bdXsAll(false)">Select none</button>'+
+      '<span class="muted" id="bd-xs-count" style="font-size:var(--fz-body)">0 selected</span>'+
+    '</div>'+
+    '<div class="tbl-wrap" style="max-height:340px;overflow:auto"><table style="width:100%"><thead><tr>'+
+      '<th scope="col" style="width:28px"></th>'+
+      '<th scope="col" style="text-align:left">Agent</th>'+
+      '<th scope="col" style="text-align:left">Match</th>'+
+      '<th scope="col" style="text-align:left">Partner record</th>'+
+      '<th scope="col" style="text-align:left">History</th>'+
+      '<th scope="col" style="text-align:left">Status</th></tr></thead><tbody>';
+  rows.forEach(function(m){
+    var a=_prospFind(m.agentId), p=_bdXsPartnerById(m.partnerId);
+    if(!a||!p) return;
+    var mgd=_bdXsMerged(a), lnk=(a.linkedPartnerId===p.id);
+    var pre=(!mgd && m.method!=='name');
+    if(pre) _bdXsSel[m.agentId]=true;
+    var pname=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner';
+    var hist=((a.act||[]).length)+' on agent, '+((p.act||[]).length)+' on partner';
+    var status=mgd?'<span class="chip c-gry">merged</span>':(lnk?'<span class="chip c-blu">linked</span>':'<span class="chip c-amb">not linked</span>');
+    body+='<tr><td style="padding:6px 8px"><input type="checkbox" class="bd-xs-cb"'+(pre?' checked':'')+(mgd?' disabled':'')+
+        ' onclick="_bdXsToggle('+m.agentId+',this.checked)" aria-label="Select '+_esc(a.contactName||'agent')+'"></td>'+
+      '<td style="padding:6px 8px"><span style="font-weight:600">'+_esc(a.contactName||'-')+'</span><div class="muted">'+_esc(a.contactFirm||'')+'</div></td>'+
+      '<td style="padding:6px 8px">'+_bdXsChip(m.method)+'</td>'+
+      '<td style="padding:6px 8px">'+_esc(pname)+'<div class="muted">'+_esc(p.firm||'')+'</div></td>'+
+      '<td style="padding:6px 8px" class="muted">'+_esc(hist)+'</td>'+
+      '<td style="padding:6px 8px">'+status+'</td></tr>';
+  });
+  body+='</tbody></table></div>';
+  var undo=_bdXsReadUndo();
+  var extra='<button type="button" class="btn btn-sm" onclick="_bdXsLinkOnly()">Link selected</button>'+
+    (undo&&undo.snap&&undo.snap.length?('<button type="button" class="btn btn-sm" onclick="_bdXsUndoMerge()">Undo last merge ('+undo.snap.length+')</button>'):'');
+  openModal({title:'Agent and partner duplicates', sub:rows.length+' lot agents match a partner record', body:body,
+    saveLabel:'Link and merge selected', extra:extra, onSave:_bdXsLinkAndMerge});
+  _bdXsCount();
+}
+function _bdXsLinkOnly(){
+  var sel=_bdXsSelected();
+  if(!sel.length){ modalErr('Select at least one row.'); return; }
+  var n=_bdXsLink(sel);
+  try{ if(typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+  save(); closeModal();
+  if(_curPage==='prospecting') renderProspecting(); else if(_curPage==='dashboard') renderDash(); else if(_curPage==='partners') renderPartners();
+  if(typeof toastSuccess==='function') toastSuccess('Linked', n+' agent record'+(n===1?'':'s')+' now share a relationship clock with their partner record. No activity was moved.');
+}
+function _bdXsLinkAndMerge(){
+  var sel=_bdXsSelected();
+  if(!sel.length){ modalErr('Select at least one row.'); return; }
+  _bdXsSnapshot();
+  _bdXsLink(sel);
+  var r=_bdXsMerge(sel);
+  if(r.snap.length) _bdXsWriteUndo({at:new Date().toISOString(), snap:r.snap});
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ if(typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+  save(); closeModal();
+  if(_curPage==='prospecting') renderProspecting(); else if(_curPage==='dashboard') renderDash(); else if(_curPage==='partners') renderPartners();
+  if(typeof toastSuccess==='function') toastSuccess('Merged', r.merged+' agent record'+(r.merged===1?'':'s')+' consolidated onto their partner'+(r.moved?(', '+r.moved+' logged item'+(r.moved===1?'':'s')+' moved'):'')+'. Undo is available in Settings.');
+}
+
 /* Work-first strip for Market Leads: replies to answer, then genuine
    follow-ups due, across lot agents. Hidden when empty. */
 function _mleadTodayStrip(){
@@ -4128,7 +4412,7 @@ function _mleadTodayStrip(){
   }
   if(due.length){
     h+='<div style="font-weight:700;font-size:var(--fz-body);margin:'+(replies.length?'10px':'0')+' 0 2px">Follow-ups due ('+due.length+')</div>'+
-      due.slice(0,5).map(function(p){ var du2=daysUntil(p.nextContact); var os=_bdOutreachStats(p); return row(p,(os.sent?os.sent+'x \u00b7 ':'')+(du2===null?'due':Math.abs(du2)+'d overdue'),'c-red'); }).join('');
+      due.slice(0,5).map(function(p){ var du2=daysUntil(_bdXsEffNext(p)); var os=_bdOutreachStats(p); return row(p,(os.sent?os.sent+'x \u00b7 ':'')+(du2===null?'due':Math.abs(du2)+'d overdue'),'c-red'); }).join('');
     if(due.length>5) h+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(due.length-5)+' more under the Agents segment</div>';
   }
   return h+'</div></div>';
@@ -5215,7 +5499,10 @@ function _mleadDetailLot(p){
         : '<button class="btn btn-sm" onclick="prospectArchive('+p.id+')" title="Not a good fit - move out of your working list, keep the record">Archive</button>')+
       '<button class="btn btn-sm" onclick="prospectDelete('+p.id+')" style="color:var(--red);border-color:var(--reds)">Delete</button>'+
     '</div></div>';
-  if(p.linkedPartnerId!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===p.linkedPartnerId; })[0]; if(_lp) html+=_partnerStageTrack(_lp); }
+  if(p.linkedPartnerId!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===p.linkedPartnerId; })[0]; if(_lp) html+=_partnerStageTrack(_lp);
+    if(_lp&&_bdXsMerged(p)) html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--blus);background:var(--blub);border-radius:8px;padding:7px 12px;margin-bottom:10px">'+
+      '<div style="font-size:var(--fz-body);color:var(--txb)">Relationship, activity and follow-ups for this person are tracked on the partner record. This record carries the lot listing.</div>'+
+      '<button type="button" class="btn btn-sm" onclick="openPartner('+_lp.id+')">View partner</button></div>'; }
   html+='<div class="grid-2">';
   html+='<div class="card"><div class="card-hd"><span class="card-title">Contact</span></div><div class="card-body">'+
     '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+_mleadMailto(email)+'</span></div>'+
@@ -9480,6 +9767,7 @@ function loadState(){
      (_bdImportV2, _bdImportDesigners, _bdSeedRealtors, _ensurePartnersSeed)
      carry their own priorityTier values in the legacy 'Tier 1/2/3' form, so
      migrating before them left those records un-migrated. */
+  try{ if(_bdXsLinkAuto()) _bdMigratedNow=true; }catch(e){}
   try{ if(_bdMigrateTiers()) _bdTiersMigratedNow=true; }catch(e){}
   if(_bdMigratedNow||_bdTiersMigratedNow){ try{ save(); }catch(e){} }
   try{ _cityLeadsAutoRefresh(); }catch(e){}
