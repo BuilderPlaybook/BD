@@ -1449,32 +1449,15 @@ td:hover > .sc-note-pop{display:block}
     <div class="pg"><div><div class="pg-title">Partners</div><div class="pg-sub">Referral partners, architects, designers, and influence relationships</div></div>
     <div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openPartnerModal(null)"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>Add Partner</button></div></div>
     <div id="ptn-mini"></div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-      <span class="muted" style="align-self:center">Views:</span>
-      <button class="btn btn-sm" onclick="setPTNView('all')">All Partners</button>
-      <button class="btn btn-sm" onclick="setPTNView('mine')">My Partners</button>
-      <button class="btn btn-sm" onclick="setPTNView('overdue')" style="color:var(--red);border-color:var(--reds)">Follow-Ups Due</button>
-      <button class="btn btn-sm" onclick="setPTNView('cat:Realtor')">Realtors</button>
-      <button class="btn btn-sm" onclick="setPTNView('cat:Architect')">Architects</button>
-      <button class="btn btn-sm" onclick="setPTNView('cat:Residential Designer')">Building Plan Designers</button>
-      <button class="btn btn-sm" onclick="setPTNView('cat:Interior Designer')">Interior Designers</button>
-      <button class="btn btn-sm" onclick="setPTNView('cat:Developer')">Developers</button>
-      <button class="btn btn-sm" onclick="setPTNView('strong')">Strong Partners</button>
-      <button class="btn btn-sm" onclick="setPTNView('dormant')">Dormant</button>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-      <span class="muted" style="align-self:center">Tier:</span>
-      <button class="btn btn-sm" onclick="setPTNTier('')">All</button>
-      <button class="btn btn-sm" onclick="setPTNTier('A')" title="A: 30-day reach-out cadence">A &middot; 30d</button>
-      <button class="btn btn-sm" onclick="setPTNTier('B')" title="B: 60-day reach-out cadence">B &middot; 60d</button>
-      <button class="btn btn-sm" onclick="setPTNTier('C')" title="C: 90-day reach-out cadence">C &middot; 90d</button>
-      <button class="btn btn-sm" onclick="setPTNTier('none')" title="Partners with no tier set; they follow the default 60-day cadence">Untiered</button>
-    </div>
     <div class="filter-bar">
       <input id="ptn-q" type="text" placeholder="Search firm, contact, city..." oninput="_ptnFilterChanged()">
       <select id="ptn-f-cat" onchange="_ptnFilterChanged()"><option value="">All Categories</option><option>Architect</option><option>Residential Designer</option><option>Interior Designer</option><option>Realtor</option><option>Engineer</option><option>Landscape Architect</option><option>Developer</option><option>Trade Partner</option><option>Supplier</option><option>Lender</option><option>Past Client</option><option>Consultant</option><option>Other</option></select>
+      <select id="ptn-f-tier" onchange="_ptnFilterChanged()"><option value="">All Tiers</option><option value="A">Tier A &middot; 30d</option><option value="B">Tier B &middot; 60d</option><option value="C">Tier C &middot; 90d</option><option value="none">Untiered</option></select>
+      <select id="ptn-f-owner" onchange="_ptnFilterChanged()"><option value="">All Owners</option><option value="mine">My partners</option></select>
       <select id="ptn-f-stage" onchange="_ptnFilterChanged()"><option value="">All Stages</option><option>New</option><option>Contacted</option><option>Responded</option><option>Meeting</option><option>Dormant</option></select>
       <select id="ptn-f-health" onchange="_ptnFilterChanged()"><option value="">All Health</option><option>Excellent</option><option>Healthy</option><option>Watch</option><option>At Risk</option></select>
+      <select id="ptn-f-quick" onchange="_ptnFilterChanged()"><option value="">Everything</option><option value="overdue">Follow-ups due</option><option value="strong">Strong (score 8+)</option><option value="dormant">Dormant / gone quiet</option></select>
+      <button class="btn btn-sm" id="ptn-clear-btn" onclick="clearPtnFilters()" style="display:none">Clear filters</button>
     </div>
     <div id="ptn-table"></div>
   </div>
@@ -1599,6 +1582,23 @@ function _esc(v){ if(v===null||v===undefined) return ''; return String(v)
   .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function esc(v){ return _esc(v); }
 function daysSince(s){ if(!s) return null; return Math.max(0, Math.floor((TODAY - new Date(s))/86400000)); }
+/* Per-partner outreach stats. sent = deliberate BD touches (_bdActReal:
+   synced Outlook mail, inbound, dismissed, and Created never count);
+   replies = inbound activities; first = date of the earliest real touch. */
+function _bdOutreachStats(p){
+  var sent=0,replies=0,first='';
+  (p&&p.act||[]).forEach(function(a){
+    if(!a) return;
+    if(a.inbound){ replies++; return; }
+    if(typeof _bdActReal==='function'?_bdActReal(a):true){
+      sent++;
+      var ds=a.d||a.date||a.at||'';
+      if(ds&&(!first||ds<first)) first=ds;
+    }
+  });
+  return {sent:sent,replies:replies,first:first};
+}
+
 function daysUntil(s){ if(!s) return null; return Math.floor((new Date(s) - TODAY)/86400000); }
 function fmtDate(s){ if(!s) return '-';
   var d; if(typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) d=new Date(s+'T00:00:00'); else d=(s instanceof Date)?s:new Date(s);
@@ -1773,9 +1773,7 @@ function _ensureOutreachAssets(){
    ============================================================ */
 
 var _curPage='dashboard';
-var _ptnView='all';
 var _ptnArchive=false;
-var _ptnTier='';
 var _ptnTab='all';
 
 var RENDER_FOR = {
@@ -1873,9 +1871,20 @@ function nav(page,isBack){
   _renderBackButton(el);
 }
 
-function setPTNView(v){ _ptnAList=false; _ptnView=v; renderPartners(); }
-function setPTNTier(t){ _ptnAList=false; _ptnTier=t; renderPartners(); }
-function _ptnFilterChanged(){ _ptnAList=false; renderPartners(); }
+function _ptnSetSel(id,val){ var e=document.getElementById(id); if(e) e.value=val; }
+function setPTNView(v){
+  // Navigation adapter: dashboard cards route here. Maps old view names onto
+  // the facet dropdowns so links keep working after the chip rows retired.
+  if(v==='all'){ clearPtnFilters(); return; }
+  if(v==='mine'){ _ptnSetSel('ptn-f-owner','mine'); }
+  else if(v==='overdue'){ _ptnSetSel('ptn-f-quick','overdue'); }
+  else if(v==='strong'){ _ptnSetSel('ptn-f-quick','strong'); }
+  else if(v==='dormant'){ _ptnSetSel('ptn-f-quick','dormant'); }
+  else if(v&&v.indexOf('cat:')===0){ _ptnSetSel('ptn-f-cat',v.slice(4)); }
+  renderPartners();
+}
+function setPTNTier(t){ _ptnSetSel('ptn-f-tier',t||''); renderPartners(); }
+function _ptnFilterChanged(){ renderPartners(); }
 /* ---- Partner tiering v1 (A / B / C) ----
    The tier is the single lever that sets how often a partner gets touched.
    A = closest relationships, 30-day cadence. B = the working majority,
@@ -2094,8 +2103,9 @@ function _tierRank(p){ var t=partnerTier(p); return t==='A'?1:(t==='B'?2:(t==='C
 function _tierCls(t){ return t==='A'?'tag-green':(t==='B'?'tag-sky':'tag-slate'); }
 function _tierBadge(p,full){
   var t=partnerTier(p); if(!t) return '';
-  var lbl=full?('Tier '+t+' · '+TIER_CADENCE[t]+'d'):t;
-  return '<span class="tag tier-badge '+_tierCls(t)+'" title="Tier '+t+', '+TIER_CADENCE[t]+'-day reach-out cadence">'+lbl+'</span>';
+  if(!_isReferralPartner(p)) return '';  /* earned positions only; legacy hints stay in data */
+  var lbl=full?('Tier '+t+' \u00b7 '+TIER_CADENCE[t]+'d'):t;
+  return '<span class="tag tier-badge '+_tierCls(t)+'" title="Earned BD 100 position: Tier '+t+', '+TIER_CADENCE[t]+'-day reach-out cadence">'+lbl+'</span>';
 }
 /* One-time normalisation of stored tier values onto A/B/C. Idempotent. */
 function _bdMigrateTiers(){
@@ -2295,6 +2305,9 @@ function ptnFiltered(){
   var fc=(document.getElementById('ptn-f-cat')||{}).value||'';
   var fs=(document.getElementById('ptn-f-stage')||{}).value||'';
   var fh=(document.getElementById('ptn-f-health')||{}).value||'';
+  var ft=(document.getElementById('ptn-f-tier')||{}).value||'';
+  var fo=(document.getElementById('ptn-f-owner')||{}).value||'';
+  var fq=(document.getElementById('ptn-f-quick')||{}).value||'';
   var me=_curName().split(' ')[0];
   return PARTNERS.filter(function(p){
     if(_ptnSeg()==='archive'){ if(!_isArchived(p)) return false; }
@@ -2303,15 +2316,12 @@ function ptnFiltered(){
     if(fc && p.cat!==fc) return false;
     if(fs && _pStage(p)!==fs) return false;
     if(fh && partnerHealth(p)!==fh) return false;
-    if(_ptnView==='mine' && _fullName(p.assignedTo)!==_fullName(me)) return false;
-    if(_ptnView==='overdue'){ var du=daysUntil(p.nextContact); if(du===null||du>=0) return false; }
-    if(_ptnView==='architects' && ['Architect','Residential Designer','Interior Designer'].indexOf(p.cat)<0) return false;
-    if(_ptnView==='realtors' && p.cat!=='Realtor') return false;
-    if(_ptnView.indexOf('cat:')===0 && p.cat!==_ptnView.slice(4)) return false;
-    if(_ptnTier==='none'){ if(partnerTier(p)) return false; }
-    else if(_ptnTier && partnerTier(p)!==_ptnTier) return false;
-    if(_ptnView==='strong' && !(p.relScore>=8)) return false;
-    if(_ptnView==='dormant' && !(p.relStage==='Dormant'||daysSince(p.lastContact)>60)) return false;
+    if(fo==='mine' && _fullName(p.assignedTo)!==_fullName(me)) return false;
+    if(ft==='none'){ if(partnerTier(p)) return false; }
+    else if(ft && partnerTier(p)!==ft) return false;
+    if(fq==='overdue'){ var du=daysUntil(p.nextContact); if(du===null||du>=0) return false; }
+    if(fq==='strong' && !(p.relScore>=8)) return false;
+    if(fq==='dormant' && !(p.relStage==='Dormant'||daysSince(p.lastContact)>60)) return false;
     return true;
   });
 }
@@ -2330,6 +2340,7 @@ var ACC_PARTNERS={
   score:function(p){return p.relScore||0;},
   last:function(p){return p.lastContact||'';},
   days:function(p){var d=daysSince(p.lastContact); return d===null?1e9:d;},
+  touches:function(p){return _bdOutreachStats(p).sent;},
   health:function(p){return partnerHealth(p)||'';},
   value:function(p){return p.estValue||0;},
   tier:function(p){return _tierRank(p);},
@@ -2400,10 +2411,10 @@ function _refWonTrailing(p,months){
     return a;
   },0);
 }
-function navPtn(scope){ _ptnAList=false; _ptnTab=scope; nav('partners'); }
-function _ptnSeg(){ return _ptnArchive?'archive':(_ptnAList?'alist':(_ptnTab==='referral'?'referral':'all')); }
-function _ptnSetSeg(seg){ if(seg==='archive'){ _ptnArchive=true; _ptnAList=false; } else { _ptnArchive=false; if(seg==='alist'){ _ptnAList=true; } else if(seg==='referral'){ _ptnAList=false; _ptnTab='referral'; } else { _ptnAList=false; _ptnTab='all'; } } renderPartners(); }
-function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } var na=(PARTNERS||[]).filter(_isArchived).length; return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('alist',_aListStarIcon(true)+' A List')+b('archive','Archive'+(na?' ('+na+')':''))+'</div>'; }
+function navPtn(scope){ _ptnTab=scope; nav('partners'); }
+function _ptnSeg(){ return _ptnArchive?'archive':(_ptnTab==='referral'?'referral':(_ptnTab==='bd100'?'bd100':'all')); }
+function _ptnSetSeg(seg){ if(seg==='archive'){ _ptnArchive=true; } else { _ptnArchive=false; _ptnTab=(seg==='referral'?'referral':(seg==='bd100'?'bd100':'all')); } renderPartners(); }
+function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } var na=(PARTNERS||[]).filter(_isArchived).length; return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('bd100','BD 100')+b('archive','Archive'+(na?' ('+na+')':''))+'</div>'; }
 function bdMoney(v){ return fmtVal(Number(v)||0,'$'); }
 function _refStatCell(lbl,val){ return '<div><div class="muted" style="font-size:var(--fz-xs);text-transform:uppercase;letter-spacing:.05em">'+_esc(lbl)+'</div><div style="font-weight:700;font-size:var(--fz-lg)">'+val+'</div></div>'; }
 function _referralPartnersView(list){
@@ -2417,7 +2428,7 @@ function _referralPartnersView(list){
     var dc=_refDeals(p).length,dv=_refDealTotal(p);
     var tag=(p.isPartner&&dc===0)?' <span class="chip c-gry" title="Marked as a partner by hand">Manual</span>':'';
     return '<tr style="cursor:pointer" onclick="openPartner('+p.id+')">'+
-      '<td class="cell-firm">'+_aListStarBtn(p)+_tierBadge(p)+_esc(p.firm)+'</td>'+
+      '<td class="cell-firm">'+_tierBadge(p)+_esc(p.firm)+'</td>'+
       '<td>'+_esc(p.cf+' '+p.cl)+tag+'</td>'+
       '<td>'+catPill(p.cat)+'</td>'+
       '<td class="right">'+num(dc)+'</td>'+
@@ -2432,23 +2443,16 @@ function _referralPartnersView(list){
 }
 function renderPartners(){
   var total=PARTNERS.length;
-  var active=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'; }).length;
   var due=PARTNERS.filter(function(p){ var d=daysUntil(p.nextContact); return d!==null&&d<0; }).length;
-  var dormant=PARTNERS.filter(function(p){ return p.relStage==='Dormant'||daysSince(p.lastContact)>60; }).length;
+  var c100=_bd100Counts(), over100=_bd100Over();
+  var cov100=_bd100CoverageA();
   var mini=document.getElementById('ptn-mini');
   if(mini) mini.innerHTML='<div class="mini-bar">'+
     '<div class="ms">Partners <strong>'+total+'</strong></div>'+
-    '<div class="ms">Active <strong>'+active+'</strong></div>'+
     '<div class="ms od">Follow-ups due <strong>'+due+'</strong></div>'+
-    '<div class="ms">Replied <strong>'+PARTNERS.filter(function(x){return x.hasReply;}).length+'</strong></div>'+
-    '<div class="ms">Dormant <strong>'+dormant+'</strong></div>'+
-    (function(){ var c=_bd100Counts(); var over=_bd100Over();
-      function cell(t){ var n=c[t], cap=BD100_CAPS[t], isOver=n>cap;
-        return '<div class="ms" title="Tier '+t+': '+n+' of '+cap+' positions filled'+(isOver?' - OVER capacity, a '+t+' must move down':'')+'">'
-          +'BD 100 &middot; '+t+' <strong'+(isOver?' style="color:var(--red)"':'')+'>'+n+'/'+cap+'</strong></div>'; }
-      return cell('A')+cell('B')+cell('C')
-        +(over.length?'<div class="ms" style="color:var(--red)" title="One or more tiers are over capacity. Promote by relegating the weakest partner in that tier.">&#9888; '+over.join(', ')+' over cap</div>':'');
-    })()+'</div>';
+    '<div class="ms" title="Earned BD 100 positions: A '+c100.A+'/'+BD100_CAPS.A+', B '+c100.B+'/'+BD100_CAPS.B+', C '+c100.C+'/'+BD100_CAPS.C+'">BD 100 <strong'+(over100.length?' style="color:var(--red)"':'')+'>'+(c100.A+c100.B+c100.C)+'/100</strong></div>'+
+    '<div class="ms" title="Share of earned A partners with a meaningful touch this month">A coverage <strong>'+(cov100.pct==null?'-':cov100.pct+'%')+'</strong></div>'+
+    '</div>';
 
   var rows=ptnFiltered();
   var prospects=(_ptnTab==='all')?rows.slice():rows.filter(function(p){ return !_isReferralPartner(p); });
@@ -2460,8 +2464,10 @@ function renderPartners(){
     return;
   }
   var seg=_ptnSegBar();
-  if(_ptnAList){ host.innerHTML=seg+_aListView(); return; }
-  if(_ptnTab==='referral'){ host.innerHTML=seg+_referralPartnersView(referral); return; }
+  var fstate=_ptnFilterStrip();
+  var todayStrip=_ptnTodayStrip();
+  if(_ptnTab==='bd100'){ host.innerHTML=seg+renderBd100Tab(); return; }
+  if(_ptnTab==='referral'){ host.innerHTML=seg+fstate+_referralPartnersView(referral); return; }
   /* Partners is list-only. The kanban view was removed: partner work is driven
      by tier and reach-out cadence, not by dragging cards between relationship
      stages, and the board hid untouched directory contacts and dormant
@@ -2476,7 +2482,7 @@ function renderPartners(){
     var tb=_tierBadge(p);
     return '<tr style="cursor:pointer" onclick="openPartner('+p.id+')">'+
       '<td onclick="event.stopPropagation()" style="width:28px"><input type="checkbox"'+(_ptnSel[p.id]?' checked':'')+' onclick="_ptnToggleSel('+p.id+',this.checked)" aria-label="Select row"></td>'+
-      '<td class="cell-firm">'+_aListStarBtn(p)+_esc(p.firm)+'</td>'+
+      '<td class="cell-firm">'+_esc(p.firm)+'</td>'+
       '<td class="nowrap">'+(tb||'<span class="muted" title="No tier set; follows the default 60-day cadence">-</span>')+'</td>'+
       '<td>'+_esc(p.cf+' '+p.cl)+(p.hasReply?' <span class="chip c-grn">Replied</span>':'')+(ag.cls?' <span class="dr-badge '+ag.cls+'" title="'+_esc(ag.title)+'">!</span>':'')+'<div class="muted" style="font-size:var(--fz-xs)">'+_esc(p.title)+(p.contactCompleteness?' &middot; '+_esc(p.contactCompleteness):'')+'</div></td>'+
       '<td>'+catPill(p.cat)+'</td>'+
@@ -2486,6 +2492,7 @@ function renderPartners(){
       '<td class="right">'+(p.relScore||0)+'</td>'+
       '<td class="nowrap">'+fmtDate(p.lastContact)+'</td>'+
       '<td class="right">'+(d===null?'-':d+'d')+'</td>'+
+      (function(){ var os=_bdOutreachStats(p); return '<td class="right" title="'+os.sent+' reach-out'+(os.sent===1?'':'s')+(os.replies?', '+os.replies+' repl'+(os.replies===1?'y':'ies'):'')+'">'+(os.sent||'-')+(os.replies?' <span class="chip c-grn" style="margin-left:4px">'+os.replies+'</span>':'')+'</td>'; })()+
       '<td class="nowrap" title="'+_esc(partnerCadenceLabel(p))+'">'+reachoutPill(p)+'</td>'+
       '<td>'+healthPill(partnerHealth(p))+'</td>'+
       '<td class="right nowrap">'+fmtM(p.estValue)+'</td>'+
@@ -2495,47 +2502,70 @@ function renderPartners(){
   var allSel=prospects.length>0 && prospects.every(function(p){ return _ptnSel[p.id]; });
   var PR={rerender:'renderPartners'},PRR={rerender:'renderPartners',right:true};
   var tableHtml='<div class="card"><div class="tbl-wrap"><table>'+
-    '<thead><tr><th style="width:28px"><input type="checkbox" aria-label="Select all"'+(allSel?' checked':'')+' onclick="_ptnToggleAll(this.checked)"></th>'+_sortTH('partners','firm','Firm',PR)+_sortTH('partners','tier','Tier',PR)+_sortTH('partners','contact','Contact',PR)+_sortTH('partners','cat','Category',PR)+_sortTH('partners','city','City',PR)+_sortTH('partners','assigned','Assigned',PR)+_sortTH('partners','stage','Stage',PR)+_sortTH('partners','score','Score',PRR)+_sortTH('partners','last','Last Contact',PR)+_sortTH('partners','days','Days',PRR)+_sortTH('partners','reach','Reach-out',PR)+_sortTH('partners','health','Health',PR)+_sortTH('partners','value','Est. Value',PRR)+'<th scope="col">Status</th></tr></thead>'+
+    '<thead><tr><th style="width:28px"><input type="checkbox" aria-label="Select all"'+(allSel?' checked':'')+' onclick="_ptnToggleAll(this.checked)"></th>'+_sortTH('partners','firm','Firm',PR)+_sortTH('partners','tier','Tier',PR)+_sortTH('partners','contact','Contact',PR)+_sortTH('partners','cat','Category',PR)+_sortTH('partners','city','City',PR)+_sortTH('partners','assigned','Assigned',PR)+_sortTH('partners','stage','Stage',PR)+_sortTH('partners','score','Score',PRR)+_sortTH('partners','last','Last Contact',PR)+_sortTH('partners','days','Days',PRR)+_sortTH('partners','touches','Touches',PRR)+_sortTH('partners','reach','Reach-out',PR)+_sortTH('partners','health','Health',PR)+_sortTH('partners','value','Est. Value',PRR)+'<th scope="col">Status</th></tr></thead>'+
     '<tbody>'+body+'</tbody></table></div></div>';
   var selCount=0; for(var _sk in _ptnSel){ if(_ptnSel[_sk]) selCount++; }
   var bar=selCount>0?('<div class="card" style="margin-bottom:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:600">'+selCount+' selected</span>'+'<button class="btn btn-sm" onclick="_ptnBulkTier()">Set tier...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkAssign()">Assign to...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkStage()">Set stage...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkDormant()">Mark dormant</button>'+'<button class="btn btn-sm" onclick="_ptnClearSel()">Clear</button></div>'):'';
-  host.innerHTML=_ptnToggle+bar+tableHtml;
+  host.innerHTML=_ptnToggle+todayStrip+fstate+bar+tableHtml;
+}
+/* Visible filter state: when any facet is active, say so and show what is
+   hidden, so a stale search can never silently shrink a segment again. */
+function _ptnFilterStrip(){
+  var btn=document.getElementById('ptn-clear-btn');
+  var on=_ptnFiltersActive();
+  if(btn) btn.style.display=on?'':'none';
+  if(!on) return '';
+  var bits=[];
+  var q=(document.getElementById('ptn-q')||{}).value||''; if(q) bits.push('search "'+_esc(q)+'"');
+  [['ptn-f-cat','category'],['ptn-f-tier','tier'],['ptn-f-owner','owner'],['ptn-f-stage','stage'],['ptn-f-health','health'],['ptn-f-quick','view']].forEach(function(x){
+    var e=document.getElementById(x[0]); if(e&&e.value){ var lbl=e.options&&e.selectedIndex>=0?e.options[e.selectedIndex].text:e.value; bits.push(x[1]+' '+_esc(lbl)); }
+  });
+  return '<div class="card" style="margin-bottom:8px;padding:6px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-left:3px solid var(--blu)">'+
+    '<span class="muted" style="font-size:var(--fz-body)">Filtered: '+bits.join(' \u00b7 ')+'</span>'+
+    '<button class="btn btn-sm" onclick="clearPtnFilters()">Clear</button></div>';
+}
+/* The Today strip: the page leads with work, not directory. Follow-ups due,
+   inactive-A relegation candidates, and over-cap warnings, each one click from
+   the person. Hidden when there is nothing to act on. */
+function _ptnTodayStrip(){
+  if(_ptnSeg()!=='all') return '';
+  var dueList=(PARTNERS||[]).filter(function(p){ if(_isArchived(p)) return false; var d=daysUntil(p.nextContact); return d!==null&&d<0; });
+  var inact=(PARTNERS||[]).filter(function(p){ return _bd100InactiveA(p); });
+  var over=_bd100Over();
+  if(!dueList.length&&!inact.length&&!over.length) return '';
+  function row(p,note,noteCls){
+    var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer" onclick="openPartner('+p.id+')">'+
+      '<span style="font-weight:600">'+_esc(nm)+'</span>'+
+      (p.firm&&p.firm!==nm?'<span class="muted" style="font-size:var(--fz-body)">'+_esc(p.firm)+'</span>':'')+
+      '<span class="chip '+noteCls+'" style="margin-left:auto">'+_esc(note)+'</span></div>';
+  }
+  var inner='';
+  if(dueList.length){
+    var shown=dueList.slice(0,5);
+    inner+='<div style="margin-bottom:'+(inact.length||over.length?'10px':'0')+'">'+
+      '<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Follow-ups due ('+dueList.length+')</div>'+
+      shown.map(function(p){ var du=daysUntil(p.nextContact); var os=_bdOutreachStats(p); return row(p,(os.sent?os.sent+'x \u00b7 ':'')+(du===null?'due':Math.abs(du)+'d overdue'),'c-red'); }).join('')+
+      (dueList.length>5?'<div class="muted" style="font-size:var(--fz-body);padding-top:2px;cursor:pointer" onclick="_ptnSetSel(\'ptn-f-quick\',\'overdue\');renderPartners()">Show all '+dueList.length+' in the list below</div>':'')+
+      '</div>';
+  }
+  if(inact.length){
+    inner+='<div style="margin-bottom:'+(over.length?'10px':'0')+'">'+
+      '<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Inactive A partners ('+inact.length+')</div>'+
+      inact.slice(0,3).map(function(p){ return row(p,'no touch 90d','c-amb'); }).join('')+
+      '</div>';
+  }
+  if(over.length){
+    var c=_bd100Counts();
+    inner+='<div><div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px;color:var(--red)">Over cap</div>'+
+      '<div class="muted" style="font-size:var(--fz-body)">'+over.map(function(t){ return 'Tier '+t+' ('+c[t]+'/'+BD100_CAPS[t]+')'; }).join(', ')+'. Relegate the weakest to restore the caps.</div></div>';
+  }
+  return '<div class="card" style="margin-bottom:10px"><div class="card-hd"><span class="card-title">Today</span><span class="card-hd-meta">who needs a touch</span></div><div class="card-body" style="padding-top:8px">'+inner+'</div></div>';
 }
 /* Partners kanban removed: the page is list-only. Market Leads keeps its own
    board (_leadBoard), which is unaffected. */
-var _ptnAList=false;
-function _ptnSetAList(on){ _ptnAList=!!on; renderPartners(); }
-function _aListStarIcon(on){ return '<svg width="13" height="13" viewBox="0 0 24 24" fill="'+(on?'var(--gp)':'none')+'" stroke="'+(on?'var(--gp)':'var(--txd)')+'" stroke-width="2" stroke-linejoin="round" style="vertical-align:-2px"><polygon points="12 2 15 9 22 9.3 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9.3 9 9"/></svg>'; }
-function _aListStarBtn(p){ var on=!!(p&&p.aList); return '<span role="button" tabindex="0" aria-label="'+(on?'Remove from A List':'Add to A List')+'" title="'+(on?'On the A List':'Add to A List')+'" onclick="_ptnToggleAList('+p.id+',event)" style="cursor:pointer;display:inline-flex;margin-right:6px">'+_aListStarIcon(on)+'</span>'; }
-function _aListToggleBtn(){ return '<button class="btn btn-sm'+(_ptnAList?' btn-primary':'')+'" onclick="_ptnSetAList('+(_ptnAList?'false':'true')+')" aria-pressed="'+(_ptnAList?'true':'false')+'">'+_aListStarIcon(_ptnAList)+' A List</button>'; }
-function _aListHeaderBtn(){ return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">'+_aListToggleBtn()+'<span class="muted" style="font-size:var(--fz-xs)">Your top partners by category</span></div>'; }
-function _ptnToggleAList(id,ev){ if(ev){ try{ ev.stopPropagation(); }catch(_){ } } var p=_partnerFind(id); if(!p) return; p.aList=!p.aList; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){ } save(); renderPartners(); if(typeof toastSuccess==='function') toastSuccess(p.aList?'Added to A List':'Removed from A List',(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner')); }
-function _aListSuggest(cat){ var pool=PARTNERS.filter(function(p){ return (p.cat||'Other')===cat && !p.aList; }); if(!pool.length) return null; pool.sort(function(a,b){ var sc=(b.relScore||0)-(a.relScore||0); if(sc) return sc; return (b.referralDiscussions||0)-(a.referralDiscussions||0); }); return pool[0]; }
-function _aListView(){
-  var starred=PARTNERS.filter(function(p){ return p.aList; });
-  var cats={}; PARTNERS.forEach(function(p){ var c=p.cat||'Other'; if(!cats[c]) cats[c]={on:[]}; if(p.aList) cats[c].on.push(p); });
-  var names=Object.keys(cats).sort(function(a,b){ return cats[b].on.length-cats[a].on.length || a.localeCompare(b); });
-  var TARGET=5;
-  var secs=names.map(function(c){
-    var g=cats[c]; var n=g.on.length;
-    var over=n>TARGET?(' <span class="muted" style="font-size:var(--fz-xs)">over '+TARGET+', consider trimming</span>'):'';
-    var list=g.on.length? g.on.sort(function(a,b){ return (b.relScore||0)-(a.relScore||0); }).map(function(p){
-        return '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;margin-bottom:6px" onclick="openPartner('+p.id+')">'+
-          _aListStarBtn(p)+
-          '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:var(--fz-lg);color:var(--txt)">'+_esc(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner')+'</div><div class="muted" style="font-size:var(--fz-body)">'+_esc(p.firm||'')+(p.city?' \u00b7 '+_esc(p.city):'')+'</div></div>'+
-          '<div class="right muted" style="font-size:var(--fz-body)">Score '+(p.relScore||0)+'</div>'+
-        '</div>';
-      }).join('')
-      : '<div class="muted" style="font-size:var(--fz-body);padding:6px 2px">No '+_esc(c)+' on the A List yet.</div>';
-    var sug=_aListSuggest(c);
-    var sugHtml=sug?('<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:var(--fz-body)"><span class="muted">Suggested:</span>'+_aListStarBtn(sug)+'<span style="cursor:pointer" onclick="openPartner('+sug.id+')">'+_esc(((sug.cf||'')+' '+(sug.cl||'')).trim()||sug.firm||'Partner')+'</span><span class="muted">\u00b7 Score '+(sug.relScore||0)+'</span></div>'):'';
-    return '<div style="margin-bottom:16px"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span style="font-weight:700;font-size:var(--fz-lg);color:var(--txt)">'+_esc(c)+'</span><span class="muted" style="font-size:var(--fz-body)">'+n+' on the A List</span>'+over+'</div>'+list+sugHtml+'</div>';
-  }).join('');
-  var onCats=names.filter(function(c){return cats[c].on.length;}).length;
-  var intro=starred.length?('<div class="muted" style="font-size:var(--fz-body);margin-bottom:12px">'+starred.length+' partner'+(starred.length===1?'':'s')+' on your A List across '+onCats+' categor'+(onCats===1?'y':'ies')+'.</div>'):('<div class="muted" style="font-size:var(--fz-body);margin-bottom:12px">Star your strongest partners in each category to build your A List. The suggestions below point at who is earning a spot.</div>');
-  if(!names.length) return intro+'<div class="muted" style="font-size:var(--fz-body)">No partners yet.</div>';
-  return intro+secs;
-}
+/* A List retired: BD 100 earned tiers replaced the manual star list.
+   The p.aList data field is preserved on records for history; UI removed. */
 function _partnerAging(p){
   if(!p||p.relStage==='Dormant') return {cls:'',title:''};
   var d=daysSince(p.lastContact);
@@ -2858,9 +2888,14 @@ function _ptnBulkTier(){
       }
     }});
 }
+var PTN_FILTER_IDS=['ptn-q','ptn-f-cat','ptn-f-tier','ptn-f-owner','ptn-f-stage','ptn-f-health','ptn-f-quick'];
+function _ptnFiltersActive(){
+  for(var i=0;i<PTN_FILTER_IDS.length;i++){ var e=document.getElementById(PTN_FILTER_IDS[i]); if(e&&e.value) return true; }
+  return false;
+}
 function clearPtnFilters(){
-  ['ptn-q','ptn-f-cat','ptn-f-stage','ptn-f-health'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
-  _ptnView='all'; _ptnTier=''; _ptnArchive=false; renderPartners();
+  PTN_FILTER_IDS.forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  _ptnArchive=false; renderPartners();
 }
 
 /* ============================================================
@@ -3404,6 +3439,7 @@ function openPartner(id){
     _ir('Assigned to',_esc(_fullName(p.assignedTo)||'-'))+(p.source?_ir('Source',(p.source==='Prospecting'?'Market Leads':_esc(p.source))):'')+
     _ir('Secondary owner',_esc(p.secondaryOwner||'-'))+
     _ir('Relationship score',(p.relScore||0)+' / 10')+
+    (function(){ var os=_bdOutreachStats(p); return _ir('Reach-outs', num(os.sent)+' sent'+(os.replies?' \u00b7 '+num(os.replies)+' repl'+(os.replies===1?'y':'ies'):'')+(os.first?' \u00b7 first '+fmtDate(os.first):'')); })()+
     _ir('Last contact',_esc(fmtDate(p.lastContact)+(d!==null?' ('+d+'d ago)':'')))+
     _ir('Next contact',_esc(fmtDate(p.nextContact)))+
     _ir('Next action',_esc(p.nextAction||'-')));
@@ -4343,7 +4379,7 @@ function _lotAgentMergeRows(rows){
 }
 function lotAgentImport(){
   var body=_section('Paste lot-agent data', _fld('Paste rows including the header row (copy the cells from Excel)','paste','textarea','',{full:true}))+
-    '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Recognized columns: name, brokerage, phone, email, listing_count, total_value, listing_addresses, listing_mls_numbers, include_in_campaign, sent, profile_url, websites, and the optional listing_prices, listing_sizes, listing_latitudes, listing_longitudes. The four optional columns are semicolon-separated and line up position by position with listing_addresses; they fill the Price, Lot size and $/acre columns on the Listings view. Paste from Excel so the rows arrive tab-separated, otherwise a price like 1,200,000 splits into three cells. Agents already in the module are skipped automatically, so re-importing never duplicates. When the listings API connects, this same data loads on its own.</div>';
+    '<div class="muted" style="font-size:var(--fz-xs);margin-top:6px">Recognized columns: name, brokerage, phone, email, listing_count, total_value, listing_addresses, listing_mls_numbers, include_in_campaign, sent, profile_url, websites, and the optional listing_prices, listing_sizes, listing_latitudes, listing_longitudes. The four optional columns are semicolon-separated and line up position by position with listing_addresses; they fill the Price and Lot size columns on the Listings view. Paste from Excel so the rows arrive tab-separated, otherwise a price like 1,200,000 splits into three cells. Agents already in the module are skipped automatically, so re-importing never duplicates. When the listings API connects, this same data loads on its own.</div>';
   openModal({title:'Import lot agents', body:body, saveLabel:'Import', onSave:function(){
     var f=_readForm(); var parsed=parseLotAgents(f.paste);
     if(!parsed.ok){ modalErr('Could not read the data. Paste the rows including the header row, copied straight from Excel.'); return; }
@@ -4502,14 +4538,34 @@ function _lotListingRows(){
         lat:_numOrNull(p.lat), lon:_numOrNull(p.lon), listed:p.listedDate||''});
     }
   });
-  return out;
+  /* One row per lot. Co-listed lots arrive once per agent (and sometimes under
+     more than one MLS number); group them by normalized address + price so the
+     table, the stat strip, and the map all count each lot once. All agents and
+     all MLS links ride on the single row. */
+  var byLot={}, ded=[];
+  out.forEach(function(r){
+    var addr=String(r.address||'').toLowerCase().replace(/\s+/g,' ').trim();
+    var k=addr?(addr+'|'+(r.price==null?'':r.price)):(r.mls?('mls|'+r.mls):('u|'+r.key));
+    var g=byLot[k];
+    if(!g){
+      r.agents=[{agentId:r.agentId,agent:r.agent,firm:r.firm}];
+      r.mlsList=r.mls?[{mls:r.mls,url:r.url}]:[];
+      byLot[k]=r; ded.push(r);
+    } else {
+      if(!g.agents.some(function(a){ return a.agentId===r.agentId; })) g.agents.push({agentId:r.agentId,agent:r.agent,firm:r.firm});
+      if(r.mls && !g.mlsList.some(function(x){ return x.mls===r.mls; })) g.mlsList.push({mls:r.mls,url:r.url});
+      if(g.acres==null && r.acres!=null){ g.acres=r.acres; g.ppa=r.ppa; }
+      if(!g.url && r.url) g.url=r.url;
+      if(g.lat==null && r.lat!=null){ g.lat=r.lat; g.lon=r.lon; }
+    }
+  });
+  return ded;
 }
 var ACC_LOTLIST={
   address:function(r){return r.address||'';},
   muni:function(r){return r.muni||'';},
   price:function(r){return r.price==null?-1:r.price;},
   acres:function(r){return r.acres==null?-1:r.acres;},
-  ppa:function(r){return r.ppa==null?-1:r.ppa;},
   agent:function(r){return r.agent||'';}
 };
 function _lotAcresCell(a){ return (a==null)?'<span class="muted">-</span>':(_esc((a<1?a.toFixed(2):a.toFixed(1))+' ac')); }
@@ -4517,22 +4573,20 @@ function _lotMuniRollup(rows){
   var by={};
   rows.forEach(function(r){
     var k=r.muni||'Unknown';
-    if(!by[k]) by[k]={muni:k,n:0,prices:[],ppas:[]};
+    if(!by[k]) by[k]={muni:k,n:0,prices:[]};
     by[k].n++;
     if(r.price!=null) by[k].prices.push(r.price);
-    if(r.ppa!=null) by[k].ppas.push(r.ppa);
   });
-  var arr=Object.keys(by).map(function(k){ var g=by[k]; return {muni:g.muni,n:g.n,medPrice:_median(g.prices),medPpa:_median(g.ppas)}; });
+  var arr=Object.keys(by).map(function(k){ var g=by[k]; return {muni:g.muni,n:g.n,medPrice:_median(g.prices)}; });
   if(!arr.length) return '';
   arr.sort(function(a,b){ return (b.n-a.n)||(a.muni<b.muni?-1:a.muni>b.muni?1:0); });
   var body=arr.map(function(g){
     return '<tr><td>'+(g.muni==='Unknown'?'<span class="muted">Unknown</span>':('<span class="tag tag-indigo">'+_esc(g.muni)+'</span>'))+'</td>'+
       '<td class="nowrap">'+num(g.n)+'</td>'+
-      '<td class="nowrap">'+(g.medPrice==null?'<span class="muted">-</span>':fmtVal(g.medPrice,'$'))+'</td>'+
-      '<td class="nowrap">'+(g.medPpa==null?'<span class="muted">-</span>':fmtVal(Math.round(g.medPpa),'$'))+'</td></tr>';
+      '<td class="nowrap">'+(g.medPrice==null?'<span class="muted">-</span>':fmtVal(g.medPrice,'$'))+'</td></tr>';
   }).join('');
   return '<div class="card"><div class="card-hd"><span class="card-title">By municipality</span><span class="muted" style="font-size:var(--fz-body)">Medians across the filtered set</span></div>'+
-    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Municipality</th><th scope="col">Lots</th><th scope="col">Median ask</th><th scope="col">Median $/acre</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
+    '<div class="tbl-wrap"><table><thead><tr><th scope="col">Municipality</th><th scope="col">Lots</th><th scope="col">Median ask</th></tr></thead><tbody>'+body+'</tbody></table></div></div>';
 }
 function _mleadNum(key,label,step){
   var f=_mleadF();
@@ -5143,7 +5197,7 @@ function _prospLotsShell(){
   if(LOT_VIEW==='listings'){
     return _lotViewToggle()+
       '<div class="card"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'+
-      '<div class="muted" style="font-size:var(--fz-body)">Every lot currently for sale across the imported inventory, one row per listing. Price per acre is derived wherever a price and a lot size are both present. Click a row to open its listing agent.</div>'+
+      '<div class="muted" style="font-size:var(--fz-body)">Every lot currently for sale across the imported inventory, one row per lot. Co-listed lots are grouped: all listing agents and MLS numbers show on the one row. Click a row to open its listing agent.</div>'+
       actions+'</div></div>'+
       '<div id="mlead-mini"></div>'+
       _mleadBar('Search address, municipality, MLS, agent...',
@@ -5273,7 +5327,7 @@ function mleadRenderList(){
   if(t==='lots' && LOT_VIEW==='listings'){
     var allL=_lotListingRows();
     var rowsL=allL.filter(function(r){
-      if(q){ var hay=((r.address||'')+' '+(r.muni||'')+' '+(r.mls||'')+' '+(r.agent||'')+' '+(r.firm||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+      if(q){ var hay=((r.address||'')+' '+(r.muni||'')+' '+(r.mlsList||[]).map(function(x){return x.mls;}).join(' ')+' '+(r.agents||[]).map(function(a){return (a.agent||'')+' '+(a.firm||'');}).join(' ')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
       if(f.f1 && r.muni!==f.f1) return false;
       var mn=parseFloat(f.f2), mx=parseFloat(f.f3), ma=parseFloat(f.f4);
       if(!isNaN(mn) && (r.price==null || r.price<mn)) return false;
@@ -5284,25 +5338,27 @@ function mleadRenderList(){
     _sortGet('lotlist','price',-1); rowsL=_applySort(rowsL,'lotlist',ACC_LOTLIST);
     var askTotal=rowsL.reduce(function(a,r){ return a+(r.price||0); },0);
     var medAsk=_median(rowsL.map(function(r){ return r.price; }));
-    var medPpa=_median(rowsL.map(function(r){ return r.ppa; }));
     var noSize=rowsL.filter(function(r){ return r.acres==null; }).length;
     var nPriced=rowsL.filter(function(r){ return r.price!=null; }).length;
-    mini=_miniBar([['Lots',num(rowsL.length)],['Priced',num(nPriced)+' of '+num(rowsL.length),nPriced<rowsL.length],['Total ask',fmtVal(askTotal,'$')],['Median ask',(medAsk==null?'-':fmtVal(medAsk,'$'))],['Median $/acre',(medPpa==null?'-':fmtVal(Math.round(medPpa),'$'))],['Missing size',num(noSize),noSize>0]]);
+    mini=_miniBar([['Lots',num(rowsL.length)],['Priced',num(nPriced)+' of '+num(rowsL.length),nPriced<rowsL.length],['Total ask',fmtVal(askTotal,'$')],['Median ask',(medAsk==null?'-':fmtVal(medAsk,'$'))],['Missing size',num(noSize),noSize>0]]);
     if(!allL.length){
-      table=emptyState('No lot listings yet','Import your lot-agent list. Each agent row carries its listing addresses, and optionally the prices and lot sizes that drive the price-per-acre column.','<button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button>');
+      table=emptyState('No lot listings yet','Import your lot-agent list. Each agent row carries its listing addresses, and optionally the prices and lot sizes.','<button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button>');
     } else if(!rowsL.length){
       table=filteredEmpty('mleadClearFilters');
     } else {
       var bodyL=rowsL.slice(0,_prospShown).map(function(r){
-        var mlsCell=r.mls?('<div class="muted" style="font-size:var(--fz-body)" onclick="event.stopPropagation()">'+_mlsLink(r.mls,r.address,r.url)+'</div>'):'';
+        var mlsCell=(r.mlsList&&r.mlsList.length)?('<div class="muted" style="font-size:var(--fz-body)" onclick="event.stopPropagation()">'+r.mlsList.map(function(x){ return _mlsLink(x.mls,r.address,x.url); }).join(' \u00b7 ')+'</div>'):'';
+        var agents=(r.agents&&r.agents.length)?r.agents:[{agentId:r.agentId,agent:r.agent,firm:r.firm}];
+        var agentCell=agents.map(function(a){
+          return '<div style="cursor:pointer" onclick="event.stopPropagation();mleadOpenLot('+a.agentId+')"><div>'+_esc(a.agent||'-')+'</div>'+(a.firm?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(a.firm)+'</div>'):'')+'</div>';
+        }).join('');
         return '<tr style="cursor:pointer" onclick="mleadOpenLot('+r.agentId+')">'+
           '<td><div style="font-weight:600;color:var(--txt)">'+_esc(r.address||'-')+'</div>'+mlsCell+'</td>'+
           '<td>'+(r.muni?('<span class="tag tag-indigo">'+_esc(r.muni)+'</span>'):'<span class="muted">-</span>')+'</td>'+
           '<td class="nowrap">'+(r.price==null?'<span class="muted">-</span>':fmtVal(r.price,'$'))+'</td>'+
           '<td class="nowrap">'+_lotAcresCell(r.acres)+'</td>'+
-          '<td class="nowrap">'+(r.ppa==null?'<span class="muted">-</span>':fmtVal(Math.round(r.ppa),'$'))+'</td>'+
-          '<td><div>'+_esc(r.agent||'-')+'</div>'+(r.firm?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(r.firm)+'</div>'):'')+'</td></tr>';
-      }).join('')+_prospMoreRow(rowsL.length,6);
+          '<td>'+agentCell+'</td></tr>';
+      }).join('')+_prospMoreRow(rowsL.length,5);
       var LL={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">Lots for sale</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr>'+
@@ -5310,7 +5366,6 @@ function mleadRenderList(){
           _sortTH('lotlist','muni','Municipality',LL)+
           _sortTH('lotlist','price','Price',LL)+
           _sortTH('lotlist','acres','Lot size',LL)+
-          _sortTH('lotlist','ppa','$/acre',LL)+
           _sortTH('lotlist','agent','Listing agent',LL)+
         '</tr></thead><tbody>'+bodyL+'</tbody></table></div></div>'+
         _lotMuniRollup(rowsL);
@@ -7294,6 +7349,10 @@ function handleCellKey(e){
   if(e.key==='Escape') cancelCellEdit();
 }
 
+function _descTip(m){
+  if(!m||!m.description) return '';
+  return '<button type="button" class="info-icon" onclick="event.stopPropagation()" aria-label="What this measures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="tip">'+_esc(m.description)+'</span></button>';
+}
 function indTag(m){
   if(!m.indicator) return '';
   var lead=m.indicator==='leading';
@@ -7700,7 +7759,7 @@ function renderScorecardInline(opts){ _recalcAll();
 
       h+='<tr>';
       h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+(trend==="good"?"Trending right":"Trend wrong way")+'">'+trendIconInline(trend)+'</td>';
-      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRi}))+'</td>';
+      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRi}))+'</td>';
       h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+_goalLabel(m)+'</td>';
       var _cnpAi=_cnpAvgTip(m,allVals,avg||0); var _cnpTi=_cnpTotalTip(m,allVals);
       h+='<td tabindex="0" data-cnp="avg" style="'+scStkB(SC_OFF.avg,SC_W.avg,rowBg,'text-align:center;font-size:var(--fz-body);font-weight:600;color:'+(m.rollupAs==='Total'?'var(--txm)':_tierColor(_scTier(m,avg))))+'">'+scFmtVal(avg,m.unit)+_cnpAi+'</td>';
@@ -8309,7 +8368,7 @@ function scBuild(){
       var sum=nums.reduce(function(a,b){return a+b;},0);
       var avg=nums.length?sum/nums.length:0;
       h+='<tr style="border-bottom:0.5px solid var(--brd)">';
-      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRm}))+'</td>';
+      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRm}))+'</td>';
       h+='<td style="padding:8px 10px;text-align:left"><span style="display:inline-flex;align-items:center;gap:6px">'+_scAvatar((r.oid||'').slice(0,2),r.ocolor,18)+'<span style="font-size:var(--fz-body);color:var(--txm)">'+r.oname+'</span></span></td>';
       h+='<td style="text-align:center;font-size:var(--fz-body);color:var(--blu)">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
       var _cnpA=_cnpAvgTip(m,nums,avg); var _cnpT=_cnpTotalTip(m,nums);
@@ -8439,7 +8498,7 @@ function scBuild(){
         h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+trendLabel+'">'+trendIcon(trend)+'</td>';
 
         // Title (click to edit measurable)
-        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div>'+m.title+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:cols}))+'</td>';
+        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:cols}))+'</td>';
         h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
         var _cnpVm=validCols; var _cnpAvgN=_cnpVm.length?_cnpVm.reduce(function(a,b){return a+b;},0)/_cnpVm.length:0;
         var _cnpAm=_cnpAvgTip(m,_cnpVm,_cnpAvgN); var _cnpTm=_cnpTotalTip(m,_cnpVm);
