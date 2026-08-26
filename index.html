@@ -3636,7 +3636,7 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailPrompt()">Remove a mislogged email</button>'+
-      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button><button type="button" class="btn btn-sm" onclick="bdSendTestEmail()">Send test email to myself</button>'+
     '</div>'+
     '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
@@ -5196,26 +5196,25 @@ function _bdCutQuoted(html){
   var mOn=s.search(/On .{0,140}? wrote:/i); if(mOn>=0 && (cut<0||mOn<cut)) cut=mOn;
   return cut>=0? s.slice(0,cut): s;
 }
-function _bdExtractSigHtml(html, firstLine){
+function _bdExtractSigHtml(html){
+  /* Signature = everything after the sign-off (Regards / Cheers / Thanks ...),
+     so an image-based name block or banner above the booking link is kept.
+     We anchor on the sign-off because it is reliable text; the signature
+     itself may be pure image and have no anchorable text of its own. */
   var s=_bdCutQuoted(html); if(!s) return '';
-  var fl=String(firstLine||'').trim(); if(!fl) return '';
-  var idx=s.indexOf(fl); if(idx<0) idx=s.indexOf(fl.replace(/&/g,'&amp;'));
-  if(idx<0){ var w=fl.split(/\s+/)[0]; if(w) idx=s.indexOf(w); }
-  if(idx<0) return '';
-  var tags=['<p','<div','<table','<span','<font','<tr'];
-  var startTagOpen=-1, scan=idx;
-  while(scan>0){
-    var lb=s.lastIndexOf('<', scan-1); if(lb<0) break;
-    var frag=s.slice(lb, lb+6).toLowerCase(), hit=false;
-    for(var ti=0;ti<tags.length;ti++){ if(frag.indexOf(tags[ti])===0){ hit=true; break; } }
-    if(hit){ startTagOpen=lb; break; }
-    scan=lb;
-  }
-  var lt=s.lastIndexOf('<', idx);
-  var start=(startTagOpen>=0)?startTagOpen:(lt>=0?lt:idx);
-  var out=s.slice(start).trim();
-  if(out.length>20000) out=out.slice(0,20000);
-  return out;
+  var CL='(?:kind regards|warm regards|warmest regards|best regards|best wishes|all the best|talk soon|regards|cheers|many thanks|thank you|thanks|sincerely|yours truly|best)';
+  var re=new RegExp(CL+"\\s*[,.!]*\\s*(?=<\\s*\\/?\\s*(?:p|div|li|td|tr|h[1-6])\\b|<\\s*br)", 'ig');
+  var m, lastEnd=-1;
+  while((m=re.exec(s))!==null){ lastEnd=re.lastIndex; if(re.lastIndex===m.index) re.lastIndex++; }
+  if(lastEnd<0) return '';
+  var rest=s.slice(lastEnd);
+  var mOpen=rest.search(/<\s*(p|div|table|img|a|font|span)\b/i);
+  var sig=(mOpen>=0)?rest.slice(mOpen):rest;
+  sig=sig.replace(/^\s+/,'');
+  if(sig.length>40000) sig=sig.slice(0,40000);
+  var txt=_bdHtmlToText(sig).replace(/\s+/g,' ').trim();
+  if(!/<img/i.test(sig) && txt.length<2) return '';
+  return sig;
 }
 function bdPullSignature(){
   if(typeof _bdMsConnected!=='function'||!_bdMsConnected()){ if(typeof toastInfo==='function') toastInfo('Outlook not connected','Connect Outlook in Settings, then pull the signature.'); return; }
@@ -5231,24 +5230,30 @@ function bdPullSignature(){
     var sig=_bdExtractSignature(msgs);
     if(!sig){ if(typeof toastInfo==='function') toastInfo('No signature found','No repeated signature in your recent sent mail. Send one normal email from Outlook, then Re-pull.'); return; }
     BD_SIGNATURE=sig;
-    var firstLine=sig.split('\n')[0]||'';
-    var src=null;
-    for(var i=0;i<msgs.length;i++){ var h=msgs[i]&&msgs[i].body&&msgs[i].body.content; if(!h) continue; if(_bdHtmlToText(h).indexOf(firstLine)>=0){ src=msgs[i]; break; } }
+    /* Pick the richest signature across recent sent mail. Prefer one that has
+       an image (your banner / logo block); among those, the longest wins. */
+    var best='', bestMsg=null;
+    for(var i=0;i<msgs.length;i++){
+      var mm=msgs[i]; var h=mm&&mm.body&&mm.body.content; if(!h) continue;
+      if(String(mm.body.contentType||'').toLowerCase()!=='html') continue;
+      var sh=_bdExtractSigHtml(h); if(!sh) continue;
+      var shImg=/<img/i.test(sh), bImg=/<img/i.test(best);
+      if(!best || (shImg&&!bImg) || (shImg===bImg && sh.length>best.length)){ best=sh; bestMsg=mm; }
+    }
     var finish=function(){
       try{ save(); }catch(e){}
       var hasImg=(typeof BD_SIGNATURE_HTML==='string' && /<img/i.test(BD_SIGNATURE_HTML));
-      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured. Added to every BD email.');
+      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.');
     };
-    if(src && src.body && String(src.body.contentType||'').toLowerCase()==='html'){
-      var sigHtml=_bdExtractSigHtml(src.body.content, firstLine);
-      if(src.hasAttachments && sigHtml && /cid:/i.test(sigHtml)){
-        fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(src.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
+    if(best){
+      if(bestMsg && bestMsg.hasAttachments && /cid:/i.test(best)){
+        fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(bestMsg.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
           .then(function(r){ return r&&r.ok?r.json():{value:[]}; })
-          .then(function(ar){ BD_SIGNATURE_HTML=_bdInlineCidImages(sigHtml,(ar&&ar.value)||[]); finish(); })
-          .catch(function(){ BD_SIGNATURE_HTML=sigHtml; finish(); });
+          .then(function(ar){ BD_SIGNATURE_HTML=_bdInlineCidImages(best,(ar&&ar.value)||[]); finish(); })
+          .catch(function(){ BD_SIGNATURE_HTML=best; finish(); });
         return;
       }
-      BD_SIGNATURE_HTML=sigHtml||'';
+      BD_SIGNATURE_HTML=best;
     } else {
       BD_SIGNATURE_HTML='';
     }
@@ -5277,6 +5282,23 @@ function _bdMsSendMail(to, cc, subject, htmlBody){
   }).then(function(r){ if(!r) throw new Error('no response'); if(r.status===202||r.status===200) return true; return r.text().then(function(t){ throw new Error(r.status+' '+String(t||'').slice(0,200)); }); });
 }
 
+function bdSendTestEmail(){
+  var me=((_bdMsStore()||{}).account||'').trim();
+  if(!(typeof _bdMsConnected==='function'&&_bdMsConnected())||!me){ if(typeof toastInfo==='function') toastInfo('Connect Outlook first','Connect Outlook in Settings, then send the test.'); return; }
+  var sigBlock=(typeof _bdSignatureHtmlBlock==='function')?_bdSignatureHtmlBlock():'';
+  if(!sigBlock && typeof toastInfo==='function') toastInfo('No signature yet','Open any email, click Pull signature from Outlook, then send the test to check it.');
+  var html=_bdPlainToHtml('This is a test email from BD to check that direct send and your signature are working. If the signature below looks right, you are all set.')+sigBlock;
+  if(typeof toastInfo==='function') toastInfo('Sending test...', me);
+  _bdMsSendMail(me,'','BD test email',html).then(function(){
+    if(typeof toastSuccess==='function') toastSuccess('Test sent','Check your inbox at '+me+'. It is also in your Sent folder.');
+  }).catch(function(e){
+    var m=String((e&&e.message)||e);
+    if(/\b40[13]\b|scope|consent|InvalidAuthenticationToken|Authorization|token/i.test(m)){
+      _bdMsAuthExpired=true; try{ _bdMsPaintStatus(); }catch(e2){}
+      if(typeof toastInfo==='function') toastInfo('Reconnect Outlook','Sending permission was just added. Reconnect Outlook in Settings, then send the test again.');
+    } else { if(typeof toastInfo==='function') toastInfo('Test failed', m); }
+  });
+}
 function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
   /* One compose flow for every email surface (Dave, 2026-08-24): pick a
@@ -7381,10 +7403,11 @@ function _bdAllPeople(){ var r=[]; if(typeof PARTNERS!=='undefined'&&PARTNERS) r
 function _bdFirstActDate(p){ var f=null; ((p&&p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
 var _bdGrpCache=null;
 function _bdIdentKey(p){ var e=String(p.email||p.contactEmail||'').trim().toLowerCase(); if(e) return 'e:'+e; var n=String(((p.cf||'')+' '+(p.cl||'')).trim()||p.contactName||'').toLowerCase(); var f=String(p.firm||p.contactFirm||'').toLowerCase(); return 'n:'+n+'|'+f; }
-function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}}; order.push(k); } var g=map[k]; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')+'|'+(a.inbound?'in':'out'); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
+function _bdPartnerKeySet(){ var s={}; if(typeof PARTNERS!=='undefined'&&PARTNERS){ PARTNERS.forEach(function(p){ if(p) s[_bdIdentKey(p)]=1; }); } return s; }
+function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var _pk=_bdPartnerKeySet(); var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}, isPartner:!!_pk[k], key:k}; order.push(k); } var g=map[k]; if(!g.isPartner&&_pk[k]) g.isPartner=true; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')+'|'+(a.inbound?'in':'out'); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
 function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
-function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
-function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ if(g.isPartner) return; var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
+function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ if(!g.isPartner) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
@@ -7394,7 +7417,7 @@ function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS
 var BD_AUTO_FEED={ 'bd.newPartnerOutreach':_bdFeedNewOutreach, 'bd.existingTouches':_bdFeedExistingTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.newActiveRelationships':_bdFeedStageReached('Meeting'), 'bd.eventsAttended':_bdFeedDistinctDays(/networking|mixer/i), 'bd.siteTours':_bdFeedDistinctDays(/site\s*(visit|tour)/i), 'bd.booksDelivered':_bdFeedBooks };
 function _bdScMonth(i){ var y=SC_PLAN_START_DATE.getFullYear(); return {s:new Date(y,i,1), e:new Date(y,i+1,1)}; }
 function _bdAutoFillScorecard(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.manualOverride) return; var k=m&&m.auto; if(!k||!BD_AUTO_FEED[k]||!Array.isArray(m.readings)) return; var fn=BD_AUTO_FEED[k]; var monthly=((m.cadence||'weekly')==='monthly'); for(var i=0;i<m.readings.length;i++){ var w=monthly?_bdScMonth(i):_bdScWk(i); var v=fn(w.s,w.e); m.readings[i]=(typeof v==='number'&&v>0)?v:null; } }); }); }catch(_){} }
-function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','People contacted for the first time ever this week, across partners and market leads.'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Outreach activities to people already in contact.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'), mk(4,'New active relationships',2,'weekly','Partners','bd.newActiveRelationships','leading','Partners who reached the Meeting stage this week.'), mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
+function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','Market leads and prospects reached for the first time this week (people not yet in your partner book).'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Every touch this week to a contact already in your partner book.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'), mk(4,'New active relationships',2,'weekly','Partners','bd.newActiveRelationships','leading','Partners who reached the Meeting stage this week.'), mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
 /* BDM Scorecard shared surface (2-way with VSP LT scorecard).
    BD is the owner. Publishes to window.SMB_BDM_SCORECARD + localStorage
    smb_bdm_scorecard_v1; adopts VSP LT edits back by metric id (never
