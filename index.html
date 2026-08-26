@@ -3317,6 +3317,12 @@ function _advanceStageOnTouch(p){
     if(!p.stageDates.Contacted) p.stageDates.Contacted=_today();
   }
 }
+/* A recorded reply advances the relationship to Responded (forward-only).
+   Dormant and earned Referral Partners are never auto-changed. */
+function _advanceOnReply(p){
+  if(!p || p.relStage==='Dormant' || p.isPartner) return;
+  _advanceStageTo(p,'Responded');
+}
 function _demoteStageOnUntouch(p){
   if(!p || p.isPartner) return;
   if(_pStage(p)!=='Contacted') return;
@@ -3328,9 +3334,9 @@ function _demoteStageOnUntouch(p){
   p.relStage='New';
   if(p.stageDates) delete p.stageDates.Contacted;
 }
-function partnerSetStage(id,stage){ var p=_partnerFind(id); if(!p) return; p.relStage=stage; if(stage){ if(!p.stageDates) p.stageDates={}; if(!p.stageDates[stage]) p.stageDates[stage]=_today(); } try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); openPartner(id); }
+function partnerSetStage(id,stage){ var p=_partnerFind(id); if(!p) return; p.relStage=stage; if(stage){ if(!p.stageDates) p.stageDates={}; if(!p.stageDates[stage]) p.stageDates[stage]=_today(); } try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); if(_activePageId()==='prospecting'){ renderProspecting(); } else { openPartner(id); } }
 function _partnerStageDate(p,stage){ return (p&&p.stageDates&&p.stageDates[stage])?p.stageDates[stage]:''; }
-function partnerSetStageDate(id,stage,val){ var p=_partnerFind(id); if(!p) return; if(!p.stageDates) p.stageDates={}; if(val) p.stageDates[stage]=val; else delete p.stageDates[stage]; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); openPartner(id); }
+function partnerSetStageDate(id,stage,val){ var p=_partnerFind(id); if(!p) return; if(!p.stageDates) p.stageDates={}; if(val) p.stageDates[stage]=val; else delete p.stageDates[stage]; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save(); if(_activePageId()==='prospecting'){ renderProspecting(); } else { openPartner(id); } }
 function _partnerStageTrack(p,ro){
   function _hcol(st){ return st==='red'?'var(--red)':(st==='amber'?'var(--amb)':(st==='green'?'var(--grn)':'var(--blu)')); }
   function _shortD(v){ if(!v) return ''; var dt=new Date(v+'T00:00:00'); if(isNaN(dt.getTime())) return v; return dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
@@ -3897,6 +3903,7 @@ function partnerLogEmail(id,subj,notes){
   if(!p.act) p.act=[];
   p.act.unshift({d:_today(),type:'Email',subj:(subj||'Email sent'),notes:(notes||''),na:'',nc:'',by:_curName().split(' ')[0],loggedAt:new Date().toISOString()});
   if(_today()>(p.lastContact||'')) p.lastContact=_today();
+  _advanceStageOnTouch(p);
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   save();
   if(typeof toastSuccess==='function') toastSuccess('Email logged','Logged to '+((p.cf||'')+' '+(p.cl||'')).trim()+'.');
@@ -4971,7 +4978,7 @@ function mleadLogEmail(kind,id,subj,notes){
     /* Already linked to a partner: mirror the touch onto the partner card too,
        so every lot email (not just the first) shows on his relationship history
        (Dave, 2026-08-24). */
-    try{ var lp=_prospFind(id); if(lp&&lp.linkedPartnerId!=null){ var pn=_partnerFind(lp.linkedPartnerId); if(pn){ if(!pn.act) pn.act=[]; pn.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); if(a.d>(pn.lastContact||'')) pn.lastContact=a.d; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} } } }catch(e){}
+    try{ var lp=_prospFind(id); if(lp&&lp.linkedPartnerId!=null){ var pn=_partnerFind(lp.linkedPartnerId); if(pn){ if(!pn.act) pn.act=[]; pn.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); if(a.d>(pn.lastContact||'')) pn.lastContact=a.d; _advanceStageOnTouch(pn); try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} } } }catch(e){}
   }
   try{ save(); }catch(e){}
   if(typeof toastSuccess==='function') toastSuccess(_np?'Added to pipeline':'Email logged', _np?(who+' has been added to your pipeline.'):('Logged to '+who+'.'));
@@ -4981,10 +4988,10 @@ function mleadLogEmail(kind,id,subj,notes){
 function _mktgActResolve(kind,id){
   if(kind==='lot'){ var p=_prospFind(id); if(!p) return null; if(!p.act)p.act=[];
     return {arr:p.act,label:p.contactName||'Lot agent',
-      applyLast:function(d){ if(d>(p.lastContact||''))p.lastContact=d; },
+      applyLast:function(d){ if(d>(p.lastContact||''))p.lastContact=d; if(p.linkedPartnerId!=null){ var _lp1=_partnerFind(p.linkedPartnerId); if(_lp1){ if(d>(_lp1.lastContact||'')) _lp1.lastContact=d; _advanceStageOnTouch(_lp1); } } },
       applyNext:function(nc){ if(nc)p.nextContact=nc; },
       applyFollow:function(na,owner){ p.nextAction=na||''; p.nextOwner=owner||''; },
-      setReply:function(on,date){ p.hasReply=!!on; if(on) p.replyAt=date||_today(); },
+      setReply:function(on,date){ p.hasReply=!!on; if(on){ p.replyAt=date||_today(); if(p.linkedPartnerId!=null){ var _lp2=_partnerFind(p.linkedPartnerId); if(_lp2) _advanceOnReply(_lp2); } } },
       persist:function(){ save(); }, rerender:function(){ renderProspecting(); }}; }
   if(kind==='pull'){ var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){pu=PERMIT_PULLS[i];break;} } if(!pu) return null;
     var k=pu.applicantKey||_pullKey(pu.applicant,''); if(!k) return null; if(!PULL_ACTIVITY[k])PULL_ACTIVITY[k]=[];
@@ -4993,10 +5000,10 @@ function _mktgActResolve(kind,id){
       persist:function(){ save(); }, rerender:function(){ renderProspecting(); }}; }
   if(kind==='partner'){ var pp=_partnerFind(id); if(!pp) return null; if(!pp.act)pp.act=[];
     return {arr:pp.act,label:((pp.cf||'')+' '+(pp.cl||'')).trim()||pp.firm||'Partner',
-      applyLast:function(d){ if(d>(pp.lastContact||''))pp.lastContact=d; },
+      applyLast:function(d){ if(d>(pp.lastContact||''))pp.lastContact=d; _advanceStageOnTouch(pp); },
       applyNext:function(nc){ if(nc)pp.nextContact=nc; },
       applyFollow:function(na,owner){ pp.nextAction=na||''; pp.nextOwner=owner||''; },
-      setReply:function(on,date){ pp.hasReply=!!on; if(on){ pp.replyAt=date||_today(); _replyKeepFor=pp.id; } },
+      setReply:function(on,date){ pp.hasReply=!!on; if(on){ pp.replyAt=date||_today(); _replyKeepFor=pp.id; _advanceOnReply(pp); } },
       persist:function(){ try{ if(typeof publishPartnersSteward==='function')publishPartnersSteward(); }catch(e){} save(); },
       rerender:function(){ openPartner(id); }}; }
   return null;
@@ -5188,7 +5195,7 @@ function _mleadDetailLot(p){
         : '<button class="btn btn-sm" onclick="prospectArchive('+p.id+')" title="Not a good fit - move out of your working list, keep the record">Archive</button>')+
       '<button class="btn btn-sm" onclick="prospectDelete('+p.id+')" style="color:var(--red);border-color:var(--reds)">Delete</button>'+
     '</div></div>';
-  if(p.linkedPartnerId!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===p.linkedPartnerId; })[0]; if(_lp) html+=_partnerStageTrack(_lp,true); }
+  if(p.linkedPartnerId!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===p.linkedPartnerId; })[0]; if(_lp) html+=_partnerStageTrack(_lp); }
   html+='<div class="grid-2">';
   html+='<div class="card"><div class="card-hd"><span class="card-title">Contact</span></div><div class="card-body">'+
     '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+_mleadMailto(email)+'</span></div>'+
@@ -5246,7 +5253,7 @@ function _mleadDetailPull(key){
       '<button class="btn btn-sm" onclick="mleadLogActivity(\'pull\','+first.id+')">Log activity</button>'+
       (linked?('<button class="btn btn-primary btn-sm" onclick="openPartner('+linkedPid+')">View partner</button>'):('<button class="btn btn-primary btn-sm" onclick="pullRowLogContact('+first.id+')">Add to pipeline</button>'))+
     '</div></div>';
-  if(linked && linkedPid!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===linkedPid; })[0]; if(_lp) html+=_partnerStageTrack(_lp,true); }
+  if(linked && linkedPid!=null){ var _lp=PARTNERS.filter(function(x){ return x.id===linkedPid; })[0]; if(_lp) html+=_partnerStageTrack(_lp); }
   html+='<div class="grid-2">';
   html+='<div class="card"><div class="card-hd"><span class="card-title">Contact</span></div><div class="card-body">'+
     '<div class="kv"><span class="kv-k">Email</span><span class="kv-v">'+_mleadMailto(email)+'</span></div>'+
