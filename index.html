@@ -5226,7 +5226,7 @@ function bdPullSignature(){
     return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=15&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments',{headers:{Authorization:'Bearer '+tok}});
   }).then(function(r){ if(!r||!r.ok) throw new Error('Graph '+(r?r.status:'error')); return r.json(); })
   .then(function(res){
-    var msgs=(res&&res.value)||[];
+    var msgs=((res&&res.value)||[]).filter(function(m){ var _h=m&&m.body&&m.body.content; return !(_h&&_h.indexOf('bd-sent-marker-x9f2')>=0); });
     var sig=_bdExtractSignature(msgs);
     if(!sig){ if(typeof toastInfo==='function') toastInfo('No signature found','No repeated signature in your recent sent mail. Send one normal email from Outlook, then Re-pull.'); return; }
     BD_SIGNATURE=sig;
@@ -5276,7 +5276,7 @@ function _bdSignatureHtmlBlock(){
 function _bdMsSendMail(to, cc, subject, htmlBody){
   return _bdMsToken().then(function(tok){
     if(!tok) throw new Error('401 sign-in expired');
-    var msg={subject:String(subject||''), body:{contentType:'HTML', content:String(htmlBody||'')}, toRecipients:[{emailAddress:{address:String(to)}}]};
+    var msg={subject:String(subject||''), body:{contentType:'HTML', content:String(htmlBody||'')+'<!--bd-sent-marker-x9f2-->'}, toRecipients:[{emailAddress:{address:String(to)}}]};
     if(cc && String(cc).toLowerCase()!==String(to).toLowerCase()) msg.ccRecipients=[{emailAddress:{address:String(cc)}}];
     return fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({message:msg,saveToSentItems:true})});
   }).then(function(r){ if(!r) throw new Error('no response'); if(r.status===202||r.status===200) return true; return r.text().then(function(t){ throw new Error(r.status+' '+String(t||'').slice(0,200)); }); });
