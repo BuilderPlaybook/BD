@@ -4079,6 +4079,8 @@ var PROSPECTS = [];
 /* Manual lot classification. Keyed by normalized lot key (address|price),
    value is 'res' | 'com'. Manual entries win over any scraper-provided type. */
 var LOT_TYPES = {};
+var BD_SIGNATURE='';
+var BD_SIGNATURE_HTML='';
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
@@ -5109,18 +5111,184 @@ function _copyToClipboard(text){
 }
 var _cmpCtx=null;
 var _cmpConfirmCb=null;
+function _bdHtmlToText(h){
+  var s=String(h||'');
+  s=s.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<script[\s\S]*?<\/script>/gi,' ');
+  s=s.replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|tr|li|h[1-6])>/gi,'\n');
+  s=s.replace(/<[^>]+>/g,'');
+  try{ var d=document.createElement('textarea'); d.innerHTML=s; s=d.value; }catch(e){}
+  return s.replace(/\r/g,'').replace(/\u00a0/g,' ');
+}
+function _bdSigLines(txt){
+  var s=String(txt||'');
+  var cut=-1;
+  var m1=s.search(/^(From:\s|-{4,}\s*Original Message|_{6,})/m); if(m1>=0) cut=m1;
+  var m2=s.search(/^On .{0,140} wrote:/m); if(m2>=0&&(cut<0||m2<cut)) cut=m2;
+  if(cut>=0) s=s.slice(0,cut);
+  var lines=s.split('\n').map(function(l){ return l.replace(/\s+$/,''); });
+  while(lines.length && lines[lines.length-1].trim()==='') lines.pop();
+  if(lines.length>16) lines=lines.slice(lines.length-16);
+  return lines;
+}
+function _bdExtractSignature(msgs){
+  /* Signature = the trailing block of lines repeated across DISTINCT recent
+     sent emails. Exact-duplicate tails collapse to one first, so a template
+     blasted to many contacts counts once and cannot pass itself off as the
+     signature; the block must recur across different messages. A leading
+     closing salutation (Regards, Thanks, ...) is trimmed off so template
+     closings do not double up when BD appends the signature. */
+  var tails=[], seen={};
+  (msgs||[]).forEach(function(m){
+    var html=m&&m.body&&m.body.content; if(!html) return;
+    var t=_bdSigLines(_bdHtmlToText(html));
+    if(!t.length) return;
+    var key=t.join('\n');
+    if(seen[key]) return; seen[key]=1;
+    tails.push(t);
+  });
+  if(tails.length<2) return '';
+  var need=(tails.length>=4)?2:1;
+  function lineEq(a,b){ return a.trim()===b.trim(); }
+  var best='';
+  for(var ai=0; ai<tails.length; ai++){
+    var A=tails[ai];
+    for(var d=A.length; d>=1; d--){
+      var suf=A.slice(A.length-d), cnt=0;
+      for(var bi=0; bi<tails.length; bi++){
+        if(bi===ai) continue;
+        var B=tails[bi]; if(B.length<d) continue;
+        var ok=true;
+        for(var k=0;k<d;k++){ if(!lineEq(B[B.length-d+k],suf[k])){ ok=false; break; } }
+        if(ok) cnt++;
+      }
+      if(cnt<need) continue;
+      var cand=suf.slice();
+      while(cand.length && (cand[0].trim()===''||/^(kind regards|warm regards|best regards|best wishes|regards|best|thanks|thank you|many thanks|cheers|sincerely)[,.!]?$/i.test(cand[0].trim()))) cand.shift();
+      while(cand.length && cand[cand.length-1].trim()==='') cand.pop();
+      var joined=cand.join('\n').trim();
+      if(cand.length && /^(kind regards|warm regards|best regards|best wishes|regards|best|thanks|thank you|many thanks|cheers|sincerely)[,.!]?$/i.test(cand[cand.length-1].trim())){ continue; }
+      if(joined && joined.length<=1200 && joined.split('\n').length<=14){
+        if(joined.length>best.length) best=joined;
+        break;
+      }
+    }
+  }
+  return best;
+}
+function _bdInlineCidImages(html, atts){
+  if(!html || !atts || !atts.length) return html||'';
+  var map={};
+  atts.forEach(function(a){
+    if(!a) return;
+    var cid=String(a.contentId||'').replace(/^<|>$/g,'').trim();
+    if(cid && a.contentBytes){ map[cid.toLowerCase()]='data:'+(a.contentType||'image/png')+';base64,'+a.contentBytes; }
+  });
+  return String(html).replace(/src\s*=\s*(["']?)cid:([^"'>\s]+)\1/gi, function(m,q,cid){
+    var d=map[String(cid).toLowerCase()]; return d?('src="'+d+'"'):m;
+  });
+}
+function _bdCutQuoted(html){
+  var s=String(html||''); var low=s.toLowerCase(); var cut=-1;
+  ['<blockquote','id="appendonsend"','id="divrplyfwdmsg"','gmail_quote','-----original message-----'].forEach(function(mk){
+    var ix=low.indexOf(mk); if(ix>=0 && (cut<0||ix<cut)) cut=ix;
+  });
+  var mFrom=s.search(/<[^>]*>\s*From:\s/i); if(mFrom>=0 && (cut<0||mFrom<cut)) cut=mFrom;
+  var mOn=s.search(/On .{0,140}? wrote:/i); if(mOn>=0 && (cut<0||mOn<cut)) cut=mOn;
+  return cut>=0? s.slice(0,cut): s;
+}
+function _bdExtractSigHtml(html, firstLine){
+  var s=_bdCutQuoted(html); if(!s) return '';
+  var fl=String(firstLine||'').trim(); if(!fl) return '';
+  var idx=s.indexOf(fl); if(idx<0) idx=s.indexOf(fl.replace(/&/g,'&amp;'));
+  if(idx<0){ var w=fl.split(/\s+/)[0]; if(w) idx=s.indexOf(w); }
+  if(idx<0) return '';
+  var tags=['<p','<div','<table','<span','<font','<tr'];
+  var startTagOpen=-1, scan=idx;
+  while(scan>0){
+    var lb=s.lastIndexOf('<', scan-1); if(lb<0) break;
+    var frag=s.slice(lb, lb+6).toLowerCase(), hit=false;
+    for(var ti=0;ti<tags.length;ti++){ if(frag.indexOf(tags[ti])===0){ hit=true; break; } }
+    if(hit){ startTagOpen=lb; break; }
+    scan=lb;
+  }
+  var lt=s.lastIndexOf('<', idx);
+  var start=(startTagOpen>=0)?startTagOpen:(lt>=0?lt:idx);
+  var out=s.slice(start).trim();
+  if(out.length>20000) out=out.slice(0,20000);
+  return out;
+}
+function bdPullSignature(){
+  if(typeof _bdMsConnected!=='function'||!_bdMsConnected()){ if(typeof toastInfo==='function') toastInfo('Outlook not connected','Connect Outlook in Settings, then pull the signature.'); return; }
+  if(typeof toastInfo==='function') toastInfo('Pulling signature','Reading your recent sent emails...');
+  var _tok=null;
+  _bdMsToken().then(function(tok){
+    if(!tok) throw new Error('Sign-in expired - reconnect Outlook');
+    _tok=tok;
+    return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=15&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments',{headers:{Authorization:'Bearer '+tok}});
+  }).then(function(r){ if(!r||!r.ok) throw new Error('Graph '+(r?r.status:'error')); return r.json(); })
+  .then(function(res){
+    var msgs=(res&&res.value)||[];
+    var sig=_bdExtractSignature(msgs);
+    if(!sig){ if(typeof toastInfo==='function') toastInfo('No signature found','No repeated signature in your recent sent mail. Send one normal email from Outlook, then Re-pull.'); return; }
+    BD_SIGNATURE=sig;
+    var firstLine=sig.split('\n')[0]||'';
+    var src=null;
+    for(var i=0;i<msgs.length;i++){ var h=msgs[i]&&msgs[i].body&&msgs[i].body.content; if(!h) continue; if(_bdHtmlToText(h).indexOf(firstLine)>=0){ src=msgs[i]; break; } }
+    var finish=function(){
+      try{ save(); }catch(e){}
+      var hasImg=(typeof BD_SIGNATURE_HTML==='string' && /<img/i.test(BD_SIGNATURE_HTML));
+      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured. Added to every BD email.');
+    };
+    if(src && src.body && String(src.body.contentType||'').toLowerCase()==='html'){
+      var sigHtml=_bdExtractSigHtml(src.body.content, firstLine);
+      if(src.hasAttachments && sigHtml && /cid:/i.test(sigHtml)){
+        fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(src.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
+          .then(function(r){ return r&&r.ok?r.json():{value:[]}; })
+          .then(function(ar){ BD_SIGNATURE_HTML=_bdInlineCidImages(sigHtml,(ar&&ar.value)||[]); finish(); })
+          .catch(function(){ BD_SIGNATURE_HTML=sigHtml; finish(); });
+        return;
+      }
+      BD_SIGNATURE_HTML=sigHtml||'';
+    } else {
+      BD_SIGNATURE_HTML='';
+    }
+    finish();
+  }).catch(function(e){ if(typeof toastInfo==='function') toastInfo('Pull failed', String((e&&e.message)||e)); });
+}
+function _bdPlainToHtml(s){
+  var e=String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div>'+e.replace(/\r/g,'').replace(/\n/g,'<br>')+'</div>';
+}
+function _bdSigToHtml(s){
+  var e=String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return '<div>'+e.replace(/\r/g,'').replace(/\n/g,'<br>')+'</div>';
+}
+function _bdSignatureHtmlBlock(){
+  if(typeof BD_SIGNATURE_HTML==='string' && BD_SIGNATURE_HTML.trim()) return '<br><br>'+BD_SIGNATURE_HTML;
+  if(typeof BD_SIGNATURE==='string' && BD_SIGNATURE.trim()) return '<br><br>'+_bdSigToHtml(BD_SIGNATURE);
+  return '';
+}
+function _bdMsSendMail(to, cc, subject, htmlBody){
+  return _bdMsToken().then(function(tok){
+    if(!tok) throw new Error('401 sign-in expired');
+    var msg={subject:String(subject||''), body:{contentType:'HTML', content:String(htmlBody||'')}, toRecipients:[{emailAddress:{address:String(to)}}]};
+    if(cc && String(cc).toLowerCase()!==String(to).toLowerCase()) msg.ccRecipients=[{emailAddress:{address:String(cc)}}];
+    return fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({message:msg,saveToSentItems:true})});
+  }).then(function(r){ if(!r) throw new Error('no response'); if(r.status===202||r.status===200) return true; return r.text().then(function(t){ throw new Error(r.status+' '+String(t||'').slice(0,200)); }); });
+}
+
 function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
   /* One compose flow for every email surface (Dave, 2026-08-24): pick a
      template right on the record, see and edit the subject and body with
-     tokens already substituted, then Open in Outlook. The mailto carries To,
-     CC, and Subject only (a prefilled BODY suppresses the user's Outlook
-     signature and its book/QR banner), and the body is copied to the
-     clipboard so one Ctrl+V drops it in above the signature. The touch is
-     logged immediately with the REAL subject and body so the Email Thread
-     shows what was actually sent, with an Undo toast if the user bails.
-     Direct send with body and signature injected server-side returns when
-     the shared send backend (D-45) is connected. */
+     tokens substituted, then Send. BD sends directly through the user's
+     Microsoft connection (Graph sendMail, saveToSentItems) with the full
+     Outlook signature (BD_SIGNATURE_HTML, banner included, pulled once from
+     sent mail via bdPullSignature) built into the HTML body, so the signature
+     is deterministic instead of depending on Outlook. The touch is logged on a
+     successful send. If sending is not yet authorised (Mail.Send scope just
+     added, reconnect pending) or Graph errors, BD falls back to the Outlook
+     mailto handoff and the did-you-send confirm so the email is never lost. */
   to=String(to).trim(); opts=opts||{};
   var cc=(opts.cc)?String(opts.cc).trim():'';
   var aud=opts.audience||'Partner';
@@ -5144,9 +5312,10 @@ function _composeEmail(to,name,onSend,opts){
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
     '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To, Subject, and message body, then opens Outlook ready to send above your signature. After Outlook opens, BD asks whether you sent it; it only logs as a touch on the scorecard if you confirm you sent it. Direct send from this screen arrives with the email backend.</div></div>'+
+    '<div class="smb-fld full"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+(((typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim())||(typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim()))?('<span class="muted" style="font-size:var(--fz-xs)">Your full Outlook signature is added to every email automatically.</span><button type="button" class="btn btn-sm" onclick="bdPullSignature()">Re-pull signature</button>'):('<button type="button" class="btn btn-sm" onclick="bdPullSignature()">Pull signature from Outlook</button><span class="muted" style="font-size:var(--fz-xs)">Reads your recent sent email once and captures your full signature, banner included.</span>'))+'</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">BD sends this straight through your Outlook account. It arrives in your Sent folder with your full signature and logs as a touch automatically. If sending is not yet authorised, BD opens Outlook for this one and asks you to reconnect.</div></div>'+
   '</div>';
-  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
+  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Send email',
     onSave:function(){ _cmpDoSend(); } });
 }
 function _cmpApplyTpl(){
@@ -5188,43 +5357,46 @@ function _cmpDoSend(){
   var selEl=document.getElementById('cmp-tpl');
   var tid=(selEl&&selEl.value!=='')?parseInt(selEl.value,10):null;
   if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
-  /* Copy the body to the clipboard as a silent fallback only. The body is now
-     placed directly into the Outlook handoff below, so no paste is needed in
-     the normal case; the clipboard copy only rescues the rare case where a very
-     long body exceeds the mailto length limit and Outlook truncates it. */
-  var copied=false;
-  if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
-  closeModal();
-  _cmpCtx=null;
-  var _openOutlook=function(){
+  closeModal(); _cmpCtx=null;
+  var _who=(c.name||c.to);
+  var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
+  var logBody=body.replace(/\s+$/,'')+sigText;
+  var _doLog=function(){
+    try{ if(typeof c.onSend==='function') c.onSend(subj, logBody); }catch(e){}
+    try{ save(); }catch(e){}
+  };
+  /* mailto fallback keeps the email deliverable if direct send is not yet
+     authorised (Mail.Send scope just added, reconnect pending) or Graph errors.
+     The plaintext signature rides along; the banner only appears on true
+     direct send. */
+  var _fallbackMailto=function(){
     try{
       var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
       var _qs=[];
       if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
       if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
-      if(body.replace(/\s/g,'')!==''){ _qs.push('body='+encodeURIComponent(body)); }
+      if(logBody.replace(/\s/g,'')!==''){ _copyToClipboard(logBody); _qs.push('body='+encodeURIComponent(logBody)); }
       if(_qs.length){ href+='?'+_qs.join('&'); }
-      var a=document.createElement('a'); a.href=href;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
     }catch(e){}
+    _cmpConfirmSend(_who, function(){ _doLog(); if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch.'); }, function(){ if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.'); });
   };
-  _openOutlook();
-  /* Confirm-before-log (Dave, 2026-08-25): opening Outlook no longer logs the
-     touch on its own, because a test-open or an abandoned draft would inflate
-     the scorecard. Instead we ask "Did you send it?" and only run the onSend
-     logging callback when the user confirms Sent. If they did not send,
-     nothing is logged. */
-  var _who=(c.name||c.to);
-  var _doLog=function(){
-    try{ if(typeof c.onSend==='function') c.onSend(subj,body); }catch(e){}
-    try{ save(); }catch(e){}
-    if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.');
-  };
-  var _skipLog=function(){
-    if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.');
-    else if(typeof toastSuccess==='function') toastSuccess('Not logged', _who+'. Nothing was recorded.');
-  };
-  _cmpConfirmSend(_who, _doLog, _skipLog);
+  if(!(typeof _bdMsConnected==='function'&&_bdMsConnected())){ _fallbackMailto(); return; }
+  var htmlBody=_bdPlainToHtml(body)+_bdSignatureHtmlBlock();
+  if(typeof toastInfo==='function') toastInfo('Sending...', _who);
+  _bdMsSendMail(c.to, c.cc, subj, htmlBody).then(function(){
+    _doLog();
+    if(typeof toastSuccess==='function') toastSuccess('Sent', _who+'. In your Outlook Sent folder, logged as a touch.');
+  }).catch(function(e){
+    var m=String((e&&e.message)||e);
+    if(/\b40[13]\b|scope|consent|InvalidAuthenticationToken|Authorization|token/i.test(m)){
+      if(typeof toastInfo==='function') toastInfo('Reconnect Outlook to enable sending','Sending permission was just added. Reconnect Outlook once in Settings, then send again. Opening Outlook for this one.');
+      _bdMsAuthExpired=true; try{ _bdMsPaintStatus(); }catch(e2){}
+    } else {
+      if(typeof toastInfo==='function') toastInfo('Direct send failed - opening Outlook', m);
+    }
+    _fallbackMailto();
+  });
 }
 /* Post-Outlook confirmation modal: did the email actually get sent? Only a
    Yes logs the touch. Reuses the standard openModal chrome; the two footer
@@ -9760,6 +9932,8 @@ function loadState(){
       if(s.BD_MEAS_OV) BD_MEAS_OV=s.BD_MEAS_OV;
       if(s.OUTREACH&&typeof s.OUTREACH==='object'){ OUTREACH.drafts=Array.isArray(s.OUTREACH.drafts)?s.OUTREACH.drafts:[]; if(s.OUTREACH.settings&&typeof s.OUTREACH.settings==='object'){ for(var _ok in s.OUTREACH.settings) OUTREACH.settings[_ok]=s.OUTREACH.settings[_ok]; } if(s.OUTREACH.tplByCat&&typeof s.OUTREACH.tplByCat==='object') OUTREACH.tplByCat=s.OUTREACH.tplByCat; }
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com') LOT_TYPES[_lk]=_lv; } }
+      if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
+      if(typeof s.BD_SIGNATURE_HTML==='string'){ BD_SIGNATURE_HTML=s.BD_SIGNATURE_HTML; }
     }
   }catch(e){ console.warn('BD state load failed:',e); }
   // one-time auto-pull from Marketing (overlays the outbound entries)
@@ -9819,7 +9993,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
@@ -11779,7 +11953,7 @@ function _migrateLotAgentOutreach(){
    ============================================================ */
 var BD_MS_CLIENT_ID='6b0771e0-31ce-4493-8c9c-651fe119baae';
 var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
-var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Calendars.ReadWrite';
+var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Mail.Send Calendars.ReadWrite';
 var BD_MS_KEY='smb.bd.msauth';
 var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
 var BD_MS_UNMATCHED_KEY='smb.bd.msunmatched.v1';
