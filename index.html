@@ -1470,7 +1470,7 @@ td:hover > .sc-note-pop{display:block}
       <select id="ptn-f-owner" onchange="_ptnFilterChanged()"><option value="">All Owners</option><option value="mine">My partners</option></select>
       <select id="ptn-f-stage" onchange="_ptnFilterChanged()"><option value="">All Stages</option><option>New</option><option>Contacted</option><option>Responded</option><option>Meeting</option><option>Dormant</option></select>
       <select id="ptn-f-health" onchange="_ptnFilterChanged()"><option value="">All Health</option><option>Excellent</option><option>Healthy</option><option>Watch</option><option>At Risk</option></select>
-      <select id="ptn-f-quick" onchange="_ptnFilterChanged()"><option value="">Everything</option><option value="overdue">Follow-ups due</option><option value="strong">Strong (score 8+)</option><option value="dormant">Dormant / gone quiet</option></select>
+      <select id="ptn-f-quick" onchange="_ptnFilterChanged()"><option value="">Everything</option><option value="reachoverdue">Reach-out overdue</option><option value="reachsoon">Reach-out due soon</option><option value="overdue">Follow-ups due</option><option value="strong">Strong (score 8+)</option><option value="dormant">Dormant / gone quiet</option></select>
       <button class="btn btn-sm" id="ptn-clear-btn" onclick="clearPtnFilters()" style="display:none">Clear filters</button>
     </div>
     <div id="ptn-table"></div>
@@ -1891,6 +1891,8 @@ function setPTNView(v){
   // the facet dropdowns so links keep working after the chip rows retired.
   if(v==='all'){ clearPtnFilters(); return; }
   if(v==='mine'){ _ptnSetSel('ptn-f-owner','mine'); }
+  else if(v==='reachoverdue'){ _ptnSetSel('ptn-f-quick','reachoverdue'); }
+  else if(v==='reachsoon'){ _ptnSetSel('ptn-f-quick','reachsoon'); }
   else if(v==='overdue'){ _ptnSetSel('ptn-f-quick','overdue'); }
   else if(v==='strong'){ _ptnSetSel('ptn-f-quick','strong'); }
   else if(v==='dormant'){ _ptnSetSel('ptn-f-quick','dormant'); }
@@ -2333,6 +2335,8 @@ function ptnFiltered(){
     if(fo==='mine' && _fullName(p.assignedTo)!==_fullName(me)) return false;
     if(ft==='none'){ if(partnerTier(p)) return false; }
     else if(ft && partnerTier(p)!==ft) return false;
+    if(fq==='reachoverdue'){ if(p.ownershipStatus && p.ownershipStatus!=='Active') return false; if(reachState(p).state!=='red') return false; }
+    if(fq==='reachsoon'){ if(p.ownershipStatus && p.ownershipStatus!=='Active') return false; if(reachState(p).state!=='amber') return false; }
     if(fq==='overdue'){ if(!_ptnFollowupDue(p)) return false; }
     if(fq==='strong' && !(p.relScore>=8)) return false;
     if(fq==='dormant' && !(p.relStage==='Dormant'||daysSince(p.lastContact)>60)) return false;
@@ -10989,8 +10993,8 @@ function renderDash(){
       _bdDashCard('k-blu','Active Partners',num(actPartners),'Partners with an active relationship stage (not Dormant). Click to view partners.','nav(&quot;partners&quot;)',PARTNERS.length+' total partners')+
       _bdDashCard('k-blu','Referral Partners',num(refPartners),'Partners who have sent at least one referral. Click to view partners.','navPtn(&quot;referral&quot;)','have sent a referral')+
       _bdDashCard('k-grn','Won Revenue',bdMoney(_refS.wonRevenue),'Signed revenue from partner-sourced referrals. This is the number partner effort is judged on. Click to view referrals.','setBdRepTab(&quot;referrals&quot;);nav(&quot;reports&quot;)',num(_refS.won)+' won referral'+(_refS.won===1?'':'s'))+
-      _bdDashCard(overdue.length?'k-red':'k-grn','Reach-out Overdue',num(overdue.length),'Partners whose next reach-out date has passed, based on their tier cadence. Click to view follow-ups.','nav(&quot;followups&quot;)','past reach-out date')+
-      _bdDashCard(dueSoon.length?'k-amb':'k-blu','Due Soon',num(dueSoon.length),'Partners with a reach-out due in the next several days. Click to view follow-ups.','nav(&quot;followups&quot;)','due within 7 days')+
+      _bdDashCard(overdue.length?'k-red':'k-grn','Reach-out Overdue',num(overdue.length),'Partners whose next reach-out date has passed, based on their tier cadence. Click to view these partners.','nav(&quot;partners&quot;);setPTNView(&quot;reachoverdue&quot;)','past reach-out date')+
+      _bdDashCard(dueSoon.length?'k-amb':'k-blu','Due Soon',num(dueSoon.length),'Partners with a reach-out due in the next several days. Click to view these partners.','nav(&quot;partners&quot;);setPTNView(&quot;reachsoon&quot;)','due within 7 days')+
     '</div></div></div>';
 
   // Working Queue v1 ("My Day") - urgency-ordered reach-out queue.
@@ -11021,10 +11025,13 @@ function renderDash(){
   // Replies to Answer - inbound replies with no outbound response logged since.
   var _repl=_bdRepliesAwaiting().filter(function(r){ return _own(r.p); });
   var _replStale=_repl.filter(function(r){ return r.wait!=null && r.wait>=3; }).length;
+  var _syncBad=false; try{ _syncBad=_bdMsSyncUnhealthy(); }catch(e){}
+  var _replMeta=_syncBad?'Sync needs attention':(_repl.length?(_repl.length+' waiting'+(_replStale?', '+_replStale+' over 3 days':'')):'All caught up');
   html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Replies to Answer</span>'+
-    '<span class="card-hd-meta">'+(_repl.length?(_repl.length+' waiting'+(_replStale?', '+_replStale+' over 3 days':'')):'All caught up')+'</span></div>';
+    '<span class="card-hd-meta">'+_esc(_replMeta)+'</span></div>';
+  if(_syncBad){ try{ html+='<div class="card-bd" style="padding-bottom:6px">'+_bdMsWarnStrip()+'</div>'; }catch(e){} }
   if(!_repl.length){
-    html+='<div class="card-bd"><div class="muted">No replies waiting on you. Every partner who wrote back has had a response logged.</div></div>';
+    html+='<div class="card-bd"><div class="muted">'+(_syncBad?'No replies are showing, but the check above did not run. Reconnect and check now to pull recent replies.':'No replies waiting on you. Every partner who wrote back has had a response logged.')+'</div></div>';
   } else {
     html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col">Waiting</th><th scope="col">Subject</th><th scope="col"></th></tr></thead><tbody>';
     _repl.forEach(function(r){
@@ -11793,6 +11800,8 @@ var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Calendars.Re
 var BD_MS_KEY='smb.bd.msauth';
 var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
 var BD_MS_UNMATCHED_KEY='smb.bd.msunmatched.v1';
+var BD_MS_LASTOK_KEY='smb.bd.mslastok.v1';
+var _bdMsAuthExpired=false;
 var BD_MS_POLL_MS=5*60*1000;
 var _bdMsPollTimer=null;
 function _bdMsRedirectUri(){ return location.origin + location.pathname; }
@@ -11878,6 +11887,24 @@ function _bdMsToken(){
 }
 function _bdMsSeen(){ try{ return JSON.parse(localStorage.getItem(BD_MS_SEEN_KEY)||'{}'); }catch(e){ return {}; } }
 function _bdMsMarkSeen(map){ try{ localStorage.setItem(BD_MS_SEEN_KEY, JSON.stringify(map)); }catch(e){} }
+function _bdMsLastOk(){ try{ return localStorage.getItem(BD_MS_LASTOK_KEY)||''; }catch(e){ return ''; } }
+function _bdMsLastOkMs(){ var s=_bdMsLastOk(); if(!s) return 0; var t=new Date(s).getTime(); return isNaN(t)?0:t; }
+/* Sync is unhealthy when the browser holds a Microsoft token object (so the
+   user has connected) but the session can no longer pull mail: the refresh
+   token expired (a dead token object still reads as connected), or no scan has
+   succeeded in over a day. This is the case that made a dead sign-in look like
+   'Connected' and let the dashboard say 'All caught up' while nothing synced. */
+function _bdMsSyncUnhealthy(){ if(typeof _bdMsConnected!=='function'||!_bdMsConnected()) return false; if(_bdMsAuthExpired) return true; var t=_bdMsLastOkMs(); if(!t) return true; return (Date.now()-t)>24*60*60*1000; }
+function _bdMsWarnStrip(){
+  var lastMs=_bdMsLastOkMs();
+  var when=lastMs?fmtDateShort(_bdMsLocalDate(new Date(lastMs).toISOString())):'never';
+  var msg=_bdMsAuthExpired?'Your Microsoft sign-in has expired, so new replies are not syncing.':'Inbox sync has not run successfully recently, so new replies may be missing.';
+  return '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:2px 0">'+
+    '<span class="chip c-amb" role="status">Sync needs attention</span>'+
+    '<span class="muted" style="font-size:var(--fz-body)">'+_esc(msg)+' Last successful check: '+_esc(when)+'.</span>'+
+    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-sm" onclick="bdMsConnect()">Reconnect Outlook</button>'+
+    '<button type="button" class="btn btn-sm" onclick="bdMsCheckNow()">Check now</button></span></div>';
+}
 /* Inbound mail from an address that is not on any record used to be marked
    seen and dropped with no trace, so a reply from a second address was lost
    permanently and invisibly. Unmatched inbound is now kept here, re-checked
@@ -12142,7 +12169,8 @@ function bdMsRescan(){
 }
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
-    if(!tok){ _bdMsPaintStatus(); return 0; }
+    if(!tok){ if(typeof _bdMsConnected==='function'&&_bdMsConnected()){ _bdMsAuthExpired=true; } _bdMsPaintStatus(); try{ if(typeof _curPage!=='undefined'&&_curPage==='dashboard'&&typeof renderDash==='function') renderDash(); }catch(e){} return 0; }
+    _bdMsAuthExpired=false;
     var ix=_bdMsEmailIndex();
     var seen=_bdMsSeen();
     var logged=0;
@@ -12243,6 +12271,8 @@ function bdMsCheckNow(){
         // Always persist: sent-folder body-fills change data even when no new inbound.
         try{ _bdGrpCache=null; }catch(e){}
         try{ save(); }catch(e){}
+        try{ localStorage.setItem(BD_MS_LASTOK_KEY, new Date().toISOString()); }catch(e){}
+        _bdMsAuthExpired=false;
         if(total){
           if(typeof toastSuccess==='function') toastSuccess('Replies synced', total+' new '+(total===1?'reply':'replies')+' from your Inbox logged.');
         }
@@ -12389,6 +12419,11 @@ function _bdMsPaintStatus(errText){
         st.textContent='Permission needed'; st.className='integ-status pending';
         btns.innerHTML='<div class="muted" style="font-size:var(--fz-xs);margin-bottom:6px">Signed in as '+acct+', but the app is missing the Mail.Read permission in Azure. Add it, then click Check now.</div>'+
           '<button class="integ-btn" onclick="bdMsCheckNow()">Check now</button> '+
+          '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
+      } else if(_bdMsAuthExpired){
+        st.textContent='Sign-in expired'; st.className='integ-status pending';
+        btns.innerHTML='<div class="muted" style="font-size:var(--fz-xs);margin-bottom:6px">Your Microsoft session ('+acct+') expired, so new replies are not syncing. Reconnect to resume.</div>'+
+          '<button class="integ-btn" onclick="bdMsConnect()">Reconnect Outlook</button> '+
           '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
       } else {
         st.textContent='Connected: '+acct; st.className='integ-status live';
