@@ -4081,6 +4081,7 @@ var PROSPECTS = [];
 var LOT_TYPES = {};
 var BD_SIGNATURE='';
 var BD_SIGNATURE_HTML='';
+var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
@@ -5242,20 +5243,37 @@ function bdPullSignature(){
     }
     var finish=function(){
       try{ save(); }catch(e){}
+      var nImg=(typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS)?BD_SIGNATURE_ATTS.length:0;
       var hasImg=(typeof BD_SIGNATURE_HTML==='string' && /<img/i.test(BD_SIGNATURE_HTML));
-      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.');
+      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', nImg?('Full signature captured with '+nImg+' image'+(nImg===1?'':'s')+'. Added to every BD email.'):(hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.'));
     };
     if(best){
-      if(bestMsg && bestMsg.hasAttachments && /cid:/i.test(best)){
+      if(bestMsg && /cid:/i.test(best)){
+        /* Graph quirk: hasAttachments is false when a message has ONLY inline
+           images, so always fetch attachments when the signature references
+           cid images. The image files are stored with the signature and ride
+           on every send as inline attachments, which is what Outlook needs to
+           render them (data-URI images are blocked by Outlook). */
         fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(bestMsg.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
           .then(function(r){ return r&&r.ok?r.json():{value:[]}; })
-          .then(function(ar){ BD_SIGNATURE_HTML=_bdInlineCidImages(best,(ar&&ar.value)||[]); finish(); })
-          .catch(function(){ BD_SIGNATURE_HTML=best; finish(); });
+          .then(function(ar){
+            var list=(ar&&ar.value)||[], used=[], total=0, lower=best.toLowerCase();
+            list.forEach(function(a){
+              if(!a||!a.contentBytes) return;
+              var cid=String(a.contentId||'').replace(/^<|>$/g,'').trim();
+              if(!cid || lower.indexOf('cid:'+cid.toLowerCase())<0) return;
+              if(total+a.contentBytes.length>3000000) return;
+              total+=a.contentBytes.length;
+              used.push({contentId:cid, contentType:a.contentType||'image/png', contentBytes:a.contentBytes, name:a.name||('sig-image-'+(used.length+1)+'.png')});
+            });
+            BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=used; finish();
+          })
+          .catch(function(){ BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=[]; finish(); });
         return;
       }
-      BD_SIGNATURE_HTML=best;
+      BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=[];
     } else {
-      BD_SIGNATURE_HTML='';
+      BD_SIGNATURE_HTML=''; BD_SIGNATURE_ATTS=[];
     }
     finish();
   }).catch(function(e){ if(typeof toastInfo==='function') toastInfo('Pull failed', String((e&&e.message)||e)); });
@@ -5273,11 +5291,12 @@ function _bdSignatureHtmlBlock(){
   if(typeof BD_SIGNATURE==='string' && BD_SIGNATURE.trim()) return '<br><br>'+_bdSigToHtml(BD_SIGNATURE);
   return '';
 }
-function _bdMsSendMail(to, cc, subject, htmlBody){
+function _bdMsSendMail(to, cc, subject, htmlBody, atts){
   return _bdMsToken().then(function(tok){
     if(!tok) throw new Error('401 sign-in expired');
     var msg={subject:String(subject||''), body:{contentType:'HTML', content:String(htmlBody||'')+'<!--bd-sent-marker-x9f2-->'}, toRecipients:[{emailAddress:{address:String(to)}}]};
     if(cc && String(cc).toLowerCase()!==String(to).toLowerCase()) msg.ccRecipients=[{emailAddress:{address:String(cc)}}];
+    if(atts && atts.length){ msg.attachments=atts.map(function(a){ return {'@odata.type':'#microsoft.graph.fileAttachment', name:a.name||'image.png', contentType:a.contentType||'image/png', contentBytes:a.contentBytes, contentId:a.contentId, isInline:true}; }); }
     return fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({message:msg,saveToSentItems:true})});
   }).then(function(r){ if(!r) throw new Error('no response'); if(r.status===202||r.status===200) return true; return r.text().then(function(t){ throw new Error(r.status+' '+String(t||'').slice(0,200)); }); });
 }
@@ -5289,7 +5308,8 @@ function bdSendTestEmail(){
   if(!sigBlock && typeof toastInfo==='function') toastInfo('No signature yet','Open any email, click Pull signature from Outlook, then send the test to check it.');
   var html=_bdPlainToHtml('This is a test email from BD to check that direct send and your signature are working. If the signature below looks right, you are all set.')+sigBlock;
   if(typeof toastInfo==='function') toastInfo('Sending test...', me);
-  _bdMsSendMail(me,'','BD test email',html).then(function(){
+  var sigAtts=(typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim()&&typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS&&BD_SIGNATURE_ATTS.length)?BD_SIGNATURE_ATTS:null;
+  _bdMsSendMail(me,'','BD test email',html,sigAtts).then(function(){
     if(typeof toastSuccess==='function') toastSuccess('Test sent','Check your inbox at '+me+'. It is also in your Sent folder.');
   }).catch(function(e){
     var m=String((e&&e.message)||e);
@@ -5405,8 +5425,9 @@ function _cmpDoSend(){
   };
   if(!(typeof _bdMsConnected==='function'&&_bdMsConnected())){ _fallbackMailto(); return; }
   var htmlBody=_bdPlainToHtml(body)+_bdSignatureHtmlBlock();
+  var sigAtts=(typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim()&&typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS&&BD_SIGNATURE_ATTS.length)?BD_SIGNATURE_ATTS:null;
   if(typeof toastInfo==='function') toastInfo('Sending...', _who);
-  _bdMsSendMail(c.to, c.cc, subj, htmlBody).then(function(){
+  _bdMsSendMail(c.to, c.cc, subj, htmlBody, sigAtts).then(function(){
     _doLog();
     if(typeof toastSuccess==='function') toastSuccess('Sent', _who+'. In your Outlook Sent folder, logged as a touch.');
   }).catch(function(e){
@@ -7403,11 +7424,10 @@ function _bdAllPeople(){ var r=[]; if(typeof PARTNERS!=='undefined'&&PARTNERS) r
 function _bdFirstActDate(p){ var f=null; ((p&&p.act)||[]).forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
 var _bdGrpCache=null;
 function _bdIdentKey(p){ var e=String(p.email||p.contactEmail||'').trim().toLowerCase(); if(e) return 'e:'+e; var n=String(((p.cf||'')+' '+(p.cl||'')).trim()||p.contactName||'').toLowerCase(); var f=String(p.firm||p.contactFirm||'').toLowerCase(); return 'n:'+n+'|'+f; }
-function _bdPartnerKeySet(){ var s={}; if(typeof PARTNERS!=='undefined'&&PARTNERS){ PARTNERS.forEach(function(p){ if(p) s[_bdIdentKey(p)]=1; }); } return s; }
-function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var _pk=_bdPartnerKeySet(); var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}, isPartner:!!_pk[k], key:k}; order.push(k); } var g=map[k]; if(!g.isPartner&&_pk[k]) g.isPartner=true; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')+'|'+(a.inbound?'in':'out'); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
+function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}}; order.push(k); } var g=map[k]; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')+'|'+(a.inbound?'in':'out'); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
 function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
-function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ if(g.isPartner) return; var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
-function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ if(!g.isPartner) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
+function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
@@ -7417,7 +7437,7 @@ function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS
 var BD_AUTO_FEED={ 'bd.newPartnerOutreach':_bdFeedNewOutreach, 'bd.existingTouches':_bdFeedExistingTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.newActiveRelationships':_bdFeedStageReached('Meeting'), 'bd.eventsAttended':_bdFeedDistinctDays(/networking|mixer/i), 'bd.siteTours':_bdFeedDistinctDays(/site\s*(visit|tour)/i), 'bd.booksDelivered':_bdFeedBooks };
 function _bdScMonth(i){ var y=SC_PLAN_START_DATE.getFullYear(); return {s:new Date(y,i,1), e:new Date(y,i+1,1)}; }
 function _bdAutoFillScorecard(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.manualOverride) return; var k=m&&m.auto; if(!k||!BD_AUTO_FEED[k]||!Array.isArray(m.readings)) return; var fn=BD_AUTO_FEED[k]; var monthly=((m.cadence||'weekly')==='monthly'); for(var i=0;i<m.readings.length;i++){ var w=monthly?_bdScMonth(i):_bdScWk(i); var v=fn(w.s,w.e); m.readings[i]=(typeof v==='number'&&v>0)?v:null; } }); }); }catch(_){} }
-function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','Market leads and prospects reached for the first time this week (people not yet in your partner book).'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Every touch this week to a contact already in your partner book.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'), mk(4,'New active relationships',2,'weekly','Partners','bd.newActiveRelationships','leading','Partners who reached the Meeting stage this week.'), mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
+function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','People contacted for the first time ever this week, across partners and market leads.'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Outreach activities to people already in contact.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'), mk(4,'New active relationships',2,'weekly','Partners','bd.newActiveRelationships','leading','Partners who reached the Meeting stage this week.'), mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
 /* BDM Scorecard shared surface (2-way with VSP LT scorecard).
    BD is the owner. Publishes to window.SMB_BDM_SCORECARD + localStorage
    smb_bdm_scorecard_v1; adopts VSP LT edits back by metric id (never
@@ -9957,6 +9977,7 @@ function loadState(){
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com') LOT_TYPES[_lk]=_lv; } }
       if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
       if(typeof s.BD_SIGNATURE_HTML==='string'){ BD_SIGNATURE_HTML=s.BD_SIGNATURE_HTML; }
+      if(Object.prototype.toString.call(s.BD_SIGNATURE_ATTS)==='[object Array]'){ BD_SIGNATURE_ATTS=s.BD_SIGNATURE_ATTS.filter(function(a){ return a&&a.contentId&&a.contentBytes; }); }
     }
   }catch(e){ console.warn('BD state load failed:',e); }
   // one-time auto-pull from Marketing (overlays the outbound entries)
@@ -10016,7 +10037,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
