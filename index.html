@@ -288,6 +288,7 @@ table th, .card-body table th, .tbl-wrap table th {
   --sb-gold-accent: #f0d895; /* shell chrome companion token             */
   --r-card: 8px;             /* shell chrome companion token             */
   --module-accent: #5b8fd6;  /* shell chrome companion token (v2.25): matches VSP accent */
+  --tip-bg: var(--sb);  /* tooltip surface companion token (matches .info-icon .tip navy) */
   --cat-pnkb: #fce7f3;       /* category pink background                 */
   --overlay-light-04: rgba(255,255,255,.04);
   --overlay-dark-55: rgba(15,23,42,.55);
@@ -430,7 +431,8 @@ table th, .card-body table th, .tbl-wrap table th {
 .info-icon svg{width:14px;height:14px;display:block}
 .info-icon .tip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--sb);color:#fff;padding:9px 13px;border-radius:6px;font-size:var(--fz-body);font-weight:400;line-height:1.5;letter-spacing:0;text-transform:none;width:280px;max-width:280px;white-space:normal;text-align:left;box-shadow:0 4px 12px rgba(15,23,42,0.22);z-index:1000;pointer-events:none}
 .info-icon .tip::before{content:"";position:absolute;top:-5px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid var(--sb)}
-.info-icon:hover .tip,.info-icon:focus .tip,.info-icon:focus-within .tip{display:block}
+/* Inline .tip is a hidden data source; the fixed tooltip layer renders it (escapes scroll-container clipping). */
+#bd-tip-layer{position:fixed;display:none;background:var(--tip-bg);color:#fff;padding:9px 13px;border-radius:6px;font-size:var(--fz-body);font-weight:400;line-height:1.5;width:280px;max-width:calc(100vw - 24px);white-space:normal;text-align:left;box-shadow:0 4px 12px rgba(15,23,42,0.22);z-index:12000;pointer-events:none}
 /* Right-edge cards: flip tooltip to the left so it doesn\'t overflow viewport */
 .grid-2 > div:last-child .info-icon .tip,
 .kpi-row > div:last-child .info-icon .tip{left:auto;right:0;transform:none}
@@ -2718,6 +2720,16 @@ function refClaim(pid,idx){
   _refAfterChange(); if(typeof toastSuccess==='function') toastSuccess('Ownership claimed',me+' protected to '+f.r.protectedUntil);
 }
 function _activePageId(){ try{ var a=document.querySelector('.page.active'); return a?a.id.replace(/^p-/,''):''; }catch(e){ return ''; } }
+/* Fixed tooltip layer: renders any .info-icon .tip in a body-level fixed
+   element so tooltips are never clipped by cards or scrolling tables. */
+var _tipLayer=null,_tipCur=null;
+function _tipEnsure(){ if(!_tipLayer){ _tipLayer=document.createElement('div'); _tipLayer.id='bd-tip-layer'; _tipLayer.setAttribute('role','tooltip'); document.body.appendChild(_tipLayer); } return _tipLayer; }
+function _tipShowFor(ic){ var tip=ic&&ic.querySelector?ic.querySelector('.tip'):null; if(!tip) return; var L=_tipEnsure(); L.innerHTML=tip.innerHTML; _tipCur=ic; L.style.display='block'; var r=ic.getBoundingClientRect(); var w=L.offsetWidth||280,h=L.offsetHeight||60; var x=r.left+r.width/2-w/2; if(x<12)x=12; if(x+w>window.innerWidth-12)x=window.innerWidth-12-w; var y=r.bottom+8; if(y+h>window.innerHeight-8)y=r.top-8-h; if(y<8)y=8; L.style.left=Math.round(x)+'px'; L.style.top=Math.round(y)+'px'; }
+function _tipHide(){ if(_tipLayer)_tipLayer.style.display='none'; _tipCur=null; }
+document.addEventListener('mouseover',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic){ if(ic!==_tipCur)_tipShowFor(ic); } else if(_tipCur){ _tipHide(); } });
+document.addEventListener('focusin',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic)_tipShowFor(ic); });
+document.addEventListener('focusout',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic&&ic===_tipCur)_tipHide(); });
+window.addEventListener('scroll',function(){ _tipHide(); },true);
 /* Cross-module won/lost listeners: when CRM (or PM via CRM) reports a referred
    lead won or lost, advance the matching referral. Fires only when those
    events are emitted; harmless until then. */
