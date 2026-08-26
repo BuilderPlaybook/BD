@@ -1397,6 +1397,12 @@ td:hover > .sc-note-pop{display:block}
 #pnd-float .pnd-mut{ opacity:.6; }
 [data-cnp]{ position:relative; cursor:help; }
 [data-cnp]:focus{ outline:2px solid var(--blu); outline-offset:-2px; }
+
+.bd100-trade-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.bd100-trade-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--brd);border-radius:6px;cursor:pointer}
+.bd100-trade-row:hover{background:var(--sur2)}
+.bd100-trade-nm{font-weight:600}
+.bd100-trade-meta{color:var(--txd);font-size:var(--fz-sm);margin-left:auto}
 </style>
 </head>
 <body>
@@ -1768,6 +1774,7 @@ function _ensureOutreachAssets(){
 
 var _curPage='dashboard';
 var _ptnView='all';
+var _ptnArchive=false;
 var _ptnTier='';
 var _ptnTab='all';
 
@@ -1880,6 +1887,193 @@ function _ptnFilterChanged(){ _ptnAList=false; renderPartners(); }
    hand-tuned cadence set before tiering existed survives untouched. */
 var TIER_LIST=['A','B','C'];
 var TIER_CADENCE={A:30,B:60,C:90};
+/* SMB BD 100: the referral-partner portfolio has fixed capacity - 20 A, 30 B,
+   50 C. Tier is an EARNED position, not just a cadence. These caps drive the
+   portfolio counter and the over-capacity flag that forces a trade when a tier
+   is full. Only true partners (referral partners) count against the caps;
+   directory/prospect contacts sit in the feeder Database, uncapped. */
+var BD100_CAPS={A:20,B:30,C:50};
+function _bd100Counts(){
+  var c={A:0,B:0,C:0};
+  (PARTNERS||[]).forEach(function(p){
+    if(_isArchived(p)) return;                // archived partners hold no position
+    if(!_isReferralPartner(p)) return;        // only real partners hold a position
+    var t=partnerTier(p);
+    if(t==='A'||t==='B'||t==='C') c[t]++;
+  });
+  return c;
+}
+function _bd100Over(){
+  var c=_bd100Counts(); var over=[];
+  ['A','B','C'].forEach(function(t){ if(c[t]>BD100_CAPS[t]) over.push(t); });
+  return over;
+}
+/* BD 100 promotion / relegation. A and B are capped earned positions (20/30);
+   C is the capped bottom tier (50) that relegates into the uncapped Database.
+   Referrals received rank strength; recency of last touch breaks ties. The
+   dollar loop (Step 3) swaps referral $ in front of the count when it lands. */
+function _bd100RefCount(p){ return _refDeals(p).length; }
+function _bd100Members(tier,exceptId){
+  return (PARTNERS||[]).filter(function(p){
+    if(_isArchived(p)) return false;
+    if(!_isReferralPartner(p)) return false;
+    if(exceptId!=null && p.id===exceptId) return false;
+    return partnerTier(p)===tier;
+  });
+}
+// Weakest first: fewest referred-won dollars, then fewest referrals, then most
+// stale last contact. Dollars lead because A is earned by production, not reach.
+function _bd100WeakestFirst(list){
+  return list.slice().sort(function(a,b){
+    var va=_refWonTotal(a), vb=_refWonTotal(b);
+    if(va!==vb) return va-vb;
+    var ra=_bd100RefCount(a), rb=_bd100RefCount(b);
+    if(ra!==rb) return ra-rb;
+    var da=daysSince(a.lastContact), db=daysSince(b.lastContact);
+    da=(da==null?1e9:da); db=(db==null?1e9:db);
+    return db-da;
+  });
+}
+// An A partner with no referral and no meaningful touch in 90 days is a
+// relegation candidate. Meaningful touch = a real (non-synced) BD activity.
+function _bd100InactiveA(p){
+  if(partnerTier(p)!=='A') return false;
+  if(_isArchived(p)) return false;
+  if(!_isReferralPartner(p)) return false;   // only earned A positions, not directory
+  if(_bd100RefCount(p)>0) return false;
+  var last=null;
+  (p.act||[]).forEach(function(a){
+    if(!_bdActReal(a)) return;
+    var t=a.at?new Date(a.at):(a.date?new Date(a.date):null);
+    if(t&&!isNaN(t)&&(last==null||t>last)) last=t;
+  });
+  if(last==null){ var lc=daysSince(p.lastContact); return lc==null||lc>90; }
+  return daysSince(last.toISOString().slice(0,10))>90;
+}
+// The one gatekeeper both write paths call. If moving a partner INTO a full A
+// or B, opens the forced-trade modal and defers apply(); the picked member is
+// demoted (A->B, B->C) or dropped to Database (C full) in the same action.
+function _bd100EnforceTier(rec,priorFn,apply){
+  var target=_tierNorm(rec.priorityTier);
+  var prior=priorFn?_tierNorm(priorFn):'';
+  if(target!=='A'&&target!=='B'){ apply(); return; }
+  if(target===prior){ apply(); return; }
+  var count=_bd100Counts()[target];
+  if(count<BD100_CAPS[target]){ apply(); return; }
+  var down=(target==='A')?'B':'C';
+  var members=_bd100WeakestFirst(_bd100Members(target,rec.id));
+  if(!members.length){ apply(); return; }
+  var name=((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this partner';
+  var rows=members.map(function(m,i){
+    var mn=((m.cf||'')+' '+(m.cl||'')).trim()||m.firm||('Partner '+m.id);
+    var refs=_bd100RefCount(m);
+    var won=_refWonTotal(m);
+    var dsc=daysSince(m.lastContact);
+    var meta=(won?bdMoney(won)+' won \u00b7 ':'')+refs+' referral'+(refs===1?'':'s')+' \u00b7 '+(dsc==null?'never contacted':(dsc+'d since touch'));
+    return '<label class="bd100-trade-row"><input type="radio" name="bd100trade" value="'+m.id+'"'+(i===0?' checked':'')+'> '+
+           '<span class="bd100-trade-nm">'+_esc2(mn)+'</span> <span class="bd100-trade-meta">'+_esc2(meta)+'</span></label>';
+  }).join('');
+  var body='<p style="margin:0 0 10px">'+_esc2(target)+' is full at '+BD100_CAPS[target]+'. To move '+
+    '<strong>'+_esc2(name)+'</strong> into '+_esc2(target)+', one '+_esc2(target)+' partner drops to '+
+    (down==='C'?_esc2('C'):_esc2(down))+'. Pick who moves down (weakest first):</p>'+
+    '<div class="bd100-trade-list">'+rows+'</div>';
+  openModal({ title:'Trade into '+target, sub:_esc(name), body:body, saveLabel:'Apply trade', onSave:function(){
+    var sel=document.querySelector('input[name="bd100trade"]:checked');
+    if(!sel){ modalErr('Pick a partner to move down.'); return; }
+    var mid=isNaN(Number(sel.value))?sel.value:Number(sel.value);
+    var m=_partnerFind(mid);
+    if(m){ m.priorityTier=down; }
+    closeModal();
+    apply();
+  } });
+}
+/* BD 100 portfolio dollar rollups. Referred Pipeline $ = value of open (logged
+   or lead) referral records; Referred Won $ = contract value of won referrals.
+   Both read the same partner.crmLeads store the D-48 money loop already fills. */
+function _bd100Pipeline(p){
+  var s=0; (p&&p.crmLeads||[]).forEach(function(r){ if(r.status==='logged'||r.status==='lead') s+=Number(r.value)||0; });
+  return s;
+}
+function _bd100Won(p){
+  var s=0; (p&&p.crmLeads||[]).forEach(function(r){ if(r.status==='won') s+=Number(r.contractValue)||0; });
+  return s;
+}
+// Meaningful touch inside a date window: a real (non-synced) BD activity.
+function _bd100TouchedSince(p,cutoff){
+  var hit=false;
+  (p&&p.act||[]).forEach(function(a){
+    if(hit||!_bdActReal(a)) return;
+    var ds=a.d||a.date||a.at; if(!ds) return;
+    var t=new Date(/^\d{4}-\d{2}-\d{2}$/.test(ds)?ds+'T00:00:00':ds);
+    if(!isNaN(t)&&t>=cutoff) hit=true;
+  });
+  return hit;
+}
+// First day of the current month, as a Date.
+function _bd100MonthStart(){ var d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d; }
+// Coverage: share of earned A partners with a meaningful touch this month.
+function _bd100CoverageA(){
+  var a=_bd100Members('A',null); if(!a.length) return {pct:null,touched:0,total:0};
+  var cut=_bd100MonthStart(), t=0;
+  a.forEach(function(p){ if(_bd100TouchedSince(p,cut)) t++; });
+  return {pct:Math.round(100*t/a.length),touched:t,total:a.length};
+}
+// The A tier ranked by dollars: Referred Won $, then Referred Pipeline $, then refs.
+function _bd100RankedA(){
+  return _bd100Members('A',null).sort(function(a,b){
+    var wa=_bd100Won(a), wb=_bd100Won(b); if(wa!==wb) return wb-wa;
+    var pa=_bd100Pipeline(a), pb=_bd100Pipeline(b); if(pa!==pb) return pb-pa;
+    return _bd100RefCount(b)-_bd100RefCount(a);
+  });
+}
+function renderBd100Tab(){
+  var c=_bd100Counts(), over=_bd100Over();
+  var cov=_bd100CoverageA();
+  function capCard(t){
+    var n=c[t], cap=BD100_CAPS[t], isOver=n>cap;
+    var tone=isOver?'red':(n>=cap?'amb':'grn');
+    return _refStatCard(n+' / '+cap, 'Tier '+t, tone, 'Earned '+t+' positions filled. '+t+' is capped at '+cap+'.');
+  }
+  var covLabel=cov.pct==null?'-':(cov.pct+'%');
+  var covTone=cov.pct==null?null:(cov.pct>=80?'grn':(cov.pct>=50?'amb':'red'));
+  var h='<div class="kpi-cards dash-metrics" style="margin-bottom:14px">'+
+    capCard('A')+capCard('B')+capCard('C')+
+    _refStatCard(covLabel,'A coverage (mo)',covTone,'Share of earned A partners with a meaningful touch this month ('+cov.touched+' of '+cov.total+').')+
+    '</div>';
+  if(over.length){ h+='<div class="card" style="border-left:3px solid var(--red);margin-bottom:14px"><div class="card-body"><strong>Over cap:</strong> '+over.map(function(t){ return 'Tier '+t+' ('+c[t]+'/'+BD100_CAPS[t]+')'; }).join(', ')+'. Relegate the weakest to restore the caps.</div></div>'; }
+  // A leaderboard ranked by dollars
+  var ranked=_bd100RankedA();
+  if(!ranked.length){
+    h+='<div class="card"><div class="smb-empty"><div class="smb-empty-title">No A partners yet</div><div class="smb-empty-sub">A positions are earned by real referrals. As partners send referrals that land, promote them into A and this leaderboard ranks your top 20 by the dollars they produce.</div></div></div>';
+    return h;
+  }
+  var rows=ranked.map(function(p,i){
+    var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner');
+    var refs=_bd100RefCount(p);
+    var touched=_bd100TouchedSince(p,_bd100MonthStart());
+    var inact=_bd100InactiveA(p);
+    var flag=inact?' <span class="chip c-amb">Inactive</span>':'';
+    var cov=touched?'<span class="chip c-grn">Yes</span>':'<span class="chip c-gry">No</span>';
+    return '<tr>'+
+      '<td class="right muted">'+(i+1)+'</td>'+
+      '<td class="cell-firm" style="cursor:pointer" onclick="openPartner('+p.id+')">'+_esc(nm)+flag+(p.firm&&p.firm!==nm?' <span class="muted">'+_esc(p.firm)+'</span>':'')+'</td>'+
+      '<td>'+catPill(p.cat)+'</td>'+
+      '<td class="right">'+refs+'</td>'+
+      '<td class="right nowrap">'+bdMoney(_bd100Won(p))+'</td>'+
+      '<td class="right nowrap">'+bdMoney(_bd100Pipeline(p))+'</td>'+
+      '<td>'+cov+'</td>'+
+      '</tr>';
+  }).join('');
+  h+='<div class="card"><div class="card-hd"><span class="card-title">A tier &middot; ranked by dollars produced</span><span class="card-hd-meta">goal: 20 productive A partners</span></div>'+
+    '<div class="tbl-wrap"><table><thead><tr>'+
+      '<th class="right" scope="col">#</th><th scope="col">Partner</th><th scope="col">Category</th>'+
+      '<th class="right" scope="col">Referrals</th><th class="right" scope="col">Referred Won $</th>'+
+      '<th class="right" scope="col">Referred Pipeline $</th><th scope="col">Touched (mo)</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  return h;
+}
+
+
 var TIER_DEFAULT='B';
 var TIER_LEGACY={'Tier 1':'A','Tier 2':'B','Tier 3':'C','1':'A','2':'B','3':'C'};
 function _tierNorm(v){
@@ -2103,6 +2297,8 @@ function ptnFiltered(){
   var fh=(document.getElementById('ptn-f-health')||{}).value||'';
   var me=_curName().split(' ')[0];
   return PARTNERS.filter(function(p){
+    if(_ptnSeg()==='archive'){ if(!_isArchived(p)) return false; }
+    else if(_isArchived(p)) return false;
     if(q){ var hay=(p.firm+' '+p.cf+' '+p.cl+' '+p.city+' '+p.email).toLowerCase(); if(hay.indexOf(q)<0) return false; }
     if(fc && p.cat!==fc) return false;
     if(fs && _pStage(p)!==fs) return false;
@@ -2147,6 +2343,28 @@ var ACC_LOTS={
 };
 function promotePartner(id){ partnerLogReferral(id); }
 function demotePartner(id){ var p=_partnerFind(id); if(!p) return; p.isPartner=false; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} save(); openPartner(id); if(typeof toastSuccess==='function') toastSuccess('Moved back to pipeline',''); }
+/* Archive: a 2-way not-a-fit state. Archived partners drop out of every working
+   view and out of the BD 100 caps, but stay fully recoverable from the Archive
+   segment. Nothing is deleted. */
+function _isArchived(p){ return !!(p&&p.archived); }
+function archivePartner(id){
+  var p=_partnerFind(id); if(!p) return;
+  p.archived=true; p.archivedAt=Date.now();
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
+  save();
+  if(document.getElementById('ptn-rec')&&_activePageId()==='partner-record'){ openPartner(id); }
+  else { renderPartners(); }
+  if(typeof toastSuccess==='function') toastSuccess('Archived','Moved out of your working lists. Find it under Archive.');
+}
+function restorePartner(id){
+  var p=_partnerFind(id); if(!p) return;
+  p.archived=false; delete p.archivedAt;
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
+  save();
+  if(document.getElementById('ptn-rec')&&_activePageId()==='partner-record'){ openPartner(id); }
+  else { renderPartners(); }
+  if(typeof toastSuccess==='function') toastSuccess('Restored','Back in your working lists.');
+}
 function _partnersSection(list){
   if(!list||!list.length) return '';
   list=_applySort(list,'bd-ptnlist',ACC_PARTNERS);
@@ -2166,10 +2384,26 @@ function _partnersSection(list){
 function _refDeals(p){ return (p&&p.crmLeads)?p.crmLeads:[]; }
 function _refDealTotal(p){ return _refDeals(p).reduce(function(a,x){ return a+(Number(x.value)||0); },0); }
 function _isReferralPartner(p){ return !!(p && (p.isPartner || _refDeals(p).length>0)); }
+// Referred-won dollars: sum of contractValue on won referral records. Lifetime
+// and trailing 24 months (by wonDate, falling back to record date). This is the
+// dollar signal the BD 100 A tier ranks by once won work exists.
+function _refWonTotal(p){
+  return _refDeals(p).reduce(function(a,r){ return a+((r&&r.status==='won')?(Number(r.contractValue)||0):0); },0);
+}
+function _refWonTrailing(p,months){
+  months=months||24;
+  var cut=new Date(TODAY); cut.setMonth(cut.getMonth()-months);
+  return _refDeals(p).reduce(function(a,r){
+    if(!r||r.status!=='won') return a;
+    var ds=r.wonDate||r.date; var t=ds?new Date(ds):null;
+    if(t&&!isNaN(t)&&t>=cut) return a+(Number(r.contractValue)||0);
+    return a;
+  },0);
+}
 function navPtn(scope){ _ptnAList=false; _ptnTab=scope; nav('partners'); }
-function _ptnSeg(){ return _ptnAList?'alist':(_ptnTab==='referral'?'referral':'all'); }
-function _ptnSetSeg(seg){ if(seg==='alist'){ _ptnAList=true; } else if(seg==='referral'){ _ptnAList=false; _ptnTab='referral'; } else { _ptnAList=false; _ptnTab='all'; } renderPartners(); }
-function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('alist',_aListStarIcon(true)+' A List')+'</div>'; }
+function _ptnSeg(){ return _ptnArchive?'archive':(_ptnAList?'alist':(_ptnTab==='referral'?'referral':'all')); }
+function _ptnSetSeg(seg){ if(seg==='archive'){ _ptnArchive=true; _ptnAList=false; } else { _ptnArchive=false; if(seg==='alist'){ _ptnAList=true; } else if(seg==='referral'){ _ptnAList=false; _ptnTab='referral'; } else { _ptnAList=false; _ptnTab='all'; } } renderPartners(); }
+function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } var na=(PARTNERS||[]).filter(_isArchived).length; return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('alist',_aListStarIcon(true)+' A List')+b('archive','Archive'+(na?' ('+na+')':''))+'</div>'; }
 function bdMoney(v){ return fmtVal(Number(v)||0,'$'); }
 function _refStatCell(lbl,val){ return '<div><div class="muted" style="font-size:var(--fz-xs);text-transform:uppercase;letter-spacing:.05em">'+_esc(lbl)+'</div><div style="font-weight:700;font-size:var(--fz-lg)">'+val+'</div></div>'; }
 function _referralPartnersView(list){
@@ -2207,7 +2441,14 @@ function renderPartners(){
     '<div class="ms">Active <strong>'+active+'</strong></div>'+
     '<div class="ms od">Follow-ups due <strong>'+due+'</strong></div>'+
     '<div class="ms">Replied <strong>'+PARTNERS.filter(function(x){return x.hasReply;}).length+'</strong></div>'+
-    '<div class="ms">Dormant <strong>'+dormant+'</strong></div></div>';
+    '<div class="ms">Dormant <strong>'+dormant+'</strong></div>'+
+    (function(){ var c=_bd100Counts(); var over=_bd100Over();
+      function cell(t){ var n=c[t], cap=BD100_CAPS[t], isOver=n>cap;
+        return '<div class="ms" title="Tier '+t+': '+n+' of '+cap+' positions filled'+(isOver?' - OVER capacity, a '+t+' must move down':'')+'">'
+          +'BD 100 &middot; '+t+' <strong'+(isOver?' style="color:var(--red)"':'')+'>'+n+'/'+cap+'</strong></div>'; }
+      return cell('A')+cell('B')+cell('C')
+        +(over.length?'<div class="ms" style="color:var(--red)" title="One or more tiers are over capacity. Promote by relegating the weakest partner in that tier.">&#9888; '+over.join(', ')+' over cap</div>':'');
+    })()+'</div>';
 
   var rows=ptnFiltered();
   var prospects=(_ptnTab==='all')?rows.slice():rows.filter(function(p){ return !_isReferralPartner(p); });
@@ -2432,7 +2673,7 @@ var _bdRepTab='referrals';
 function setBdRepTab(t){ _bdRepTab=t; renderReports(); }
 function _bdReportsTabBar(){
   return '<div class="bd-tab-bar">'+
-    [['referrals','Referrals'],['leaderboard','Leaderboard'],['overview','Overview']].map(function(t){
+    [['referrals','Referrals'],['leaderboard','Leaderboard'],['bd100','BD 100'],['overview','Overview']].map(function(t){
       return '<button class="bd-tab'+(_bdRepTab===t[0]?' active':'')+'" onclick="setBdRepTab(&quot;'+t[0]+'&quot;)">'+t[1]+'</button>';
     }).join('')+'</div>';
 }
@@ -2528,6 +2769,7 @@ function renderReports(){
   _refsEnsure(); var _tb=_bdReportsTabBar();
   if(_bdRepTab==='referrals'){ host.innerHTML=_tb+renderReferralsTab(); return; }
   if(_bdRepTab==='leaderboard'){ host.innerHTML=_tb+renderLeaderboardTab(); return; }
+  if(_bdRepTab==='bd100'){ host.innerHTML=_tb+renderBd100Tab(); return; }
   var partners=PARTNERS||[];
   var total=partners.length;
   var active=partners.filter(function(p){ return p.ownershipStatus==='Active'; }).length;
@@ -2596,12 +2838,29 @@ function _ptnBulkTier(){
       if(pick===null && /^untiered/i.test(raw)) pick='';
       if(pick===null){ modalErr('Pick a tier from the list.'); return; }
       closeModal();
-      _ptnApplyBulk(function(p){ p.priorityTier=pick; }, pick?('Tier '+pick):'Untiered');
+      if(pick==='A'||pick==='B'){
+        // Cap-aware bulk promote: fill only the remaining A/B slots, in selection
+        // order; leave the overflow at its current tier and say how many stayed.
+        var _sel=_ptnSelectedPartners();
+        var _room=BD100_CAPS[pick]-_bd100Counts()[pick];
+        var _moved=0, _held=0;
+        _sel.forEach(function(pp){
+          if(partnerTier(pp)===pick) return;
+          if(_room>0){ pp.priorityTier=pick; _room--; _moved++; }
+          else { _held++; }
+        });
+        try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
+        save(); _ptnSel={}; renderPartners();
+        var _msg=_moved+' moved to '+pick+(_held?(', '+_held+' held ('+pick+' full at '+BD100_CAPS[pick]+')'):'');
+        if(typeof toastSuccess==='function') toastSuccess('Tier '+pick, _msg);
+      } else {
+        _ptnApplyBulk(function(p){ p.priorityTier=pick; }, pick?('Tier '+pick):'Untiered');
+      }
     }});
 }
 function clearPtnFilters(){
   ['ptn-q','ptn-f-cat','ptn-f-stage','ptn-f-health'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
-  _ptnView='all'; _ptnTier=''; renderPartners();
+  _ptnView='all'; _ptnTier=''; _ptnArchive=false; renderPartners();
 }
 
 /* ============================================================
@@ -2697,6 +2956,32 @@ function _bdQueueLeadIntake(lead, partner, kind){
     localStorage.setItem('smb_bd_lead_intake_v1', JSON.stringify(q));
     return iid;
   }catch(_){ return null; }
+}
+function _bdDrainLeadReturns(){
+  var q=[];
+  try{ q=JSON.parse(localStorage.getItem('smb_crm_lead_return_v1')||'[]')||[]; }catch(_){ q=[]; }
+  if(!Array.isArray(q)||!q.length) return;
+  var keep=[], changed=false;
+  q.forEach(function(entry){
+    try{
+      var f=_refByLeadId(entry&&(entry.leadId!=null?entry.leadId:entry.id));
+      if(!f){ keep.push(entry); return; }   // partner not here yet; leave queued
+      var r=f.r, st=entry.status;
+      if(st==='won'){
+        if(r.status!=='won'){ r.status='won'; changed=true; }
+        if(entry.contractValue!=null){ var cv=Number(entry.contractValue)||0; if(cv&&cv!==r.contractValue){ r.contractValue=cv; changed=true; } }
+        if(entry.gpPct!=null){ var gp=Number(entry.gpPct)||0; if(gp&&gp!==r.gpPct){ r.gpPct=gp; changed=true; } }
+        if(!r.wonDate){ r.wonDate=entry.wonDate||_today(); changed=true; }
+        _refNorm(r,f.p);
+      } else if(st==='lost'){
+        if(r.status!=='lost'){ r.status='lost'; changed=true; }
+        if(entry.reason&&!r.lostReason){ r.lostReason=String(entry.reason); changed=true; }
+      }
+      // consumed (matched + applied): do not keep
+    }catch(_){ keep.push(entry); }
+  });
+  try{ localStorage.setItem('smb_crm_lead_return_v1', JSON.stringify(keep)); }catch(_){ }
+  if(changed){ try{ _refAfterChange(); }catch(_){ try{ save(); }catch(__){} } }
 }
 function _bdIntakeBackfill(){
   try{
@@ -3067,6 +3352,7 @@ function _partnerStageTrack(p,ro){
     if(!ro) html+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
       (isPartner?('<button class="btn btn-sm" onclick="demotePartner('+p.id+')">Move back to pipeline</button>'):('<button class="btn btn-primary btn-sm" onclick="promotePartner('+p.id+')">Log referral</button>'))+
       '<button class="btn btn-sm" onclick="partnerSetStage('+p.id+',&quot;Dormant&quot;)">Mark dormant</button>'+
+      (_isArchived(p)?('<button class="btn btn-sm" onclick="restorePartner('+p.id+')">Restore from archive</button>'):('<button class="btn btn-sm" onclick="archivePartner('+p.id+')">Archive</button>'))+
     '</div>';
   }
 
@@ -3100,7 +3386,8 @@ function openPartner(id){
 
   html+='<div id="ptn-coach-mount"></div>';
 
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+catPill(p.cat)+_tierBadge(p,true)+(p.isPartner?'<span class="tag tag-done">Referral Partner</span>':stagePill(_pStage(p)))+healthPill(h)+getPartnerStatusTag(p)+(p.worksWithBuilder?'<span class="tag tag-yellow">Works with '+_esc(p.worksWithBuilder)+'</span>':'')+'</div>';
+  var _inaFlag=_bd100InactiveA(p)?'<span class="chip c-amb" title="A partner with no referral and no meaningful touch in 90 days. Relegation candidate.">Inactive A</span>':'';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+catPill(p.cat)+_tierBadge(p,true)+_inaFlag+(p.isPartner?'<span class="tag tag-done">Referral Partner</span>':stagePill(_pStage(p)))+healthPill(h)+getPartnerStatusTag(p)+(p.worksWithBuilder?'<span class="tag tag-yellow">Works with '+_esc(p.worksWithBuilder)+'</span>':'')+'</div>';
   html+=_partnerStageTrack(p);
 
   // ===== Left rail: structured partner facts (CRM rec-layout) =====
@@ -3517,14 +3804,17 @@ function savePartner(existing){
   if(['Hot','Warm','Cool'].indexOf(rec.priority)<0) rec.priority='';
   if(!rec.act) rec.act=[];
   if(!rec.linkedLeads) rec.linkedLeads=[];
-  window.SMB_PARTNERS._upsert(rec);
-  try{
-    var _pk=_lotAgentKey(rec.email,((rec.cf||'')+' '+(rec.cl||'')).trim(),rec.firm);
-    if(_pk && rec.id!=null){ PROSPECTS.forEach(function(pr){ if(pr.type==='lot' && pr.linkedPartnerId==null && _lotAgentKey(pr.contactEmail,pr.contactName,pr.contactFirm)===_pk){ pr.linkedPartnerId=rec.id; } }); save(); }
-  }catch(e){}
-  closeModal();
-  toastSuccess(existing?'Partner updated':'Partner added',rec.firm);
-  if(existing) openPartner(rec.id); else renderPartners();
+  var _commit=function(){
+    window.SMB_PARTNERS._upsert(rec);
+    try{
+      var _pk=_lotAgentKey(rec.email,((rec.cf||'')+' '+(rec.cl||'')).trim(),rec.firm);
+      if(_pk && rec.id!=null){ PROSPECTS.forEach(function(pr){ if(pr.type==='lot' && pr.linkedPartnerId==null && _lotAgentKey(pr.contactEmail,pr.contactName,pr.contactFirm)===_pk){ pr.linkedPartnerId=rec.id; } }); save(); }
+    }catch(e){}
+    closeModal();
+    toastSuccess(existing?'Partner updated':'Partner added',rec.firm);
+    if(existing) openPartner(rec.id); else renderPartners();
+  };
+  _bd100EnforceTier(rec, existing?existing.priorityTier:'', _commit);
 }
 function deletePartner(id){
   var p=window.SMB_PARTNERS.get(id); if(!p) return;
@@ -5647,7 +5937,10 @@ var BD_MEAS=[
   {id:'meetings', title:'Partner meetings', unit:'#', goal:2, orient:'>=', level:false, wk:function(s,e){ return _scActCount(s,e,function(a){ return a&&a.type==='Meeting'; }); }},
   {id:'reachouts', title:'Reach-outs (partners/day)', unit:'#', goal:5, orient:'>=', level:false, wk:function(s,e){ return _scReachCount(s,e); }},
   {id:'referrals', title:'Leads referred by partners', unit:'#', goal:1, orient:'>=', level:false, wk:function(s,e){ var n=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(x){ if(_inWk(x.date,s,e)) n++; }); }); return n; }},
-  {id:'openopps', title:'Active referral partners', unit:'#', goal:5, orient:'>=', level:true, cur:function(){ return PARTNERS.filter(_isReferralPartner).length; }}
+  {id:'openopps', title:'Active referral partners', unit:'#', goal:5, orient:'>=', level:true, cur:function(){ return PARTNERS.filter(_isReferralPartner).length; }},
+  {id:'qualrefs', title:'Qualified referrals', unit:'#', goal:1, orient:'>=', level:false, wk:function(s,e){ var n=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ if((r.status==='lead'||r.status==='won')&&_inWk(r.date||r.wonDate,s,e)) n++; }); }); return n; }},
+  {id:'wondollars', title:'Referred Won $', unit:'$', goal:50000, orient:'>=', level:false, wk:function(s,e){ var v=0; PARTNERS.forEach(function(p){ (p.crmLeads||[]).forEach(function(r){ if(r.status==='won'&&_inWk(r.wonDate||r.date,s,e)) v+=Number(r.contractValue)||0; }); }); return v; }},
+  {id:'acoverage', title:'A coverage this month %', unit:'#', goal:80, orient:'>=', level:true, cur:function(){ var c=_bd100CoverageA(); return c.pct==null?0:c.pct; }}
 ];
 function _inWk(ds,s,e){ if(!ds) return false; var d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(ds)?ds+'T00:00:00':ds); if(isNaN(d.getTime())) return false; return d>=s&&d<e; }
 function _scActCount(s,e,pred){ var n=0; function tally(arr){ (arr||[]).forEach(function(a){ if(pred(a)&&_inWk(a.d,s,e)) n++; }); } PARTNERS.forEach(function(p){ tally(p.act); }); PROSPECTS.forEach(function(p){ tally(p.act); }); return n; }
@@ -5742,7 +6035,7 @@ function _scMeasHtml(){
   }
   shown.forEach(function(m){
     h+='<tr>';
-    h+='<td class="sc-act" style="text-align:left;font-size:var(--fz-lg)"><span style="cursor:pointer" onclick="openMeasEditor(&quot;'+m.id+'&quot;)" title="Edit goal">'+_esc(m.title)+'</span>'+(m.level?' <span class="chip c-gry" style="font-size:var(--fz-xs)">current</span>':'')+'</td>';
+    h+='<td class="sc-act" style="text-align:left;font-size:var(--fz-lg)"><span style="cursor:pointer" onclick="openMeasEditor(&quot;'+m.id+'&quot;)" title="Edit goal">'+_esc(m.title)+'</span>'+(m.description?'<button type="button" class="info-icon" aria-label="What this measures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="tip">'+_esc(m.description)+'</span></button>':'')+(m.level?' <span class="chip c-gry" style="font-size:var(--fz-xs)">current</span>':'')+'</td>';
     h+='<td style="white-space:nowrap;color:var(--txm)">'+_esc(_measGoalLabel(m))+'</td>';
     h+='<td style="text-align:center;font-weight:600">'+_measFmt(_measAvg(m,weeks),m.unit)+'</td>';
     h+='<td style="text-align:center;font-weight:600;border-right:2px solid var(--brd)">'+_measFmt(_measTotal(m,weeks),m.unit)+'</td>';
@@ -11321,6 +11614,7 @@ function init(){
   emitBdSignal();
   try{ if(typeof syncTeamData==='function') syncTeamData(); _recalcAll(); }catch(e){}
   try{ _bdIntakeBackfill(); }catch(e){}
+  try{ _bdDrainLeadReturns(); }catch(e){}
   nav(_embedPage||'dashboard');
   try{
     normalizeTableScope(document);
