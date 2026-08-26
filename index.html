@@ -3636,7 +3636,7 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailPrompt()">Remove a mislogged email</button>'+
-      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button><button type="button" class="btn btn-sm" onclick="bdSendTestEmail()">Send test email to myself</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button>'+
     '</div>'+
     '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
@@ -5330,14 +5330,15 @@ function _composeEmail(to,name,onSend,opts){
   if(!to){ if(typeof toastSuccess==='function') toastSuccess('No email','No email address on this record.'); return; }
   /* One compose flow for every email surface (Dave, 2026-08-24): pick a
      template right on the record, see and edit the subject and body with
-     tokens substituted, then Send. BD sends directly through the user's
-     Microsoft connection (Graph sendMail, saveToSentItems) with the full
-     Outlook signature (BD_SIGNATURE_HTML, banner included, pulled once from
-     sent mail via bdPullSignature) built into the HTML body, so the signature
-     is deterministic instead of depending on Outlook. The touch is logged on a
-     successful send. If sending is not yet authorised (Mail.Send scope just
-     added, reconnect pending) or Graph errors, BD falls back to the Outlook
-     mailto handoff and the did-you-send confirm so the email is never lost. */
+     tokens substituted, then Open in Outlook. RESTORED (Dave, 2026-08-26):
+     the handoff carries To, CC, and Subject only, never the body, because a
+     prefilled body makes Outlook skip its automatic signature. Outlook opens
+     a fresh compose with the user's full signature (banner included) already
+     in place; the written body is copied to the clipboard and the persistent
+     paste banner walks the single Ctrl+V above the signature. The touch is
+     logged only after the user confirms it was sent. The Graph direct-send
+     path (_bdMsSendMail, bdPullSignature) remains in the file but is not
+     called from this flow. */
   to=String(to).trim(); opts=opts||{};
   var cc=(opts.cc)?String(opts.cc).trim():'';
   var aud=opts.audience||'Partner';
@@ -5361,10 +5362,9 @@ function _composeEmail(to,name,onSend,opts){
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
     '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
-    '<div class="smb-fld full"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+(((typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim())||(typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim()))?('<span class="muted" style="font-size:var(--fz-xs)">Your full Outlook signature is added to every email automatically.</span><button type="button" class="btn btn-sm" onclick="bdPullSignature()">Re-pull signature</button>'):('<button type="button" class="btn btn-sm" onclick="bdPullSignature()">Pull signature from Outlook</button><span class="muted" style="font-size:var(--fz-xs)">Reads your recent sent email once and captures your full signature, banner included.</span>'))+'</div></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">BD sends this straight through your Outlook account. It arrives in your Sent folder with your full signature and logs as a touch automatically. If sending is not yet authorised, BD opens Outlook for this one and asks you to reconnect.</div></div>'+
+    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To and Subject and opens a fresh email, so Outlook adds your full signature automatically. Your written body is copied; click into the Outlook window and press Ctrl+V once above the signature. BD then asks whether you sent it and only logs the touch if you confirm.</div></div>'+
   '</div>';
-  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Send email',
+  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
     onSave:function(){ _cmpDoSend(); } });
 }
 function _cmpApplyTpl(){
@@ -5406,47 +5406,35 @@ function _cmpDoSend(){
   var selEl=document.getElementById('cmp-tpl');
   var tid=(selEl&&selEl.value!=='')?parseInt(selEl.value,10):null;
   if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
+  /* RESTORED (Dave, 2026-08-26): the Outlook handoff carries To, CC, and
+     Subject ONLY, never the body. A prefilled body makes Outlook skip its
+     automatic signature; keeping the body out means Outlook opens a fresh
+     compose with the user's FULL signature (banner included) already in
+     place. The written body is copied to the clipboard and the persistent
+     paste banner walks the single Ctrl+V above the signature. The touch
+     logs only after the user confirms it was sent. */
+  var copied=false;
+  if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
   closeModal(); _cmpCtx=null;
+  try{
+    var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
+    var _qs=[];
+    if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
+    if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
+    if(_qs.length){ href+='?'+_qs.join('&'); }
+    var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
+  }catch(e){}
+  if(body.replace(/\s/g,'')!==''){ try{ _showPasteBanner(body); }catch(e){} }
   var _who=(c.name||c.to);
-  var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
-  var logBody=body.replace(/\s+$/,'')+sigText;
   var _doLog=function(){
-    try{ if(typeof c.onSend==='function') c.onSend(subj, logBody); }catch(e){}
+    try{ if(typeof c.onSend==='function') c.onSend(subj, body); }catch(e){}
     try{ save(); }catch(e){}
+    if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.');
   };
-  /* mailto fallback keeps the email deliverable if direct send is not yet
-     authorised (Mail.Send scope just added, reconnect pending) or Graph errors.
-     The plaintext signature rides along; the banner only appears on true
-     direct send. */
-  var _fallbackMailto=function(){
-    try{
-      var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
-      var _qs=[];
-      if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
-      if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
-      if(logBody.replace(/\s/g,'')!==''){ _copyToClipboard(logBody); _qs.push('body='+encodeURIComponent(logBody)); }
-      if(_qs.length){ href+='?'+_qs.join('&'); }
-      var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
-    }catch(e){}
-    _cmpConfirmSend(_who, function(){ _doLog(); if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch.'); }, function(){ if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.'); });
+  var _skipLog=function(){
+    if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.');
   };
-  if(!(typeof _bdMsConnected==='function'&&_bdMsConnected())){ _fallbackMailto(); return; }
-  var htmlBody=_bdPlainToHtml(body)+_bdSignatureHtmlBlock();
-  var sigAtts=(typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim()&&typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS&&BD_SIGNATURE_ATTS.length)?BD_SIGNATURE_ATTS:null;
-  if(typeof toastInfo==='function') toastInfo('Sending...', _who);
-  _bdMsSendMail(c.to, c.cc, subj, htmlBody, sigAtts).then(function(){
-    _doLog();
-    if(typeof toastSuccess==='function') toastSuccess('Sent', _who+'. In your Outlook Sent folder, logged as a touch.');
-  }).catch(function(e){
-    var m=String((e&&e.message)||e);
-    if(/\b40[13]\b|scope|consent|InvalidAuthenticationToken|Authorization|token/i.test(m)){
-      if(typeof toastInfo==='function') toastInfo('Reconnect Outlook to enable sending','Sending permission was just added. Reconnect Outlook once in Settings, then send again. Opening Outlook for this one.');
-      _bdMsAuthExpired=true; try{ _bdMsPaintStatus(); }catch(e2){}
-    } else {
-      if(typeof toastInfo==='function') toastInfo('Direct send failed - opening Outlook', m);
-    }
-    _fallbackMailto();
-  });
+  _cmpConfirmSend(_who, _doLog, _skipLog);
 }
 /* Post-Outlook confirmation modal: did the email actually get sent? Only a
    Yes logs the touch. Reuses the standard openModal chrome; the two footer
