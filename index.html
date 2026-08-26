@@ -5224,10 +5224,16 @@ function bdPullSignature(){
   _bdMsToken().then(function(tok){
     if(!tok) throw new Error('Sign-in expired - reconnect Outlook');
     _tok=tok;
-    return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=25&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments',{headers:{Authorization:'Bearer '+tok}});
+    return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=40&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments,toRecipients',{headers:{Authorization:'Bearer '+tok}});
   }).then(function(r){ if(!r||!r.ok) throw new Error('Graph '+(r?r.status:'error')); return r.json(); })
   .then(function(res){
-    var msgs=((res&&res.value)||[]).filter(function(m){ var _h=m&&m.body&&m.body.content; return !(_h&&_h.indexOf('bd-sent-marker-x9f2')>=0); });
+    var _own=String(((_bdMsStore()||{}).account||'')).toLowerCase();
+    var msgs=((res&&res.value)||[]).filter(function(m){
+      var _h=m&&m.body&&m.body.content;
+      if(_h&&_h.indexOf('bd-sent-marker-x9f2')>=0) return false;
+      if(_own){ var tr=(m&&m.toRecipients)||[]; if(tr.length){ var ext=false; for(var ti=0;ti<tr.length;ti++){ var ad=String((tr[ti]&&tr[ti].emailAddress&&tr[ti].emailAddress.address)||'').toLowerCase(); if(ad&&ad!==_own){ ext=true; break; } } if(!ext) return false; } }
+      return true;
+    });
     var sig=_bdExtractSignature(msgs);
     if(!sig){ if(typeof toastInfo==='function') toastInfo('No signature found','No repeated signature in your recent sent mail. Send one normal email from Outlook, then Re-pull.'); return; }
     BD_SIGNATURE=sig;
@@ -5248,13 +5254,13 @@ function bdPullSignature(){
       try{ save(); }catch(e){}
       var nImg=(typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS)?BD_SIGNATURE_ATTS.length:0;
       var hasImg=(typeof BD_SIGNATURE_HTML==='string' && /<img/i.test(BD_SIGNATURE_HTML));
-      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', nImg?('Full signature captured with '+nImg+' image'+(nImg===1?'':'s')+'. Added to every BD email.'):(hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.'));
+      if(typeof toastSuccess==='function') toastSuccess('Signature pulled', nImg?('Full signature captured with '+nImg+' image'+(nImg===1?'':'s')+'. Reopen the email window; the button becomes Send email and the signature goes on every send.'):(hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.'));
     };
     if(!cands.length){ BD_SIGNATURE_HTML=''; BD_SIGNATURE_ATTS=[]; finish(); return; }
     var _cidsOf=function(sg){ var mt=String(sg).match(/cid:([^"'>\s]+)/gi)||[]; var o={}; mt.forEach(function(x){ o[x.slice(4).toLowerCase()]=1; }); return Object.keys(o); };
     var tries=0;
     var tryNext=function(ix){
-      if(ix>=cands.length || tries>=6){
+      if(ix>=cands.length || tries>=12){
         for(var jx=0;jx<cands.length;jx++){ if(!_cidsOf(cands[jx].sig).length){ BD_SIGNATURE_HTML=cands[jx].sig; BD_SIGNATURE_ATTS=[]; finish(); return; } }
         BD_SIGNATURE_HTML=cands[0].sig; BD_SIGNATURE_ATTS=[];
         try{ save(); }catch(e){}
@@ -5298,6 +5304,7 @@ function _bdSignatureHtmlBlock(){
   if(typeof BD_SIGNATURE==='string' && BD_SIGNATURE.trim()) return '<br><br>'+_bdSigToHtml(BD_SIGNATURE);
   return '';
 }
+function _bdSigReady(){ var h=(typeof BD_SIGNATURE_HTML==='string')?BD_SIGNATURE_HTML:''; return !!(h.trim()!=='' && typeof BD_SIGNATURE_ATTS!=='undefined' && BD_SIGNATURE_ATTS && BD_SIGNATURE_ATTS.length>0); }
 function _bdMsSendMail(to, cc, subject, htmlBody, atts){
   return _bdMsToken().then(function(tok){
     if(!tok) throw new Error('401 sign-in expired');
@@ -5362,9 +5369,9 @@ function _composeEmail(to,name,onSend,opts){
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
     '<div class="smb-fld full"><label for="cmp-body">Body</label><textarea id="cmp-body" class="autogrow" rows="10" style="font-family:inherit" oninput="_autogrow(this)">'+_esc(b0)+'</textarea></div>'+
-    '<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To and Subject and opens a fresh email, so Outlook adds your full signature automatically. Your written body is copied; click into the Outlook window and press Ctrl+V once above the signature. BD then asks whether you sent it and only logs the touch if you confirm.</div></div>'+
+    (_bdSigReady()?('<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Send email delivers this straight through your Outlook account with your full signature, banner included. It lands in your Sent folder and logs as a touch automatically.</div></div>'):('<div class="smb-fld full"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="bdPullSignature()">Set up automatic signature</button><span class="muted" style="font-size:var(--fz-xs)">One time: BD copies your full signature from emails you sent before today. Once captured, the template opens ready to send with the signature, no paste.</span></div></div>'+'<div class="smb-fld full"><div class="muted" style="font-size:var(--fz-xs)">Open in Outlook fills the To and Subject and opens a fresh email, so Outlook adds your full signature. Your written body is copied; press Ctrl+V once above the signature, then confirm in BD so the touch logs.</div></div>'))+
   '</div>';
-  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:'Open in Outlook',
+  openModal({ title:'Email '+(_cmpCtx.name||to), sub:to+(cc?(' \u00b7 cc '+cc):''), body:mbody, saveLabel:(_bdSigReady()?'Send email':'Open in Outlook'),
     onSave:function(){ _cmpDoSend(); } });
 }
 function _cmpApplyTpl(){
@@ -5406,35 +5413,52 @@ function _cmpDoSend(){
   var selEl=document.getElementById('cmp-tpl');
   var tid=(selEl&&selEl.value!=='')?parseInt(selEl.value,10):null;
   if(tid!=null){ var t=_tplFind(tid); if(t){ t.sends=(t.sends||0)+1; } }
-  /* RESTORED (Dave, 2026-08-26): the Outlook handoff carries To, CC, and
-     Subject ONLY, never the body. A prefilled body makes Outlook skip its
-     automatic signature; keeping the body out means Outlook opens a fresh
-     compose with the user's FULL signature (banner included) already in
-     place. The written body is copied to the clipboard and the persistent
-     paste banner walks the single Ctrl+V above the signature. The touch
-     logs only after the user confirms it was sent. */
-  var copied=false;
-  if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
   closeModal(); _cmpCtx=null;
-  try{
-    var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
-    var _qs=[];
-    if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
-    if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
-    if(_qs.length){ href+='?'+_qs.join('&'); }
-    var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
-  }catch(e){}
-  if(body.replace(/\s/g,'')!==''){ try{ _showPasteBanner(body); }catch(e){} }
   var _who=(c.name||c.to);
-  var _doLog=function(){
-    try{ if(typeof c.onSend==='function') c.onSend(subj, body); }catch(e){}
-    try{ save(); }catch(e){}
-    if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.');
+  /* Self-selecting flow (Dave, 2026-08-26). Until the full signature (with
+     its image files) is installed, the Outlook handoff runs: To, CC, and
+     Subject only, body on the clipboard, paste banner, confirm-before-log,
+     so Outlook adds the signature itself. Once the signature is installed
+     (_bdSigReady), BD sends directly through Graph with the signature and
+     its images attached inline, logs on success, and never opens Outlook. */
+  var _handoff=function(){
+    var copied=false;
+    if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
+    try{
+      var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
+      var _qs=[];
+      if(c.cc && c.cc.toLowerCase()!==c.to.toLowerCase()){ _qs.push('cc='+encodeURIComponent(c.cc).replace(/%40/g,'@')); }
+      if(subj){ _qs.push('subject='+encodeURIComponent(subj)); }
+      if(_qs.length){ href+='?'+_qs.join('&'); }
+      var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
+    }catch(e){}
+    if(body.replace(/\s/g,'')!==''){ try{ _showPasteBanner(body); }catch(e){} }
+    _cmpConfirmSend(_who,
+      function(){ try{ if(typeof c.onSend==='function') c.onSend(subj, body); }catch(e){} try{ save(); }catch(e){} if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.'); },
+      function(){ if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.'); });
   };
-  var _skipLog=function(){
-    if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.');
-  };
-  _cmpConfirmSend(_who, _doLog, _skipLog);
+  if(_bdSigReady() && typeof _bdMsConnected==='function' && _bdMsConnected()){
+    var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
+    var logBody=body.replace(/\s+$/,'')+sigText;
+    var htmlBody=_bdPlainToHtml(body)+_bdSignatureHtmlBlock();
+    if(typeof toastInfo==='function') toastInfo('Sending...', _who);
+    _bdMsSendMail(c.to, c.cc, subj, htmlBody, BD_SIGNATURE_ATTS).then(function(){
+      try{ if(typeof c.onSend==='function') c.onSend(subj, logBody); }catch(e){}
+      try{ save(); }catch(e){}
+      if(typeof toastSuccess==='function') toastSuccess('Sent', _who+'. In your Outlook Sent folder, logged as a touch.');
+    }).catch(function(e){
+      var m=String((e&&e.message)||e);
+      if(/\b40[13]\b|scope|consent|InvalidAuthenticationToken|Authorization|token/i.test(m)){
+        if(typeof toastInfo==='function') toastInfo('Reconnect Outlook to enable sending','Reconnect Outlook once in Settings, then send again. Opening Outlook for this one.');
+        _bdMsAuthExpired=true; try{ _bdMsPaintStatus(); }catch(e2){}
+      } else {
+        if(typeof toastInfo==='function') toastInfo('Direct send failed - opening Outlook', m);
+      }
+      _handoff();
+    });
+    return;
+  }
+  _handoff();
 }
 /* Post-Outlook confirmation modal: did the email actually get sent? Only a
    Yes logs the touch. Reuses the standard openModal chrome; the two footer
