@@ -5224,58 +5224,65 @@ function bdPullSignature(){
   _bdMsToken().then(function(tok){
     if(!tok) throw new Error('Sign-in expired - reconnect Outlook');
     _tok=tok;
-    return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=15&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments',{headers:{Authorization:'Bearer '+tok}});
+    return fetch('https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=25&$orderby=sentDateTime desc&$select=id,body,subject,sentDateTime,hasAttachments',{headers:{Authorization:'Bearer '+tok}});
   }).then(function(r){ if(!r||!r.ok) throw new Error('Graph '+(r?r.status:'error')); return r.json(); })
   .then(function(res){
     var msgs=((res&&res.value)||[]).filter(function(m){ var _h=m&&m.body&&m.body.content; return !(_h&&_h.indexOf('bd-sent-marker-x9f2')>=0); });
     var sig=_bdExtractSignature(msgs);
     if(!sig){ if(typeof toastInfo==='function') toastInfo('No signature found','No repeated signature in your recent sent mail. Send one normal email from Outlook, then Re-pull.'); return; }
     BD_SIGNATURE=sig;
-    /* Pick the richest signature across recent sent mail. Prefer one that has
-       an image (your banner / logo block); among those, the longest wins. */
-    var best='', bestMsg=null;
-    for(var i=0;i<msgs.length;i++){
-      var mm=msgs[i]; var h=mm&&mm.body&&mm.body.content; if(!h) continue;
+    /* Walk sent mail newest-first and accept only a message whose signature
+       images can ALL be retrieved as files. BD's own earlier sends carry the
+       signature layout with image references but no image files (pre-marker
+       builds), so any candidate whose images cannot be fetched is skipped and
+       the walk continues to a real Outlook-composed email. */
+    var cands=[];
+    for(var ci=0;ci<msgs.length;ci++){
+      var mm=msgs[ci]; var hh=mm&&mm.body&&mm.body.content; if(!hh) continue;
       if(String(mm.body.contentType||'').toLowerCase()!=='html') continue;
-      var sh=_bdExtractSigHtml(h); if(!sh) continue;
-      var shImg=/<img/i.test(sh), bImg=/<img/i.test(best);
-      if(!best || (shImg&&!bImg) || (shImg===bImg && sh.length>best.length)){ best=sh; bestMsg=mm; }
+      var sh=_bdExtractSigHtml(hh); if(!sh) continue;
+      cands.push({msg:mm, sig:sh, img:/<img/i.test(sh)});
     }
+    cands.sort(function(a,b){ return (b.img?1:0)-(a.img?1:0); });
     var finish=function(){
       try{ save(); }catch(e){}
       var nImg=(typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS)?BD_SIGNATURE_ATTS.length:0;
       var hasImg=(typeof BD_SIGNATURE_HTML==='string' && /<img/i.test(BD_SIGNATURE_HTML));
       if(typeof toastSuccess==='function') toastSuccess('Signature pulled', nImg?('Full signature captured with '+nImg+' image'+(nImg===1?'':'s')+'. Added to every BD email.'):(hasImg?'Full signature with banner captured. Added to every BD email.':'Signature captured (text only). If your banner is an image, send one email from Outlook with it, then Re-pull.'));
     };
-    if(best){
-      if(bestMsg && /cid:/i.test(best)){
-        /* Graph quirk: hasAttachments is false when a message has ONLY inline
-           images, so always fetch attachments when the signature references
-           cid images. The image files are stored with the signature and ride
-           on every send as inline attachments, which is what Outlook needs to
-           render them (data-URI images are blocked by Outlook). */
-        fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(bestMsg.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
-          .then(function(r){ return r&&r.ok?r.json():{value:[]}; })
-          .then(function(ar){
-            var list=(ar&&ar.value)||[], used=[], total=0, lower=best.toLowerCase();
-            list.forEach(function(a){
-              if(!a||!a.contentBytes) return;
-              var cid=String(a.contentId||'').replace(/^<|>$/g,'').trim();
-              if(!cid || lower.indexOf('cid:'+cid.toLowerCase())<0) return;
-              if(total+a.contentBytes.length>3000000) return;
-              total+=a.contentBytes.length;
-              used.push({contentId:cid, contentType:a.contentType||'image/png', contentBytes:a.contentBytes, name:a.name||('sig-image-'+(used.length+1)+'.png')});
-            });
-            BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=used; finish();
-          })
-          .catch(function(){ BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=[]; finish(); });
+    if(!cands.length){ BD_SIGNATURE_HTML=''; BD_SIGNATURE_ATTS=[]; finish(); return; }
+    var _cidsOf=function(sg){ var mt=String(sg).match(/cid:([^"'>\s]+)/gi)||[]; var o={}; mt.forEach(function(x){ o[x.slice(4).toLowerCase()]=1; }); return Object.keys(o); };
+    var tries=0;
+    var tryNext=function(ix){
+      if(ix>=cands.length || tries>=6){
+        for(var jx=0;jx<cands.length;jx++){ if(!_cidsOf(cands[jx].sig).length){ BD_SIGNATURE_HTML=cands[jx].sig; BD_SIGNATURE_ATTS=[]; finish(); return; } }
+        BD_SIGNATURE_HTML=cands[0].sig; BD_SIGNATURE_ATTS=[];
+        try{ save(); }catch(e){}
+        if(typeof toastInfo==='function') toastInfo('Signature images not retrievable','Captured the layout, but its image files are not in your recent sent mail. In Outlook click New Email, send one to yourself so the signature images are freshly embedded, then Re-pull.');
         return;
       }
-      BD_SIGNATURE_HTML=best; BD_SIGNATURE_ATTS=[];
-    } else {
-      BD_SIGNATURE_HTML=''; BD_SIGNATURE_ATTS=[];
-    }
-    finish();
+      var c=cands[ix]; var cids=_cidsOf(c.sig);
+      if(!cids.length){ BD_SIGNATURE_HTML=c.sig; BD_SIGNATURE_ATTS=[]; finish(); return; }
+      tries++;
+      fetch('https://graph.microsoft.com/v1.0/me/messages/'+encodeURIComponent(c.msg.id)+'/attachments?$select=contentType,contentBytes,contentId,isInline,name',{headers:{Authorization:'Bearer '+_tok}})
+        .then(function(r){ return r&&r.ok?r.json():{value:[]}; })
+        .then(function(ar){
+          var list=(ar&&ar.value)||[], used=[], total=0, have={};
+          list.forEach(function(a){
+            if(!a||!a.contentBytes) return;
+            var cid=String(a.contentId||'').replace(/^<|>$/g,'').trim().toLowerCase();
+            if(!cid||have[cid]) return;
+            if(cids.indexOf(cid)<0) return;
+            if(total+a.contentBytes.length>3000000) return;
+            total+=a.contentBytes.length; have[cid]=1;
+            used.push({contentId:cid, contentType:a.contentType||'image/png', contentBytes:a.contentBytes, name:a.name||('sig-image-'+(used.length+1)+'.png')});
+          });
+          if(used.length===cids.length && used.length>0){ BD_SIGNATURE_HTML=c.sig; BD_SIGNATURE_ATTS=used; finish(); return; }
+          tryNext(ix+1);
+        })
+        .catch(function(){ tryNext(ix+1); });
+    };
+    tryNext(0);
   }).catch(function(e){ if(typeof toastInfo==='function') toastInfo('Pull failed', String((e&&e.message)||e)); });
 }
 function _bdPlainToHtml(s){
