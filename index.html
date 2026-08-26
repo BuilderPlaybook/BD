@@ -3621,16 +3621,18 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="importBackupPick()">Import backup</button>'+
       '<button type="button" class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
       '<button type="button" class="btn btn-sm" onclick="openAgentDupes()">Agent and partner duplicates</button>'+
+      '<button type="button" class="btn btn-sm" onclick="openPartnerDupes()">Merge duplicate partners</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
     '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
-      'This browser now saves an automatic snapshot of your data every time BD loads, before anything else runs. If data ever looks wrong, restore the most recent good snapshot here. You can also inspect exactly what is stored for any contact to confirm whether an email or referral is present.'+
+      'This browser now saves an automatic snapshot of your data every time BD loads, before anything else runs. If data ever looks wrong, restore the most recent good snapshot here. You can also inspect exactly what is stored for any contact to confirm whether an email or referral is present. Rescan inbox re-reads the last year of Outlook mail from scratch, which recovers replies that an earlier version skipped.'+
     '</p>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
       '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailPrompt()">Remove a mislogged email</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button>'+
     '</div>'+
     '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
@@ -9924,7 +9926,8 @@ function _ptnDedupeScore(p){
   if(String(p.phone||'').trim()) s += 5;
   return s;
 }
-function mergeDuplicatePartners(){
+/* Build partner name+firm dedupe groups (size >= 2), survivor first by score. */
+function _pdBuildGroups(){
   var groups={};
   PARTNERS.forEach(function(p){
     var nm=_ptnDedupeNameKey(_ptnName(p));
@@ -9932,51 +9935,71 @@ function mergeDuplicatePartners(){
     var k=nm+'|'+_ptnNormText(p.firm);
     (groups[k]=groups[k]||[]).push(p);
   });
-  var mergedGroups=0, removed=0, actMoved=0, emailsSaved=0, removeIds={};
+  var out=[];
   Object.keys(groups).forEach(function(k){
     var g=groups[k];
     if(g.length<2) return;
     g.sort(function(a,b){ var d=_ptnDedupeScore(b)-_ptnDedupeScore(a); return d!==0?d:(a.id-b.id); });
-    var keep=g[0];
-    keep.act = keep.act || [];
-    var bestRank=_ptnStageRank(keep), bestStage=STAGE_MAP[keep.relStage||'']||'New', anyDormant=(keep.relStage==='Dormant');
-    for(var i=1;i<g.length;i++){
-      var dup=g[i];
-      if(dup.act && dup.act.length){ keep.act=keep.act.concat(dup.act); actMoved+=dup.act.length; }
-      // preserve emails: personal stays primary, any extra address goes to altEmail
-      var de=String(dup.email||'').trim();
-      if(de){
-        var ke=String(keep.email||'').trim();
-        if(!ke){ keep.email=de; }
-        else if(de.toLowerCase()!==ke.toLowerCase()){
-          if(_isGenericEmail(ke) && !_isGenericEmail(de)){ if(String(keep.altEmail||'').trim().toLowerCase()!==ke.toLowerCase()) keep.altEmail=ke; keep.email=de; }
-          else if(!String(keep.altEmail||'').trim()){ keep.altEmail=de; }
-          emailsSaved++;
-        }
+    out.push({key:k, members:g});
+  });
+  return out;
+}
+/* Merge one group in place onto its survivor. Returns removed ids, counts, and a
+   full undo record: a pristine clone of the survivor before mutation plus clones
+   of every removed duplicate, so a targeted undo can restore the exact prior state
+   including the deleted records. Field-merge rules are unchanged from the original
+   partner dedupe: personal email stays primary, extra address goes to altEmail,
+   blank survivor fields fill from the duplicate, numerics keep the higher value,
+   linked leads union, stage dates keep the earliest, furthest-along stage wins. */
+function _pdMergeGroup(g){
+  var keep=g[0];
+  var undo={ survivorId:keep.id, before:JSON.parse(JSON.stringify(keep)), removed:[] };
+  keep.act = keep.act || [];
+  var moved=0, emailsSaved=0, removedIds=[];
+  var bestRank=_ptnStageRank(keep), bestStage=STAGE_MAP[keep.relStage||'']||'New', anyDormant=(keep.relStage==='Dormant');
+  for(var i=1;i<g.length;i++){
+    var dup=g[i];
+    undo.removed.push(JSON.parse(JSON.stringify(dup)));
+    if(dup.act && dup.act.length){ keep.act=keep.act.concat(dup.act); moved+=dup.act.length; }
+    var de=String(dup.email||'').trim();
+    if(de){
+      var ke=String(keep.email||'').trim();
+      if(!ke){ keep.email=de; }
+      else if(de.toLowerCase()!==ke.toLowerCase()){
+        if(_isGenericEmail(ke) && !_isGenericEmail(de)){ if(String(keep.altEmail||'').trim().toLowerCase()!==ke.toLowerCase()) keep.altEmail=ke; keep.email=de; }
+        else if(!String(keep.altEmail||'').trim()){ keep.altEmail=de; }
+        emailsSaved++;
       }
-      // fill any blank survivor fields from the duplicate
-      ['phone','mobile','web','li','city','province','officeStreet','officePostal','officeCountry','title','cat','team','prefContact','bestTime','worksWithBuilder','priorityTier','contactCompleteness','partnerNotes','personalNotes','nextContact','nextAction','nextOwner','assignedTo','secondaryOwner','department','dateAssigned'].forEach(function(f){
-        if(!String(keep[f]||'').trim() && String(dup[f]||'').trim()) keep[f]=dup[f];
-      });
-      // numeric fields: keep the higher value rather than double-counting
-      ['relScore','estValue','booksDelivered','eventsAttended','siteTours','referralDiscussions'].forEach(function(f){
-        if((dup[f]||0) > (keep[f]||0)) keep[f]=dup[f];
-      });
-      // union linked leads
-      if(dup.linkedLeads && dup.linkedLeads.length){ keep.linkedLeads=keep.linkedLeads||[]; dup.linkedLeads.forEach(function(x){ if(keep.linkedLeads.indexOf(x)<0) keep.linkedLeads.push(x); }); }
-      // merge stage dates, keeping the earliest date recorded per stage
-      if(dup.stageDates){ keep.stageDates=keep.stageDates||{}; Object.keys(dup.stageDates).forEach(function(st){ var d=dup.stageDates[st]; if(d && (!keep.stageDates[st] || d<keep.stageDates[st])) keep.stageDates[st]=d; }); }
-      // furthest-along stage wins on conflict
-      if(dup.relStage==='Dormant') anyDormant=true;
-      var r=_ptnStageRank(dup); if(r>bestRank){ bestRank=r; bestStage=STAGE_MAP[dup.relStage||'']||'New'; }
-      removeIds[dup.id]=1; removed++;
     }
-    if(bestRank>=0){ keep.relStage=bestStage; if(!keep.stageDates) keep.stageDates={}; if(bestStage && !keep.stageDates[bestStage]) keep.stageDates[bestStage]=_today(); }
-    else if(anyDormant){ keep.relStage='Dormant'; }
-    keep.act.sort(function(a,b){ var ta=new Date(a.loggedAt||a.d||0).getTime(), tb=new Date(b.loggedAt||b.d||0).getTime(); return (tb||0)-(ta||0); });
-    var last=''; keep.act.forEach(function(a){ var dd=String(a.d||'').slice(0,10); if(dd && dd>last) last=dd; });
-    if(last) keep.lastContact=last;
-    mergedGroups++;
+    ['phone','mobile','web','li','city','province','officeStreet','officePostal','officeCountry','title','cat','team','prefContact','bestTime','worksWithBuilder','priorityTier','contactCompleteness','partnerNotes','personalNotes','nextContact','nextAction','nextOwner','assignedTo','secondaryOwner','department','dateAssigned'].forEach(function(fld){
+      if(!String(keep[fld]||'').trim() && String(dup[fld]||'').trim()) keep[fld]=dup[fld];
+    });
+    ['relScore','estValue','booksDelivered','eventsAttended','siteTours','referralDiscussions'].forEach(function(fld){
+      if((dup[fld]||0) > (keep[fld]||0)) keep[fld]=dup[fld];
+    });
+    if(dup.linkedLeads && dup.linkedLeads.length){ keep.linkedLeads=keep.linkedLeads||[]; dup.linkedLeads.forEach(function(x){ if(keep.linkedLeads.indexOf(x)<0) keep.linkedLeads.push(x); }); }
+    if(dup.stageDates){ keep.stageDates=keep.stageDates||{}; Object.keys(dup.stageDates).forEach(function(st){ var dd=dup.stageDates[st]; if(dd && (!keep.stageDates[st] || dd<keep.stageDates[st])) keep.stageDates[st]=dd; }); }
+    if(dup.relStage==='Dormant') anyDormant=true;
+    var r=_ptnStageRank(dup); if(r>bestRank){ bestRank=r; bestStage=STAGE_MAP[dup.relStage||'']||'New'; }
+    removedIds.push(dup.id);
+  }
+  if(bestRank>=0){ keep.relStage=bestStage; if(!keep.stageDates) keep.stageDates={}; if(bestStage && !keep.stageDates[bestStage]) keep.stageDates[bestStage]=_today(); }
+  else if(anyDormant){ keep.relStage='Dormant'; }
+  keep.act.sort(function(a,b){ var ta=new Date(a.loggedAt||a.d||0).getTime(), tb=new Date(b.loggedAt||b.d||0).getTime(); return (tb||0)-(ta||0); });
+  var last=''; keep.act.forEach(function(a){ var ds=String(a.d||'').slice(0,10); if(ds && ds>last) last=ds; });
+  if(last) keep.lastContact=last;
+  return {removedIds:removedIds, moved:moved, emailsSaved:emailsSaved, undo:undo};
+}
+/* Blind partner dedupe (existing behaviour, unchanged): merge every group, hard-
+   remove duplicates, publish and save. Kept for the combined Merge duplicate
+   agents button. The gated, reviewable, undoable path is openPartnerDupes(). */
+function mergeDuplicatePartners(){
+  var grps=_pdBuildGroups();
+  var mergedGroups=0, removed=0, actMoved=0, emailsSaved=0, removeIds={};
+  grps.forEach(function(gr){
+    var r=_pdMergeGroup(gr.members);
+    r.removedIds.forEach(function(id){ removeIds[id]=1; removed++; });
+    actMoved+=r.moved; emailsSaved+=r.emailsSaved; mergedGroups++;
   });
   if(removed){
     PARTNERS = PARTNERS.filter(function(p){ return !removeIds[p.id]; });
@@ -9986,6 +10009,118 @@ function mergeDuplicatePartners(){
   }
   return {mergedGroups:mergedGroups, removed:removed, actMoved:actMoved, emailsSaved:emailsSaved};
 }
+/* ============================================================
+   PARTNER DUPLICATE REVIEW v1 (2026-08-26)
+
+   Gated, reviewable, reversible wrapper around the name+firm partner
+   dedupe. Same discipline as the agent/partner reconciliation merge
+   (Gated Importer Pattern v1, D-152): eyes-on review of every group
+   before applying, a pre-merge snapshot into the bd_backup ring, and a
+   one-shot targeted undo that restores the survivor's prior state and
+   re-inserts the removed duplicate records.
+
+   Grouping is name+firm, never email: realtors and architects share
+   team mailboxes, so an email key would merge different people. This
+   surface only ever merges records that share a normalized name and
+   firm, and only the groups the reviewer leaves checked.
+   ============================================================ */
+var BD_PD_UNDO_KEY='bd_pd_undo';
+function _pdUndoStoreKey(){ return BD_PD_UNDO_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'); }
+function _pdReadUndo(){ try{ var r=localStorage.getItem(_pdUndoStoreKey()); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function _pdWriteUndo(o){ try{ localStorage.setItem(_pdUndoStoreKey(), JSON.stringify(o)); }catch(e){} }
+function _pdClearUndo(){ try{ localStorage.removeItem(_pdUndoStoreKey()); }catch(e){} }
+
+var _pdSel={};
+function _pdToggle(key,on){ if(on) _pdSel[key]=true; else delete _pdSel[key]; _pdCount(); }
+function _pdAll(on){
+  _pdBuildGroups().forEach(function(gr){ if(on) _pdSel[gr.key]=true; else delete _pdSel[gr.key]; });
+  var boxes=document.querySelectorAll('.bd-pd-cb');
+  for(var i=0;i<boxes.length;i++){ boxes[i].checked=!!on; }
+  _pdCount();
+}
+function _pdCount(){
+  var el=document.getElementById('bd-pd-count'); if(!el) return;
+  var n=0; for(var k in _pdSel){ if(Object.prototype.hasOwnProperty.call(_pdSel,k)) n++; }
+  el.textContent=n+' selected';
+}
+function openPartnerDupes(){
+  if(typeof openModal!=='function') return;
+  var grps=_pdBuildGroups();
+  _pdSel={};
+  if(!grps.length){
+    openModal({title:'Merge duplicate partners', body:'<div style="font-size:var(--fz-body);color:var(--txm)">No partner appears twice under the same name and firm. Nothing to merge.</div>', saveLabel:'Done', onSave:closeModal});
+    return;
+  }
+  var body='<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
+    'These partners appear more than once under the same name and firm. Merging keeps the strongest record, moves the other record\'s logged activity and dates onto it, keeps the personal email as primary and any extra address on the record, and keeps the furthest-along pipeline stage. '+
+    'Records are matched on name and firm only, never on a shared email, so two people at one office are never merged. '+
+    'A snapshot is taken before any merge, and the last merge can be undone.</p>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+      '<button type="button" class="btn btn-sm" onclick="_pdAll(true)">Select all</button>'+
+      '<button type="button" class="btn btn-sm" onclick="_pdAll(false)">Select none</button>'+
+      '<span class="muted" id="bd-pd-count" style="font-size:var(--fz-body)">0 selected</span>'+
+    '</div>'+
+    '<div class="tbl-wrap" style="max-height:340px;overflow:auto"><table style="width:100%"><thead><tr>'+
+      '<th scope="col" style="width:28px"></th>'+
+      '<th scope="col" style="text-align:left">Keep</th>'+
+      '<th scope="col" style="text-align:left">Merges in</th>'+
+      '<th scope="col" style="text-align:left">Activity</th>'+
+      '<th scope="col" style="text-align:left">Email kept</th></tr></thead><tbody>';
+  grps.forEach(function(gr){
+    var g=gr.members, keep=g[0];
+    _pdSel[gr.key]=true;
+    var kname=_ptnName(keep)||keep.firm||'Partner';
+    var dupNames=[], keepAct=(keep.act||[]).length, dupAct=0;
+    for(var i=1;i<g.length;i++){ dupNames.push(_ptnName(g[i])||g[i].firm||'record'); dupAct+=(g[i].act||[]).length; }
+    var em=String(keep.email||'').trim(); if(!em || _isGenericEmail(em)){ for(var j=1;j<g.length;j++){ var de=String(g[j].email||'').trim(); if(de && !_isGenericEmail(de)){ em=de; break; } } }
+    body+='<tr><td style="padding:6px 8px"><input type="checkbox" class="bd-pd-cb" checked'+
+        ' onclick="_pdToggle(\''+gr.key.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\',this.checked)" aria-label="Select '+_esc(kname)+'"></td>'+
+      '<td style="padding:6px 8px"><span style="font-weight:600">'+_esc(kname)+'</span><div class="muted">'+_esc(keep.firm||'')+'</div></td>'+
+      '<td style="padding:6px 8px">'+_esc(dupNames.join(', '))+'</td>'+
+      '<td style="padding:6px 8px" class="muted">'+_esc(keepAct+' kept, '+dupAct+' moving in')+'</td>'+
+      '<td style="padding:6px 8px" class="muted">'+_esc(em||'-')+'</td></tr>';
+  });
+  body+='</tbody></table></div>';
+  var undo=_pdReadUndo();
+  var extra=(undo&&undo.records&&undo.records.length?('<button type="button" class="btn btn-sm" onclick="_pdUndo()">Undo last merge ('+undo.records.length+')</button>'):'');
+  openModal({title:'Merge duplicate partners', sub:grps.length+' duplicate partner group'+(grps.length===1?'':'s'), body:body,
+    saveLabel:'Merge selected', extra:extra, onSave:_pdMergeSelected});
+  _pdCount();
+}
+function _pdMergeSelected(){
+  var keys={}; for(var k in _pdSel){ if(Object.prototype.hasOwnProperty.call(_pdSel,k)) keys[k]=true; }
+  var grps=_pdBuildGroups().filter(function(gr){ return keys[gr.key]; });
+  if(!grps.length){ modalErr('Select at least one group.'); return; }
+  _bdXsSnapshot();
+  var removeIds={}, removed=0, moved=0, recs=[];
+  grps.forEach(function(gr){
+    var r=_pdMergeGroup(gr.members);
+    r.removedIds.forEach(function(id){ removeIds[id]=1; removed++; });
+    moved+=r.moved; recs.push(r.undo);
+  });
+  if(removed){ PARTNERS = PARTNERS.filter(function(p){ return !removeIds[p.id]; }); }
+  _pdWriteUndo({at:new Date().toISOString(), records:recs});
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  save(); closeModal();
+  if(_curPage==='partners') renderPartners(); else if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Partners merged', removed+' duplicate record'+(removed===1?'':'s')+' merged into '+grps.length+' '+(grps.length===1?'partner':'partners')+(moved?(', '+moved+' logged item'+(moved===1?'':'s')+' moved'):'')+'. Undo is available in Settings.');
+}
+function _pdUndo(){
+  var u=_pdReadUndo();
+  if(!u||!u.records||!u.records.length){ if(typeof toastInfo==='function') toastInfo('Nothing to undo','No partner merge has been run on this browser.'); return; }
+  var restored=0;
+  u.records.forEach(function(rec){
+    var cur=_partnerFind(rec.survivorId);
+    if(cur){ Object.keys(cur).forEach(function(k){ delete cur[k]; }); Object.assign(cur, rec.before); }
+    (rec.removed||[]).forEach(function(r){ if(!_partnerFind(r.id)){ PARTNERS.push(JSON.parse(JSON.stringify(r))); restored++; } });
+  });
+  _pdClearUndo();
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  save(); closeModal();
+  if(_curPage==='partners') renderPartners(); else if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Merge undone', restored+' record'+(restored===1?'':'s')+' restored to how they were before the merge.');
+}
+
 function mergeDuplicateAgentsPrompt(){
   var lotDup=0, lg={};
   PROSPECTS.forEach(function(p){ if(p.type!=='lot') return; var k=_lotDedupeNormName(p.contactName)+'|'+_lotDedupeNormName(p.contactFirm); if(!k.replace(/[| ]/g,'')) return; (lg[k]=lg[k]||[]).push(p); });
@@ -10826,7 +10961,18 @@ function _bdRepliesAwaiting(){
 function renderDash(){
   var host=document.getElementById('dash-content'); if(!host) return;
   var _me=_curName().split(' ')[0]; var _mine=_bdDashMine();
-  var _own=function(p){ return !_mine || (p.assignedTo===_me); };
+  /* Ownership. Partners carry assignedTo; lot-agent prospects carry owner, and
+     every one of them is currently blank. Testing assignedTo alone meant that
+     in the Mine view every lot agent failed the test, so a reply from an agent
+     who has no partner record was filtered out of Replies to Answer entirely
+     and could never be seen. Accept either field, and treat an unassigned
+     record as mine rather than as somebody else's. */
+  var _own=function(p){
+    if(!_mine) return true;
+    var who=String((p&&(p.assignedTo||p.owner))||'').trim();
+    if(!who) return true;
+    return who===_me || who.split(' ')[0]===_me;
+  };
   var contacts=_reachContacts().filter(_own);
   var actPartners=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'&&_own(p); }).length;
   var overdue=reachOverdue().filter(_own), dueSoon=reachDueSoon().filter(_own);
@@ -11964,6 +12110,35 @@ function _bdMsProcessEvents(events, ix){
     logged++;
   });
   return logged;
+}
+/* Full rescan. Clears the seen-list so every message in the inbox window is
+   re-read from scratch, then runs a normal check. Needed because a reply that
+   was marked seen under the old matcher (which dropped unknown senders without
+   trace) is otherwise never reconsidered. Records are deduped by msgId, so a
+   rescan cannot duplicate anything already logged. */
+function bdMsRescan(){
+  if(typeof _bdMsConnected!=='function' || !_bdMsConnected()){
+    if(typeof toastInfo==='function') toastInfo('Outlook not connected','Connect Outlook in Settings first, then rescan.');
+    return;
+  }
+  openModal({title:'Rescan inbox', saveLabel:'Rescan now',
+    body:'<div style="font-size:var(--fz-body);line-height:1.55">This forgets which messages have already been checked and re-reads the last year of your inbox and sent mail.'+
+      '<br><br>Replies from an address that is not on any record will be listed under Unmatched replies on the dashboard, where you can attach them to a contact.'+
+      '<br><br>Nothing is duplicated: anything already logged is recognised and skipped.</div>',
+    onSave:function(){
+      closeModal();
+      try{ localStorage.removeItem(BD_MS_SEEN_KEY); }catch(e){}
+      if(typeof toastInfo==='function') toastInfo('Rescanning','Reading your inbox. This can take a moment.');
+      bdMsCheckNow().then(function(n){
+        var um=_bdMsUnmatched().length;
+        try{ save(); }catch(e){}
+        if(_curPage==='dashboard') renderDash();
+        if(typeof toastSuccess==='function') toastSuccess('Rescan complete',
+          (n||0)+' message'+((n||0)===1?'':'s')+' logged'+(um?(', '+um+' unmatched reply'+(um===1?'':'ies')+' waiting on the dashboard'):'')+'.');
+      }).catch(function(e){
+        if(typeof toastError==='function') toastError('Rescan failed', e&&e.message?e.message:String(e));
+      });
+    }});
 }
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
