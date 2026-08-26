@@ -10870,6 +10870,8 @@ function renderDash(){
   var _wqDormant=PARTNERS.filter(function(p){ return _own(p) && (p.relStage==='Dormant'||daysSince(p.lastContact)>60); }).length;
   html+=scoreboard;
 
+  try{ html+=_bdMsUnmatchedBlock(); }catch(e){}
+
   // Replies to Answer - inbound replies with no outbound response logged since.
   var _repl=_bdRepliesAwaiting().filter(function(r){ return _own(r.p); });
   var _replStale=_repl.filter(function(r){ return r.wait!=null && r.wait>=3; }).length;
@@ -11644,6 +11646,7 @@ var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
 var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Calendars.ReadWrite';
 var BD_MS_KEY='smb.bd.msauth';
 var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
+var BD_MS_UNMATCHED_KEY='smb.bd.msunmatched.v1';
 var BD_MS_POLL_MS=5*60*1000;
 var _bdMsPollTimer=null;
 function _bdMsRedirectUri(){ return location.origin + location.pathname; }
@@ -11729,13 +11732,106 @@ function _bdMsToken(){
 }
 function _bdMsSeen(){ try{ return JSON.parse(localStorage.getItem(BD_MS_SEEN_KEY)||'{}'); }catch(e){ return {}; } }
 function _bdMsMarkSeen(map){ try{ localStorage.setItem(BD_MS_SEEN_KEY, JSON.stringify(map)); }catch(e){} }
+/* Inbound mail from an address that is not on any record used to be marked
+   seen and dropped with no trace, so a reply from a second address was lost
+   permanently and invisibly. Unmatched inbound is now kept here, re-checked
+   against the address index on every scan (so adding the address later picks
+   the message up), and surfaced on the dashboard. */
+function _bdMsUnmatched(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNMATCHED_KEY)||'[]'); return a&&a.length?a:[]; }catch(e){ return []; } }
+function _bdMsSaveUnmatched(list){ try{ localStorage.setItem(BD_MS_UNMATCHED_KEY, JSON.stringify((list||[]).slice(0,200))); }catch(e){} }
+function _bdMsLogInbound(rec, m){
+  if(!rec) return false;
+  if(!rec.act) rec.act=[];
+  var mid=m.msgId||m.internetMessageId||m.id; if(!mid) return false;
+  for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].msgId===mid) return false; }
+  var when=m.receivedAt||m.receivedDateTime||'';
+  rec.act.unshift({ d:_bdMsLocalDate(when), type:'Email', subj:(m.subject||m.subj||'Reply received'),
+    notes:String(m.bodyPreview||m.preview||'').slice(0,500), na:'', nc:'', by:'Outlook', owner:'', inbound:true,
+    msgId:mid, graphId:(m.graphId||m.id||''), webLink:(m.webLink||''), receivedAt:when, loggedAt:new Date().toISOString() });
+  if(!rec.lastContact) rec.lastContact=_bdMsLocalDate(when);
+  return true;
+}
+function _bdMsSweepUnmatched(ix){
+  var list=_bdMsUnmatched(); if(!list.length) return 0;
+  var keep=[], n=0;
+  list.forEach(function(u){
+    var hit=ix[String(u.from||'').toLowerCase()];
+    if(hit && _bdMsLogInbound(hit.rec, u)){ n++; return; }
+    if(hit) return;
+    keep.push(u);
+  });
+  if(n||keep.length!==list.length) _bdMsSaveUnmatched(keep);
+  return n;
+}
+/* ---- unmatched replies surface ---- */
+function _bdMsUnmatchedBlock(){
+  var list=_bdMsUnmatched();
+  if(!list.length) return '';
+  var rows=list.slice(0,8).map(function(u){
+    var when=u.receivedAt?_bdMsLocalDate(u.receivedAt):'';
+    return '<tr><td class="cell-firm" style="width:100%;min-width:180px"><span style="font-weight:600">'+_esc(u.name||u.from||'-')+'</span>'+
+      ' <span class="muted">'+_esc(u.from||'')+'</span></td>'+
+      '<td class="nowrap muted" style="padding-right:18px">'+_esc(when||'-')+'</td>'+
+      '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(u.subject||'')+'">'+_esc(u.subject||'-')+'</div></td>'+
+      '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end">'+
+      '<button type="button" class="btn btn-sm" onclick="bdAttachUnmatched(\''+_esc(u.msgId)+'\')">Attach to contact</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdDismissUnmatched(\''+_esc(u.msgId)+'\')">Dismiss</button></div></td></tr>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched replies</span>'+
+    '<span class="card-hd-meta">'+list.length+' from an address not on any record</span></div>'+
+    '<div class="card-bd"><div class="muted">These arrived in your inbox but the sender address is not on any partner or lot agent. Attach one to a contact and it is logged as a reply on that record.</div></div>'+
+    '<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left;width:100%">From</th><th scope="col" style="text-align:left">Received</th><th scope="col" style="text-align:left">Subject</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    (list.length>8?'<div class="card-bd" style="padding-top:0"><div class="muted">Showing 8 of '+list.length+'.</div></div>':'')+
+    '</div>';
+}
+function _bdUnmatchedFind(mid){ var l=_bdMsUnmatched(); for(var i=0;i<l.length;i++){ if(l[i]&&String(l[i].msgId)===String(mid)) return l[i]; } return null; }
+function bdDismissUnmatched(mid){
+  var l=_bdMsUnmatched().filter(function(u){ return String(u.msgId)!==String(mid); });
+  _bdMsSaveUnmatched(l);
+  if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That message will not be listed again.');
+}
+function bdAttachUnmatched(mid){
+  var u=_bdUnmatchedFind(mid); if(!u) return;
+  var opts=(PARTNERS||[]).map(function(p){
+    var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id);
+    return '<option value="'+_esc(n+' - '+(p.firm||''))+'"></option>';
+  }).join('');
+  var body='<div style="font-size:var(--fz-body);color:var(--txm);margin-bottom:10px">From '+_esc(u.name||u.from)+' ('+_esc(u.from)+')'+(u.subject?(', subject '+_esc(u.subject)):'')+'.</div>'+
+    '<label for="bd-um-pick" style="display:block;font-size:var(--fz-body);font-weight:600;margin-bottom:4px">Contact</label>'+
+    '<input id="bd-um-pick" list="bd-um-list" placeholder="Start typing a name" style="width:100%;padding:7px 12px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
+    '<datalist id="bd-um-list">'+opts+'</datalist>'+
+    '<div style="font-size:var(--fz-body);color:var(--txm);margin-top:10px">The sender address is saved on that contact so future mail from it matches automatically.</div>';
+  openModal({title:'Attach reply to a contact', body:body, saveLabel:'Attach', onSave:function(){
+    var el=document.getElementById('bd-um-pick'); var want=String(el&&el.value||'').trim();
+    if(!want){ modalErr('Pick a contact.'); return; }
+    var target=null;
+    (PARTNERS||[]).forEach(function(p){
+      var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id);
+      if(!target && (n+' - '+(p.firm||''))===want) target=p;
+    });
+    if(!target){ modalErr('Pick a contact from the list.'); return; }
+    if(!String(target.email||'').trim()) target.email=u.from;
+    else if(String(target.email||'').trim().toLowerCase()!==String(u.from).toLowerCase() && !String(target.altEmail||'').trim()) target.altEmail=u.from;
+    _bdMsLogInbound(target, u);
+    _bdMsSaveUnmatched(_bdMsUnmatched().filter(function(x){ return String(x.msgId)!==String(mid); }));
+    try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    save(); closeModal();
+    if(_curPage==='dashboard') renderDash();
+    if(typeof toastSuccess==='function') toastSuccess('Reply attached',((target.cf||'')+' '+(target.cl||'')).trim()+' now shows this reply, and '+u.from+' is saved on the record.');
+  }});
+}
 function _bdMsEmailIndex(){
   var ix={};
+  /* Index every address a contact is known by, not just the primary. A person
+     who replies from a second mailbox is the same person; indexing only the
+     primary is what let those replies fall through to unmatched. */
+  var _add=function(e,kind,rec){ e=String(e||'').trim().toLowerCase(); if(e && !ix[e]) ix[e]={kind:kind,rec:rec}; };
   (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){
-    var e=String(p.email||'').trim().toLowerCase(); if(e && !ix[e]) ix[e]={kind:'partner',rec:p};
+    _add(p.email,'partner',p); _add(p.altEmail,'partner',p);
   });
   (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){
-    var e=String(p.contactEmail||'').trim().toLowerCase(); if(e && !ix[e]) ix[e]={kind:'lot',rec:p};
+    _add(p.contactEmail,'lot',p); _add(p.altEmail,'lot',p);
   });
   return ix;
 }
@@ -11743,6 +11839,7 @@ function _bdMsLocalDate(iso){
   try{ var d=new Date(iso); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }catch(e){ return _today(); }
 }
 function _bdMsProcessMessages(msgs, ix, seen){
+  var _re=_bdMsSweepUnmatched(ix);
   // Log any inbound message from a known partner/lot address that is not already
   // on that record. Dedupe is by msgId ON THE RECORD (the source of truth), not
   // by the seen-list: a message the seen-list marked but that never actually got
@@ -11754,7 +11851,22 @@ function _bdMsProcessMessages(msgs, ix, seen){
     var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
     if(!from){ seen[mid]=1; return; }
     var hit=ix[from];
-    if(!hit){ seen[mid]=1; return; }  // unknown sender: safe to remember and skip
+    if(!hit){
+      /* Unknown sender: remember the message itself, not just its id, so it can
+         be attached to a contact later or picked up automatically once the
+         address is added. Marking it seen alone lost real replies. */
+      seen[mid]=1;
+      var _um=_bdMsUnmatched(), _have=false;
+      for(var _i=0;_i<_um.length;_i++){ if(_um[_i]&&_um[_i].msgId===mid){ _have=true; break; } }
+      if(!_have){
+        _um.unshift({ msgId:mid, from:from,
+          name:((m.from&&m.from.emailAddress&&m.from.emailAddress.name)||''),
+          subject:(m.subject||''), preview:String(m.bodyPreview||'').slice(0,300),
+          receivedAt:(m.receivedDateTime||''), webLink:(m.webLink||''), graphId:(m.id||'') });
+        _bdMsSaveUnmatched(_um);
+      }
+      return;
+    }
     var rec=hit.rec;
     if(!rec.act) rec.act=[];
     var dup=false;
@@ -11773,7 +11885,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
     // NOTE: do not add matched messages to seen[]; the msgId-on-record check
     // above is the real dedupe and it re-verifies every scan.
   });
-  return logged;
+  return logged+_re;
 }
 function _bdMsProcessSent(msgs, ix){
   // Process the user's SENT mail: match by RECIPIENT address, log as OUTBOUND.
