@@ -5136,9 +5136,10 @@ function _composeEmail(to,name,onSend,opts){
     var ta=_tplAudience(t.name);
     return '<option value="'+t.id+'"'+(String(t.id)===defId?' selected':'')+'>'+_esc(t.name)+(ta!==aud?(' \u00b7 '+_esc(ta)):'')+'</option>';
   }).join('');
+  if(opts.subject0!=null || opts.body0!=null){ defId=''; }
   var t0=(defId!=='')?_tplFind(parseInt(defId,10)):null;
-  var s0=t0?_cmpTokens(t0.subject,tokens):'';
-  var b0=t0?_cmpTokens(t0.body,tokens):'';
+  var s0=(opts.subject0!=null)?String(opts.subject0):(t0?_cmpTokens(t0.subject,tokens):'');
+  var b0=(opts.body0!=null)?String(opts.body0):(t0?_cmpTokens(t0.body,tokens):'');
   var mbody='<div class="smb-form-grid">'+
     '<div class="smb-fld full"><label for="cmp-tpl">Template</label><select id="cmp-tpl" onchange="_cmpApplyTpl()">'+optHtml+'</select></div>'+
     '<div class="smb-fld full"><label for="cmp-subject">Subject</label><input type="text" id="cmp-subject" value="'+_esc(s0)+'"></div>'+
@@ -10864,51 +10865,33 @@ function _bdMsCreateEvent(m){
   });
 }
 function bdReplyToContact(kind, id){
-  var rec=null;
-  if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; }
-  else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
+  var rec=(kind==='lot')?(typeof _prospFind==='function'?_prospFind(id):null):(typeof _partnerFind==='function'?_partnerFind(id):null);
   if(!rec) return;
   var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
-  var email=(kind==='lot')?(rec.contactEmail||''):(rec.email||'');
-  // newest inbound act
+  var email=(kind==='lot')?(rec.contactEmail||rec.altEmail||''):(rec.email||rec.altEmail||'');
+  if(!email){ if(typeof toastInfo==='function') toastInfo('No email on record', nm+' has no email address on file. Add one on their record, then reply.'); return; }
+  // Subject of the reply, from the newest inbound message on the record.
   var inb=null;
   (rec.act||[]).forEach(function(a){ if(a&&a.inbound){ var t=new Date(a.receivedAt||a.loggedAt||a.d).getTime(); if(!inb||t>inb._t){ a._t=t; inb=a; } } });
   var subj=(inb&&inb.subj)||'';
   var reSubj=/^re:/i.test(subj)?subj:('Re: '+(subj||'your email'));
-  function _logReply(){
+  // Log the sent reply quietly and re-render the dashboard, so the contact
+  // clears from Replies to Answer without navigating away. Runs only when the
+  // compose flow's Did-you-send-it confirm is answered Yes.
+  var _logReply=function(s,m){
     if(!rec.act) rec.act=[];
-    rec.act.unshift({d:_today(),type:'Email',subj:reSubj,notes:'',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+    rec.act.unshift({d:_today(),type:'Email',subj:(s||reSubj),notes:(m||''),na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
     if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
     try{ _bdGrpCache=null; }catch(e){}
     try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
     try{ save(); }catch(e){}
-    if(typeof toastSuccess==='function') toastSuccess('Reply logged', nm+'. Removed from Replies to Answer.');
-    try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+    try{ if(_curPage==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
+  };
+  // Same compose flow as outreach: a modal to write the reply, Open in Outlook,
+  // then the send confirm. Pre-addressed to the contact with the Re: subject.
+  if(typeof _composeEmail==='function'){
+    _composeEmail(email, nm, _logReply, {audience:(kind==='lot'?'Realtor':'Partner'), subject0:reSubj});
   }
-  function _confirmAfterOpen(){
-    if(typeof _cmpConfirmSend==='function'){ _cmpConfirmSend(nm, _logReply, function(){ if(typeof toastInfo==='function') toastInfo('Not logged', nm+'. Nothing was recorded.'); }); }
-  }
-  function _openLink(link){ try{ window.open(link,'_blank'); }catch(e){ location.assign(link); } _confirmAfterOpen(); }
-  function _mailtoFallback(){
-    var mu='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(reSubj);
-    var a=document.createElement('a'); a.href=mu; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    _confirmAfterOpen();
-  }
-  if(inb && inb.webLink){ _openLink(inb.webLink); return; }
-  if(inb && inb.msgId && typeof _bdMsConnected==='function' && _bdMsConnected()){
-    _bdMsToken().then(function(tok){
-      if(!tok){ _mailtoFallback(); return; }
-      var fid=String(inb.msgId).replace(/'/g,"''");
-      var url='https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq \''+fid+'\'&$select=id,webLink';
-      fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(function(r){ return r.ok?r.json():null; }).then(function(res){
-        var m=res&&res.value&&res.value[0];
-        if(m&&m.webLink){ inb.webLink=m.webLink; inb.graphId=m.id||''; try{ save(); }catch(e){} _openLink(m.webLink); }
-        else { _mailtoFallback(); }
-      }).catch(_mailtoFallback);
-    });
-    return;
-  }
-  _mailtoFallback();
 }
 function bdOpenReplyContact(kind, id){
   if(kind==='lot'){
@@ -11912,6 +11895,17 @@ function _bdMsWarnStrip(){
    the message up), and surfaced on the dashboard. */
 function _bdMsUnmatched(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNMATCHED_KEY)||'[]'); return a&&a.length?a:[]; }catch(e){ return []; } }
 function _bdMsSaveUnmatched(list){ try{ localStorage.setItem(BD_MS_UNMATCHED_KEY, JSON.stringify((list||[]).slice(0,200))); }catch(e){} }
+var BD_MS_DISMISSED_KEY='smb.bd.msdismissed.v1';
+var BD_MS_UNDISMISS_KEY='smb.bd.msundismiss.v1';
+/* Dismissed message ids stay dismissed: without this, a rescan re-reads the
+   year and parks the same unmatched mail again, so a Dismiss (or Dismiss all)
+   would not stick. The unknown-sender path checks this set before re-listing. */
+function _bdMsDismissed(){ try{ return JSON.parse(localStorage.getItem(BD_MS_DISMISSED_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function _bdMsSaveDismissed(map){ try{ localStorage.setItem(BD_MS_DISMISSED_KEY, JSON.stringify(map||{})); }catch(e){} }
+function _bdMsMarkDismissed(ids){ var m=_bdMsDismissed(); (ids||[]).forEach(function(id){ if(id!=null) m[String(id)]=1; }); _bdMsSaveDismissed(m); }
+function _bdMsReadUndismiss(){ try{ return JSON.parse(localStorage.getItem(BD_MS_UNDISMISS_KEY)||'null'); }catch(e){ return null; } }
+function _bdMsWriteUndismiss(o){ try{ localStorage.setItem(BD_MS_UNDISMISS_KEY, JSON.stringify(o)); }catch(e){} }
+function _bdMsClearUndismiss(){ try{ localStorage.removeItem(BD_MS_UNDISMISS_KEY); }catch(e){} }
 function _bdMsLogInbound(rec, m){
   if(!rec) return false;
   if(!rec.act) rec.act=[];
@@ -11950,8 +11944,13 @@ function _bdMsUnmatchedBlock(){
       '<button type="button" class="btn btn-sm" onclick="bdAttachUnmatched(\''+_esc(u.msgId)+'\')">Attach to contact</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdDismissUnmatched(\''+_esc(u.msgId)+'\')">Dismiss</button></div></td></tr>';
   }).join('');
-  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched replies</span>'+
-    '<span class="card-hd-meta">'+list.length+' from an address not on any record</span></div>'+
+  var _undis=_bdMsReadUndismiss();
+  var _hdBtns='<span style="display:inline-flex;gap:8px;align-items:center">'+
+    '<span class="card-hd-meta">'+list.length+' from an address not on any record</span>'+
+    '<button type="button" class="btn btn-sm" onclick="bdDismissAllUnmatched()">Dismiss all</button>'+
+    (_undis&&_undis.removed&&_undis.removed.length?('<button type="button" class="btn btn-sm" onclick="bdUndismissUnmatched()">Undo dismiss ('+_undis.removed.length+')</button>'):'')+
+    '</span>';
+  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched replies</span>'+_hdBtns+'</div>'+
     '<div class="card-bd"><div class="muted">These arrived in your inbox but the sender address is not on any partner or lot agent. Attach one to a contact and it is logged as a reply on that record.</div></div>'+
     '<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left;width:100%">From</th><th scope="col" style="text-align:left">Received</th><th scope="col" style="text-align:left">Subject</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     (list.length>8?'<div class="card-bd" style="padding-top:0"><div class="muted">Showing 8 of '+list.length+'.</div></div>':'')+
@@ -11959,10 +11958,34 @@ function _bdMsUnmatchedBlock(){
 }
 function _bdUnmatchedFind(mid){ var l=_bdMsUnmatched(); for(var i=0;i<l.length;i++){ if(l[i]&&String(l[i].msgId)===String(mid)) return l[i]; } return null; }
 function bdDismissUnmatched(mid){
-  var l=_bdMsUnmatched().filter(function(u){ return String(u.msgId)!==String(mid); });
+  var full=_bdMsUnmatched();
+  var removed=full.filter(function(u){ return String(u.msgId)===String(mid); });
+  var l=full.filter(function(u){ return String(u.msgId)!==String(mid); });
   _bdMsSaveUnmatched(l);
+  _bdMsMarkDismissed(removed.map(function(u){ return u.msgId; }));
+  _bdMsWriteUndismiss({at:new Date().toISOString(), removed:removed});
   if(_curPage==='dashboard') renderDash();
-  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That message will not be listed again.');
+  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That message will not be listed again. Undo is on the Unmatched replies card.');
+}
+function bdDismissAllUnmatched(){
+  var full=_bdMsUnmatched();
+  if(!full.length){ if(typeof toastInfo==='function') toastInfo('Nothing to dismiss','The unmatched list is already empty.'); return; }
+  _bdMsMarkDismissed(full.map(function(u){ return u.msgId; }));
+  _bdMsWriteUndismiss({at:new Date().toISOString(), removed:full.slice()});
+  _bdMsSaveUnmatched([]);
+  if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Cleared', full.length+' unmatched message'+(full.length===1?'':'s')+' dismissed. They will not be listed again. Undo is on the Unmatched replies card.');
+}
+function bdUndismissUnmatched(){
+  var u=_bdMsReadUndismiss();
+  if(!u||!u.removed||!u.removed.length){ if(typeof toastInfo==='function') toastInfo('Nothing to undo','No dismiss has been run on this browser.'); return; }
+  var m=_bdMsDismissed(); u.removed.forEach(function(x){ if(x&&x.msgId!=null) delete m[String(x.msgId)]; }); _bdMsSaveDismissed(m);
+  var cur=_bdMsUnmatched(); var have={}; cur.forEach(function(x){ if(x&&x.msgId!=null) have[String(x.msgId)]=1; });
+  u.removed.forEach(function(x){ if(x&&x.msgId!=null&&!have[String(x.msgId)]) cur.push(x); });
+  cur.sort(function(a,b){ return String((b&&b.receivedAt)||'').localeCompare(String((a&&a.receivedAt)||'')); });
+  _bdMsSaveUnmatched(cur); _bdMsClearUndismiss();
+  if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Restored', u.removed.length+' message'+(u.removed.length===1?'':'s')+' back on the Unmatched replies list.');
 }
 function bdAttachUnmatched(mid){
   var u=_bdUnmatchedFind(mid); if(!u) return;
@@ -12029,6 +12052,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
          be attached to a contact later or picked up automatically once the
          address is added. Marking it seen alone lost real replies. */
       seen[mid]=1;
+      if(_bdMsDismissed()[String(mid)]) return;
       var _um=_bdMsUnmatched(), _have=false;
       for(var _i=0;_i<_um.length;_i++){ if(_um[_i]&&_um[_i].msgId===mid){ _have=true; break; } }
       if(!_have){
