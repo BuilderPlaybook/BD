@@ -2379,13 +2379,18 @@ function _isArchived(p){ return !!(p&&p.archived); }
 /* Most recent real contact date (string, '' if never). Uses lastContact and
    the latest deliberate activity, whichever is later. */
 function _lastRealTouch(p){
-  var last=String((p&&p.lastContact)||'');
+  var last=''; var sawAct=false;
   (p&&p.act||[]).forEach(function(a){
     if(!a||a.inbound) return;
     if(typeof _bdActReal==='function' && !_bdActReal(a)) return;
+    sawAct=true;
     var ds=String(a.d||a.date||a.at||'');
     if(ds>last) last=ds;
   });
+  /* Legacy records imported with a lastContact but no activity log fall back to it.
+     Records that DO have real outbound acts ignore lastContact, so an inbound reply
+     bumping lastContact never resets the reach-out cadence. */
+  if(!sawAct) last=String((p&&p.lastContact)||'');
   return last;
 }
 /* True when a follow-up reminder is genuinely outstanding. Past date, a prior
@@ -5530,7 +5535,7 @@ function mleadLogEmail(kind,id,subj,notes){
   var by=_curName().split(' ')[0];
   var a={d:_today(),type:'Email',subj:(subj||'Email sent'),notes:(notes||''),na:'',nc:'',by:by,loggedAt:new Date().toISOString()};
   var who='this lead';
-  if(kind==='lot'){ var p=_prospFind(id); if(p){ if(!p.act) p.act=[]; p.act.unshift(a); if(a.d>(p.lastContact||'')) p.lastContact=a.d; who=p.contactName||who; } }
+  if(kind==='lot'){ var p=_prospFind(id); if(p){ if(!p.act) p.act=[]; p.act.unshift(a); if(a.d>(p.lastContact||'')) p.lastContact=a.d; try{ _advanceStageOnTouch(p); }catch(_){} who=p.contactName||who; } }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(pu){ var k=pu.applicantKey||_pullKey(pu.applicant,''); if(k){ if(!PULL_ACTIVITY[k]) PULL_ACTIVITY[k]=[]; PULL_ACTIVITY[k].unshift(a); who=_pullDisplay(pu.applicant,'')||who; } } }
   var _np=null; try{ _np=_mleadAutoPartner(kind,id); }catch(e){}
   if(_np){ if(!_np.act) _np.act=[]; _np.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); }
@@ -9536,14 +9541,14 @@ function partnerCadenceLabel(p){
     : ('Tier '+partnerTierEff(p)+', '+d+'d');
 }
 function _reachDueDate(p){
-  var lt=p&&p.lastContact; if(!lt) return null;
+  var lt=_lastRealTouch(p); if(!lt) return null;
   var d=(/^\d{4}-\d{2}-\d{2}$/.test(lt))?new Date(lt+'T00:00:00'):new Date(lt);
   if(isNaN(d.getTime())) return null;
   d.setDate(d.getDate()+(partnerCadenceDays(p)||60));
   return d;
 }
 function reachState(p){
-  var lt=p&&p.lastContact;
+  var lt=_lastRealTouch(p);
   if(!lt) return {state:'none',label:'No contact logged',dueIn:null};
   var due=_reachDueDate(p); if(!due) return {state:'none',label:'No contact logged',dueIn:null};
   var today=new Date(_today()+'T00:00:00');
