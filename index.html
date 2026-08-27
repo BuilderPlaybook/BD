@@ -4102,10 +4102,16 @@ function _lotArchToggle(address,price){ var k=_lotKeyOf(address,price); if(!k) r
    Synced Outlook sends count; inbound and dismissed notes do not. */
 function _lotEmailedDate(r){
   var best='';
+  var scan=function(rec){ (rec&&rec.act||[]).forEach(function(a){ if(!a||a.inbound||a.dismissed||a.type!=='Email'||!a.d) return; if(a.d>best) best=a.d; }); };
   var ags=(r.agents&&r.agents.length)?r.agents:[{agentId:r.agentId}];
   ags.forEach(function(ag){
     var p=_prospFind(ag.agentId); if(!p) return;
-    (p.act||[]).forEach(function(a){ if(!a||a.inbound||a.dismissed||a.type!=='Email'||!a.d) return; if(a.d>best) best=a.d; });
+    scan(p);
+    /* If the agent was linked or merged into a partner, their outbound email
+       history lives on the partner record, not here - follow it so an emailed
+       agent's lots leave the To do queue. */
+    var pid=(p.mergedIntoPartnerId!=null)?p.mergedIntoPartnerId:(p.linkedPartnerId!=null?p.linkedPartnerId:null);
+    if(pid!=null && typeof _partnerFind==='function'){ scan(_partnerFind(pid)); }
   });
   return best;
 }
