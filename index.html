@@ -4425,7 +4425,7 @@ function _bdXsLinkAndMerge(){
    follow-ups due, across lot agents. Hidden when empty. */
 function _mleadTodayStrip(){
   var pool=PROSPECTS.filter(function(p){ return (p.isAgent||p.type==='lot')&&!_prospArchived(p); });
-  var replies=pool.filter(function(p){ return p.hasReply; });
+  var replies=(typeof _bdRepliesAwaiting==='function')?_bdRepliesAwaiting():pool.filter(function(p){ return p.hasReply; }).map(function(p){ return {p:p,kind:'lot'}; });
   var due=pool.filter(_lotAgentDue);
   if(!replies.length&&!due.length) return '';
   function row(p,chip,cls){
@@ -4433,11 +4433,20 @@ function _mleadTodayStrip(){
       '<div style="min-width:0"><span style="font-weight:600">'+_esc(p.contactName||'-')+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(p.contactFirm||'')+'</span></div>'+
       '<span class="chip '+cls+'" style="flex-shrink:0">'+_esc(chip)+'</span></div>';
   }
+  function replyRow(r){
+    var p=r.p, isLot=(r.kind==='lot');
+    var nm=isLot?(p.contactName||p.contactFirm||'-'):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'-');
+    var firm=isLot?(p.contactFirm||''):(p.firm||'');
+    var openFn=isLot?('mleadOpenLot('+p.id+')'):('bdOpenReplyContact(\''+r.kind+'\','+p.id+')');
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="'+openFn+'">'+
+      '<div style="min-width:0"><span style="font-weight:600">'+_esc(nm)+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(firm)+'</span></div>'+
+      '<span class="chip c-grn" style="flex-shrink:0">Replied</span></div>';
+  }
   var h='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Today</span><span class="muted" style="font-size:var(--fz-body)">who needs a touch</span></div><div class="card-body" style="padding-top:8px">';
   if(replies.length){
     h+='<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Replies to answer ('+replies.length+')</div>'+
-      replies.slice(0,5).map(function(p){ return row(p,'Replied','c-grn'); }).join('');
-    if(replies.length>5) h+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(replies.length-5)+' more with the Replied chip in the list</div>';
+      replies.slice(0,5).map(replyRow).join('');
+    if(replies.length>5) h+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(replies.length-5)+' more</div>';
   }
   if(due.length){
     h+='<div style="font-weight:700;font-size:var(--fz-body);margin:'+(replies.length?'10px':'0')+' 0 2px">Follow-ups due ('+due.length+')</div>'+
