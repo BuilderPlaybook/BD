@@ -2737,7 +2737,7 @@ function _activePageId(){ try{ var a=document.querySelector('.page.active'); ret
    element so tooltips are never clipped by cards or scrolling tables. */
 var _tipLayer=null,_tipCur=null;
 function _tipEnsure(){ if(!_tipLayer){ _tipLayer=document.createElement('div'); _tipLayer.id='bd-tip-layer'; _tipLayer.setAttribute('role','tooltip'); document.body.appendChild(_tipLayer); } return _tipLayer; }
-function _tipShowFor(ic){ var tip=ic&&ic.querySelector?ic.querySelector('.tip'):null; if(!tip) return; var L=_tipEnsure(); L.innerHTML=tip.innerHTML; _tipCur=ic; L.style.display='block'; var r=ic.getBoundingClientRect(); var w=L.offsetWidth||280,h=L.offsetHeight||60; var x=r.left+r.width/2-w/2; if(x<12)x=12; if(x+w>window.innerWidth-12)x=window.innerWidth-12-w; var y=r.bottom+8; if(y+h>window.innerHeight-8)y=r.top-8-h; if(y<8)y=8; L.style.left=Math.round(x)+'px'; L.style.top=Math.round(y)+'px'; }
+function _tipShowFor(ic){ var tip=ic&&ic.querySelector?ic.querySelector('.tip'):null; if(!tip) return; var L=_tipEnsure(); L.innerHTML=tip.innerHTML; _tipCur=ic; L.style.display='block'; var r=ic.getBoundingClientRect(); var w=L.offsetWidth||280,h=L.offsetHeight||60; var x=r.left+r.width/2-w/2; if(x<12)x=12; if(x+w>window.innerWidth-12)x=window.innerWidth-12-w; var y=r.bottom+8; if(y+h>window.innerHeight-8)y=r.top-8-h; if(y<8)y=8; if(y+h>window.innerHeight-8)y=Math.max(8,window.innerHeight-8-h); L.style.left=Math.round(x)+'px'; L.style.top=Math.round(y)+'px'; }
 function _tipHide(){ if(_tipLayer)_tipLayer.style.display='none'; _tipCur=null; }
 function _tipResolve(t){ var host=(t&&t.closest)?t.closest('.info-icon,[data-tip-host]'):null; if(!host) return null; return (host.classList&&host.classList.contains('info-icon'))?host:((host.querySelector)?host.querySelector('.info-icon'):null); }
 document.addEventListener('mouseover',function(e){ var ic=_tipResolve(e.target); if(ic){ if(ic!==_tipCur)_tipShowFor(ic); } else if(_tipCur){ _tipHide(); } });
@@ -7601,14 +7601,24 @@ function _pndShowTip(cell){
   if(!src) return;
   var el = _pndFloatEl();
   el.innerHTML = src.innerHTML;
+  el.style.maxHeight=''; el.style.overflowY='';
   el.className = 'on';
   var r = cell.getBoundingClientRect();
-  var w = el.offsetWidth, h = el.offsetHeight, pad = 8;
+  var w = el.offsetWidth, h = el.offsetHeight, pad = 8, vh = window.innerHeight;
   var left = r.left + (r.width/2) - (w/2);
   left = Math.max(pad, Math.min(left, window.innerWidth - w - pad));
-  var top = r.bottom + 8;
-  var below = true;
-  if(top + h > window.innerHeight - pad){ top = r.top - h - 8; below = false; }
+  var below = true, top = r.bottom + 8;
+  if(top + h > vh - pad){                       /* does not fit below */
+    var above = r.top - h - 8;
+    if(above >= pad){ top = above; below = false; }   /* fits above */
+    else {                                        /* fits neither: pick larger side, cap height so it stays on-screen */
+      var roomBelow = (vh - pad) - (r.bottom + 8);
+      var roomAbove = (r.top - 8) - pad;
+      if(roomAbove >= roomBelow){ below=false; top=pad; el.style.maxHeight=Math.max(60,Math.floor(roomAbove))+'px'; }
+      else { below=true; top=r.bottom+8; el.style.maxHeight=Math.max(60,Math.floor(roomBelow))+'px'; }
+      el.style.overflowY='hidden';
+    }
+  }
   el.style.left = Math.round(left)+'px';
   el.style.top  = Math.round(Math.max(pad, top))+'px';
   /* Arrow points at the cell, flipping to the underside when the tip sits above. */
