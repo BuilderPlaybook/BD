@@ -7456,6 +7456,69 @@ function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){
 function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var c=0; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&_inWk(a.d,s,e)) c++; }); if(isNew&&f&&_inWk(f,s,e)&&c>0) c--; n+=c; }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
+
+/* ---- Contact log: every real outbound touch, chronological, tagged New/Existing.
+   Uses the same _bdGrpIsNew / _bdGrpFirst / _bdActReal the scorecard uses, so
+   the log can never disagree with the New partner outreach / Existing touches cells. */
+function _bdClogWkMon(ds){ var d=new Date(ds+'T00:00:00'); var day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; }
+function _bdClogFmt(d){ try{ return d.toLocaleString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+function _bdContactLogRows(){
+  var out=[];
+  _bdCountGroups().forEach(function(g){
+    var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var usedNew=false;
+    var reals=g.acts.filter(function(a){ return _bdActReal(a)&&a.d; }).sort(function(a,b){ return a.d<b.d?-1:(a.d>b.d?1:0); });
+    reals.forEach(function(a){
+      var bucket='Existing';
+      if(isNew && !usedNew && a.d===f){ bucket='New'; usedNew=true; }
+      out.push({ d:a.d, label:g.label, type:(a.type||'Touch'), bucket:bucket });
+    });
+  });
+  out.sort(function(a,b){ return a.d<b.d?1:(a.d>b.d?-1:0); });
+  return out;
+}
+function bdCloseContactLog(){ var e=document.getElementById('bd-clog-overlay'); if(e&&e.parentNode) e.parentNode.removeChild(e); }
+function bdOpenContactLog(){
+  bdCloseContactLog();
+  var rows=_bdContactLogRows(); var nNew=0,nEx=0;
+  rows.forEach(function(r){ if(r.bucket==='New') nNew++; else nEx++; });
+  var body='';
+  if(!rows.length){
+    body='<div style="padding:26px 16px;text-align:center;color:var(--txm);font-size:var(--fz-body)">No outreach logged yet.</div>';
+  } else {
+    var curWk=null;
+    body='<table style="width:100%;border-collapse:collapse">';
+    rows.forEach(function(r){
+      var mon=_bdClogWkMon(r.d); var wkKey=mon.toISOString().slice(0,10);
+      if(wkKey!==curWk){
+        curWk=wkKey; var end=new Date(mon); end.setDate(end.getDate()+6);
+        body+='<tr><td colspan="4" style="padding:12px 14px 4px;font-size:var(--fz-xs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--txm)">Week of '+_bdClogFmt(mon)+' - '+_bdClogFmt(end)+'</td></tr>';
+      }
+      var bcol=(r.bucket==='New')?'var(--blu)':'var(--txm)';
+      body+='<tr style="border-top:1px solid var(--brd)">'
+        +'<td style="padding:8px 14px;font-size:var(--fz-body);color:var(--txm);white-space:nowrap">'+_esc(r.d)+'</td>'
+        +'<td style="padding:8px 14px;font-size:var(--fz-body);font-weight:600">'+_esc(r.label)+'</td>'
+        +'<td style="padding:8px 14px;font-size:var(--fz-body);color:var(--txm)">'+_esc(r.type)+'</td>'
+        +'<td style="padding:8px 14px;font-size:var(--fz-xs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:'+bcol+';white-space:nowrap;text-align:right">'+r.bucket+'</td>'
+        +'</tr>';
+    });
+    body+='</table>';
+  }
+  var el=document.createElement('div');
+  el.id='bd-clog-overlay';
+  el.setAttribute('onkeydown','event.stopPropagation()');
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
+  el.onclick=function(e){ if(e.target===el) bdCloseContactLog(); };
+  el.innerHTML='<div onclick="event.stopPropagation()" style="background:var(--sur);border:1px solid var(--brd);border-radius:10px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd);flex-shrink:0">'
+    +'<div><div style="font-size:var(--fz-lg);font-weight:700">Contact log</div>'
+    +'<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">Every outreach you logged, newest first. Blue = counted as New partner outreach; the rest are Existing relationship touches. '+nNew+' New, '+nEx+' Existing in total.</div></div>'
+    +'<button type="button" onclick="bdCloseContactLog()" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--brd2);background:var(--sur2);cursor:pointer;font-size:var(--fz-lg);color:var(--txm);flex-shrink:0">\u00d7</button>'
+    +'</div>'
+    +'<div style="overflow:auto;flex:1">'+body+'</div>'
+    +'</div>';
+  document.body.appendChild(el);
+}
+
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
 function _bdFeedDistinctDays(re){ return function(s,e){ var days={}; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&re.test(a.type||'')&&a.d&&_inWk(a.d,s,e)) days[a.d]=1; }); }); return Object.keys(days).length; }; }
 function _bdFeedBooks(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
@@ -9030,6 +9093,7 @@ function scBuild(){
     h+='<button onclick="state.scorecardMenu=false;state.scReorder=!state.scReorder;state.scMerged=false;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scReorder?'Done reordering':'Edit group order')+'</button>';
     h+='<button onclick="state.scorecardMenu=false;state.scMerged=!state.scMerged;state.scReorder=false;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scMerged?'Unmerge groups':'Merge all groups')+'</button>';
     h+='<button onclick="state.scorecardMenu=false;state.scShowArchived=!state.scShowArchived;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scShowArchived?'Hide archived':'Show archived')+' ('+(function(){var _n=0;scorecard.forEach(function(s){(s.metrics||[]).forEach(function(m){if(m&&m.archived)_n++;});});return _n;})()+')</button>';
+    h+='<button onclick="state.scorecardMenu=false;bdOpenContactLog()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">Contact log</button>';
     h+='<div style="height:1px;background:var(--brd);margin:4px 0"></div>';
     h+='<button onclick="state.scorecardMenu=false;exportScorecardCSV()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">Export as CSV</button>';
     h+='<button onclick="state.scorecardMenu=false;printScorecard()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">Print PDF</button>';
