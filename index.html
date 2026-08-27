@@ -3636,7 +3636,7 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="bdOpenRecovery()">Restore a snapshot</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdInspectPrompt()">Inspect a contact</button>'+
       '<button type="button" class="btn btn-sm" onclick="bdRemoveEmailPrompt()">Remove a mislogged email</button>'+
-      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdMsRescan()">Rescan inbox</button><button type="button" class="btn btn-sm" onclick="bdSendTestEmail()">Send test email to myself</button>'+
     '</div>'+
     '<div id="bd-health-out" style="margin-bottom:24px"></div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Email Integration</div>'+
@@ -5318,8 +5318,8 @@ function _bdMsSendMail(to, cc, subject, htmlBody, atts){
 function bdSendTestEmail(){
   var me=((_bdMsStore()||{}).account||'').trim();
   if(!(typeof _bdMsConnected==='function'&&_bdMsConnected())||!me){ if(typeof toastInfo==='function') toastInfo('Connect Outlook first','Connect Outlook in Settings, then send the test.'); return; }
+  if(!(typeof _bdSigReady==='function'&&_bdSigReady())){ if(typeof toastInfo==='function') toastInfo('Signature not set up yet','Open any email and click Set up automatic signature first, then send the test.'); return; }
   var sigBlock=(typeof _bdSignatureHtmlBlock==='function')?_bdSignatureHtmlBlock():'';
-  if(!sigBlock && typeof toastInfo==='function') toastInfo('No signature yet','Open any email, click Pull signature from Outlook, then send the test to check it.');
   var html=_bdPlainToHtml('This is a test email from BD to check that direct send and your signature are working. If the signature below looks right, you are all set.')+sigBlock;
   if(typeof toastInfo==='function') toastInfo('Sending test...', me);
   var sigAtts=(typeof BD_SIGNATURE_HTML==='string'&&BD_SIGNATURE_HTML.trim()&&typeof BD_SIGNATURE_ATTS!=='undefined'&&BD_SIGNATURE_ATTS&&BD_SIGNATURE_ATTS.length)?BD_SIGNATURE_ATTS:null;
