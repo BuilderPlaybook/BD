@@ -5096,12 +5096,12 @@ function _mleadNum(key,label,step){
   return '<input id="mlead-'+key+'" type="number"'+(step?(' step="'+step+'" min="0"'):' min="0"')+' placeholder="'+_esc(label)+'" aria-label="'+_esc(label)+'" value="'+_esc(f[key]||'')+'" oninput="mleadOnSearch()" style="width:128px;padding:7px 10px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">';
 }
 
-function prospectSetTab(t){ MLEAD_VIEW=null; if(t==='lots'){ PROSPECT_TAB='lots'; LOT_VIEW='listings'; } else if(t==='agents'){ PROSPECT_TAB='lots'; LOT_VIEW='agents'; } else { PROSPECT_TAB=t; } renderProspecting(); }
+function prospectSetTab(t){ MLEAD_VIEW=null; if(t==='lots'){ PROSPECT_TAB='lots'; LOT_VIEW='listings'; } else if(t==='commercial'){ PROSPECT_TAB='lots'; LOT_VIEW='commercial'; } else if(t==='agents'){ PROSPECT_TAB='lots'; LOT_VIEW='agents'; } else { PROSPECT_TAB=t; } renderProspecting(); }
 function mleadBack(){ MLEAD_VIEW=null; renderProspecting(); }
 function mleadOpenLot(id){ var _p=_prospFind(id); if(_p&&_p.hasReply){ _p.hasReply=false; save(); } MLEAD_VIEW={kind:'lot',id:id}; renderProspecting(); }
 function mleadOpenPull(id){ var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); if(!k) return; MLEAD_VIEW={kind:'pull',key:k}; renderProspecting(); }
 
-function _mleadKey(){ return (PROSPECT_TAB==='lots' && LOT_VIEW==='agents')?'agents':PROSPECT_TAB; }
+function _mleadKey(){ if(PROSPECT_TAB==='lots' && LOT_VIEW==='agents') return 'agents'; if(PROSPECT_TAB==='lots' && LOT_VIEW==='commercial') return 'commercial'; return PROSPECT_TAB; }
 function _mleadF(){ var t=_mleadKey(); if(!MLEAD_FILTER[t]){ MLEAD_FILTER[t]={q:'',f1:'',f2:'',f3:'',f4:'',f5:''}; if(t==='building'||t==='development') MLEAD_FILTER[t].f5='yes'; } return MLEAD_FILTER[t]; }
 function _mleadReadFilters(){ var f=_mleadF(); var q=document.getElementById('mlead-q'); if(q) f.q=q.value; ['f1','f2','f3','f4','f5'].forEach(function(k){ var e=document.getElementById('mlead-'+k); if(e) f[k]=e.value; }); return f; }
 function mleadOnSearch(){ if(!_mleadSearchDeb) _mleadSearchDeb=mktgDebounce(mleadRenderList,200); _mleadSearchDeb(); }
@@ -5931,14 +5931,17 @@ function pullRowLogContact(id){
 
 function _prospLotsShell(){
   var actions='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button> <button class="btn btn-sm" onclick="prospectEdit(null)">Add market lead</button></div>';
-  if(LOT_VIEW==='listings'){
+  if(LOT_VIEW==='listings'||LOT_VIEW==='commercial'){
+    var _com=(LOT_VIEW==='commercial');
+    var _intro=_com?'Commercial lots - a separate business. Work this list to zero the same way, or send one back to Residential.':'One row per lot for sale; co-listed lots grouped. Click a row for its listing agent.';
+    var _typeSel=_com?'':_mleadSel('f5','All types',[{v:'res',l:'Residential'},{v:'unsorted',l:'Unsorted'}]);
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'+
-      '<div class="muted" style="font-size:var(--fz-body)">One row per lot for sale; co-listed lots grouped. Click a row for its listing agent.</div>'+
+      '<div class="muted" style="font-size:var(--fz-body)">'+_intro+'</div>'+
       actions+'</div>'+
       '<div id="mlead-mini"></div>'+
       _mleadBar('Search address, municipality, MLS, agent...',
         _mleadSel('f1','All municipalities',_allLotMunis())+
-        _mleadSel('f5','All types',[{v:'res',l:'Residential'},{v:'com',l:'Commercial'},{v:'unsorted',l:'Unsorted'}])+
+        _typeSel+
         _mleadSel('f6','To do',[{v:'emailed',l:'Emailed'},{v:'archived',l:'Archived'},{v:'all',l:'Everything'}])+
         _mleadNum('f2','Min price')+_mleadNum('f3','Max price')+_mleadNum('f4','Min acres','0.01'))+
       '<div id="mlead-table"></div>';
@@ -6061,18 +6064,20 @@ function mleadRenderList(){
   var miniEl=document.getElementById('mlead-mini'), tblEl=document.getElementById('mlead-table');
   if(!tblEl) return;
   var mini='', table='';
-  if(t==='lots' && LOT_VIEW==='listings'){
+  if(t==='lots' && (LOT_VIEW==='listings'||LOT_VIEW==='commercial')){
     var allL=_lotListingRows();
     var rowsL=allL.filter(function(r){
       if(q){ var hay=((r.address||'')+' '+(r.muni||'')+' '+(r.mlsList||[]).map(function(x){return x.mls;}).join(' ')+' '+(r.agents||[]).map(function(a){return (a.agent||'')+' '+(a.firm||'');}).join(' ')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
       if(f.f1 && r.muni!==f.f1) return false;
-      if(f.f5){ var _rt=_lotTypeGet(r); if(f.f5==='unsorted'){ if(_rt) return false; } else if(_rt!==f.f5) return false; }
+      var _isCom=_lotTypeGet(r)==='com';
+      if(LOT_VIEW==='commercial'){ if(!_isCom) return false; }
+      else { if(_isCom) return false; if(f.f5){ var _rt=_lotTypeGet(r); if(f.f5==='unsorted'){ if(_rt) return false; } else if(_rt!==f.f5) return false; } }
       var _arch=_lotArchGet(r);
       if(f.f6==='archived'){ if(!_arch) return false; }
       else if(f.f6==='emailed'){ if(_arch||!_lotEmailedDate(r)) return false; }
-      else if(f.f6==='all'){ /* everything */ }
-      else { /* To do (default): not emailed, not archived, not commercial */
-        if(_arch||_lotEmailedDate(r)||_lotTypeGet(r)==='com') return false; }
+      else if(f.f6==='all'){ /* everything in this tab */ }
+      else { /* To do (default): not emailed, not archived */
+        if(_arch||_lotEmailedDate(r)) return false; }
       var mn=parseFloat(f.f2), mx=parseFloat(f.f3), ma=parseFloat(f.f4);
       if(!isNaN(mn) && (r.price==null || r.price<mn)) return false;
       if(!isNaN(mx) && (r.price==null || r.price>mx)) return false;
@@ -6108,7 +6113,9 @@ function mleadRenderList(){
         var _btns='<div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">'+
           '<button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+r.agentId+')">Email</button>'+
           '<button type="button" class="btn btn-sm" onclick="_lotArchToggle(\''+_addrEsc+'\','+_prArg+')">'+(_isArch?'Restore':'Archive')+'</button>'+
-          '<button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_addrEsc+'\','+_prArg+',\'com\')">Commercial</button>'+
+          (LOT_VIEW==='commercial'
+            ? '<button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_addrEsc+'\','+_prArg+',\'res\')">Residential</button>'
+            : '<button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_addrEsc+'\','+_prArg+',\'com\')">Commercial</button>')+
           '</div>';
         return '<tr style="cursor:pointer" onclick="mleadOpenLot('+r.agentId+')">'+
           '<td><div style="font-weight:600;color:var(--txt)">'+_esc(r.address||'-')+'</div>'+mlsCell+'</td>'+
@@ -6122,7 +6129,7 @@ function mleadRenderList(){
           '<td>'+_btns+'</td></tr>';
       }).join('')+_prospMoreRow(rowsL.length,6);
       var LL={rerender:'renderProspecting'};
-      table='<div class="card"><div class="card-hd"><span class="card-title">Lots for sale</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
+      table='<div class="card"><div class="card-hd"><span class="card-title">'+(LOT_VIEW==='commercial'?'Commercial lots':'Lots for sale')+'</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr>'+
           _sortTH('lotlist','address','Address',LL)+
           _sortTH('lotlist','listed','Listed',LL)+
@@ -6538,8 +6545,10 @@ function renderProspecting(){
   var nDev=PERMIT_PULLS.filter(function(p){ return p.type==='development'; }).length;
   var nBld=PERMIT_PULLS.filter(function(p){ return p.type==='building'; }).length;
   var nAgents=PROSPECTS.filter(function(p){ return (p.isAgent||p.type==='lot')&&!_prospArchived(p); }).length;
-  var nListings=_lotListingRows().length;
-  var tabs=[['lots','Lots for sale',nListings],['agents','Lot agents',nAgents],['development','Development',nDev],['building','Building',nBld],['builders','Builders',distinctPullers()],['summary','Summary',null]];
+  var _allLots=_lotListingRows();
+  var nCom=0; _allLots.forEach(function(r){ if(_lotTypeGet(r)==='com') nCom++; });
+  var nListings=_allLots.length-nCom;
+  var tabs=[['lots','Lots for sale',nListings],['commercial','Commercial',nCom],['agents','Lot agents',nAgents],['development','Development',nDev],['building','Building',nBld],['builders','Builders',distinctPullers()],['summary','Summary',null]];
   if(['lots','development','building','builders','summary'].indexOf(PROSPECT_TAB)<0) PROSPECT_TAB='lots';
   var _upd=CITY_LEADS_UPDATED?('Updated '+_esc(CITY_LEADS_UPDATED)):'Auto-updates weekly';
   var _busy=CITY_LEADS_LOADING||LOT_FEED_LOADING;
@@ -6548,7 +6557,7 @@ function renderProspecting(){
     '<span style="font-size:var(--fz-xs);color:var(--txd);align-self:center;margin-left:2px">'+_upd+'</span>'+_lotsUpd;;
   var html='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">'+
     tabs.map(function(t){
-      var on=(t[0]==='lots')?(PROSPECT_TAB==='lots'&&LOT_VIEW==='listings'):((t[0]==='agents')?(PROSPECT_TAB==='lots'&&LOT_VIEW==='agents'):(PROSPECT_TAB===t[0]));
+      var on=(t[0]==='lots')?(PROSPECT_TAB==='lots'&&LOT_VIEW==='listings'):((t[0]==='commercial')?(PROSPECT_TAB==='lots'&&LOT_VIEW==='commercial'):((t[0]==='agents')?(PROSPECT_TAB==='lots'&&LOT_VIEW==='agents'):(PROSPECT_TAB===t[0])));
       return '<button class="btn btn-sm'+(on?' btn-primary':'')+'" onclick="prospectSetTab(\''+t[0]+'\')">'+_esc(t[1])+(t[2]!=null?(' <span style="opacity:.65">'+num(t[2])+'</span>'):'')+'</button>';
     }).join('')+'<span style="flex:1"></span>'+_refreshBtn+'</div>';
   html=_mleadTodayStrip()+html;
