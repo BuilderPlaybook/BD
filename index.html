@@ -2734,9 +2734,10 @@ var _tipLayer=null,_tipCur=null;
 function _tipEnsure(){ if(!_tipLayer){ _tipLayer=document.createElement('div'); _tipLayer.id='bd-tip-layer'; _tipLayer.setAttribute('role','tooltip'); document.body.appendChild(_tipLayer); } return _tipLayer; }
 function _tipShowFor(ic){ var tip=ic&&ic.querySelector?ic.querySelector('.tip'):null; if(!tip) return; var L=_tipEnsure(); L.innerHTML=tip.innerHTML; _tipCur=ic; L.style.display='block'; var r=ic.getBoundingClientRect(); var w=L.offsetWidth||280,h=L.offsetHeight||60; var x=r.left+r.width/2-w/2; if(x<12)x=12; if(x+w>window.innerWidth-12)x=window.innerWidth-12-w; var y=r.bottom+8; if(y+h>window.innerHeight-8)y=r.top-8-h; if(y<8)y=8; L.style.left=Math.round(x)+'px'; L.style.top=Math.round(y)+'px'; }
 function _tipHide(){ if(_tipLayer)_tipLayer.style.display='none'; _tipCur=null; }
-document.addEventListener('mouseover',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic){ if(ic!==_tipCur)_tipShowFor(ic); } else if(_tipCur){ _tipHide(); } });
-document.addEventListener('focusin',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic)_tipShowFor(ic); });
-document.addEventListener('focusout',function(e){ var t=e.target; var ic=(t&&t.closest)?t.closest('.info-icon'):null; if(ic&&ic===_tipCur)_tipHide(); });
+function _tipResolve(t){ var host=(t&&t.closest)?t.closest('.info-icon,[data-tip-host]'):null; if(!host) return null; return (host.classList&&host.classList.contains('info-icon'))?host:((host.querySelector)?host.querySelector('.info-icon'):null); }
+document.addEventListener('mouseover',function(e){ var ic=_tipResolve(e.target); if(ic){ if(ic!==_tipCur)_tipShowFor(ic); } else if(_tipCur){ _tipHide(); } });
+document.addEventListener('focusin',function(e){ var ic=_tipResolve(e.target); if(ic)_tipShowFor(ic); });
+document.addEventListener('focusout',function(e){ var ic=_tipResolve(e.target); if(ic&&ic===_tipCur)_tipHide(); });
 window.addEventListener('scroll',function(){ _tipHide(); },true);
 /* Cross-module won/lost listeners: when CRM (or PM via CRM) reports a referred
    lead won or lost, advance the matching referral. Fires only when those
@@ -6787,7 +6788,7 @@ function _scMeasHtml(){
   }
   shown.forEach(function(m){
     h+='<tr>';
-    h+='<td class="sc-act" style="text-align:left;font-size:var(--fz-lg)"><span style="cursor:pointer" onclick="openMeasEditor(&quot;'+m.id+'&quot;)" title="Edit goal">'+_esc(m.title)+'</span>'+(m.description?'<button type="button" class="info-icon" aria-label="What this measures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="tip">'+_esc(m.description)+'</span></button>':'')+(m.level?' <span class="chip c-gry" style="font-size:var(--fz-xs)">current</span>':'')+'</td>';
+    h+='<td class="sc-act" data-tip-host style="text-align:left;font-size:var(--fz-lg)"><span style="cursor:pointer" onclick="openMeasEditor(&quot;'+m.id+'&quot;)" title="Edit goal">'+_esc(m.title)+'</span>'+(m.description?'<button type="button" class="info-icon" aria-label="What this measures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="tip">'+_esc(m.description)+'</span></button>':'')+(m.level?' <span class="chip c-gry" style="font-size:var(--fz-xs)">current</span>':'')+'</td>';
     h+='<td style="white-space:nowrap;color:var(--txm)">'+_esc(_measGoalLabel(m))+'</td>';
     h+='<td style="text-align:center;font-weight:600">'+_measFmt(_measAvg(m,weeks),m.unit)+'</td>';
     h+='<td style="text-align:center;font-weight:600;border-right:2px solid var(--brd)">'+_measFmt(_measTotal(m,weeks),m.unit)+'</td>';
@@ -7114,10 +7115,9 @@ function _nulls(n){ var a=[]; for(var i=0;i<n;i++)a.push(null); return a; }
 var teamsRegistry={ bd:{ id:"bd", name:"BD Team", color:"var(--cat-ind)", quarter:"Q2 2026", members:["DS"], goals:[],archivedGoals:[],todos:[],privateTodos:[],issues:[],longTermIssues:[],resolvedIssues:[],headlines:[],scheduledMeetings:[],pastMeetings:[],
   scorecard:[
     {ownerId:"DS",ownerName:"Dave Stephens",seat:"Business Development",color:"var(--cat-ind)",metrics:[
-      {id:1,title:"New partner outreach",goal:10,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"People contacted for the first time ever this week, across partners and market leads. The backlog burn-down number; cannot be gamed by farming existing relationships.",auto:"bd.newPartnerOutreach",autoSrc:"BD activity",readings:_nulls(52)},
-      {id:2,title:"Existing relationship touches",goal:15,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Outreach activities to people already in contact. The farming number that keeps relationships warm.",auto:"bd.existingTouches",autoSrc:"BD activity",readings:_nulls(52)},
+      {id:1,title:"New partner outreach",goal:10,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"People contacted for the very first time this week. The first outreach to someone with no prior history in BD. Backlog burn-down; every later touch to them counts as Existing, not here.",auto:"bd.newPartnerOutreach",autoSrc:"BD activity",readings:_nulls(52)},
+      {id:2,title:"Existing relationship touches",goal:15,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Every touch this week to someone you have already been in contact with. Your reply back after they responded, and any follow-up to a partner already in your book, both count here. The farming number.",auto:"bd.existingTouches",autoSrc:"BD activity",readings:_nulls(52)},
       {id:3,title:"Meetings held",goal:2,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Meetings and coffees actually held this week. Face time is what converts.",auto:"bd.relationshipMeetings",autoSrc:"BD activity",readings:_nulls(52)},
-      {id:4,title:"New active relationships",goal:2,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"leading",description:"Partners who reached the Meeting stage this week. A relationship became real.",auto:"bd.newActiveRelationships",autoSrc:"Partners",readings:_nulls(52)},
       {id:5,title:"Referrals received",goal:1,goalType:"\u2265",unit:"#",cadence:"weekly",indicator:"lagging",description:"Referred leads logged from partners this week. The output row that proves the rest is working.",auto:"bd.referralsReceived",autoSrc:"Partners",readings:_nulls(52)},
       {id:6,title:"Networking events attended",goal:2,goalType:"\u2265",unit:"#",cadence:"monthly",indicator:"leading",description:"Distinct days this month with a logged Networking Event or Mixer activity.",auto:"bd.eventsAttended",autoSrc:"BD activity",readings:_nulls(12)},
       {id:7,title:"Site tours given",goal:1,goalType:"\u2265",unit:"#",cadence:"monthly",indicator:"leading",description:"Distinct days this month with a logged Site Visit activity. The best conversion tool a builder has.",auto:"bd.siteTours",autoSrc:"BD activity",readings:_nulls(12)},
@@ -7445,8 +7445,10 @@ var _bdGrpCache=null;
 function _bdIdentKey(p){ var e=String(p.email||p.contactEmail||'').trim().toLowerCase(); if(e) return 'e:'+e; var n=String(((p.cf||'')+' '+(p.cl||'')).trim()||p.contactName||'').toLowerCase(); var f=String(p.firm||p.contactFirm||'').toLowerCase(); return 'n:'+n+'|'+f; }
 function _bdCountGroups(){ if(_bdGrpCache) return _bdGrpCache; var map={}, order=[]; _bdAllPeople().forEach(function(p){ if(!p) return; var k=_bdIdentKey(p); if(!map[k]){ map[k]={label:_bdPersonLabel(p), acts:[], seen:{}}; order.push(k); } var g=map[k]; if(g.label==='?'){ g.label=_bdPersonLabel(p); } ((p.act)||[]).forEach(function(a){ if(!a) return; var s=(a.d||'')+'|'+(a.type||'')+'|'+(a.subj||'')+'|'+(a.inbound?'in':'out'); if(g.seen[s]) return; g.seen[s]=1; g.acts.push(a); }); }); _bdGrpCache=order.map(function(k){ return map[k]; }); return _bdGrpCache; }
 function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&(f===null||a.d<f)) f=a.d; }); return f; }
-function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) n++; }); return n; }
-function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) n++; }); }); return n; }
+function _bdActContact(a){ return !!(a && !a.dismissed && a.type!=='Created'); }
+function _bdGrpIsNew(g,fReal){ if(!fReal) return false; var prior=false; g.acts.forEach(function(a){ if(prior||!_bdActContact(a)||!a.d) return; if(a.d<fReal) prior=true; }); return !prior; }
+function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)&&_bdGrpIsNew(g,f)) n++; }); return n; }
+function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var c=0; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&_inWk(a.d,s,e)) c++; }); if(isNew&&f&&_inWk(f,s,e)&&c>0) c--; n+=c; }); return n; }
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 function _bdFeedStageReached(stage){ return function(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates[stage]; if(d&&_inWk(d,s,e)) n++; }); return n; }; }
@@ -7456,7 +7458,7 @@ function _bdFeedReferrals(s,e){ var n=0; (typeof PARTNERS!=='undefined'?PARTNERS
 var BD_AUTO_FEED={ 'bd.newPartnerOutreach':_bdFeedNewOutreach, 'bd.existingTouches':_bdFeedExistingTouches, 'bd.relationshipMeetings':_bdFeedMeetings, 'bd.referralsReceived':_bdFeedReferrals, 'bd.newActiveRelationships':_bdFeedStageReached('Meeting'), 'bd.eventsAttended':_bdFeedDistinctDays(/networking|mixer/i), 'bd.siteTours':_bdFeedDistinctDays(/site\s*(visit|tour)/i), 'bd.booksDelivered':_bdFeedBooks };
 function _bdScMonth(i){ var y=SC_PLAN_START_DATE.getFullYear(); return {s:new Date(y,i,1), e:new Date(y,i+1,1)}; }
 function _bdAutoFillScorecard(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.manualOverride) return; var k=m&&m.auto; if(!k||!BD_AUTO_FEED[k]||!Array.isArray(m.readings)) return; var fn=BD_AUTO_FEED[k]; var monthly=((m.cadence||'weekly')==='monthly'); for(var i=0;i<m.readings.length;i++){ var w=monthly?_bdScMonth(i):_bdScWk(i); var v=fn(w.s,w.e); m.readings[i]=(typeof v==='number'&&v>0)?v:null; } }); }); }catch(_){} }
-function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','People contacted for the first time ever this week, across partners and market leads.'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Outreach activities to people already in contact.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'), mk(4,'New active relationships',2,'weekly','Partners','bd.newActiveRelationships','leading','Partners who reached the Meeting stage this week.'), mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
+function _bdEnsureScorecardV2(){ try{ var sc=(typeof scorecard!=='undefined'&&scorecard)?scorecard:[]; if(!sc.length) return; var hasV2=false; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&m.auto==='bd.newPartnerOutreach') hasV2=true; }); }); if(!hasV2){ var keep=[]; sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(m&&!m.auto&&typeof m.id==='number'&&m.id>14) keep.push(m); }); }); var mk=function(id,title,goal,cad,src,key,ind,desc){ return {id:id,title:title,goal:goal,goalType:'\u2265',unit:'#',cadence:cad,indicator:ind,description:desc,auto:key,autoSrc:src,readings:_nulls(_cadLen(cad))}; }; var v2=[ mk(1,'New partner outreach',10,'weekly','BD activity','bd.newPartnerOutreach','leading','People contacted for the very first time this week. The first outreach to someone with no prior history in BD. Backlog burn-down; every later touch to them counts as Existing, not here.'), mk(2,'Existing relationship touches',15,'weekly','BD activity','bd.existingTouches','leading','Every touch this week to someone you have already been in contact with. Your reply back after they responded, and any follow-up to a partner already in your book, both count here. The farming number.'), mk(3,'Meetings held',2,'weekly','BD activity','bd.relationshipMeetings','leading','Meetings and coffees actually held this week.'),  mk(5,'Referrals received',1,'weekly','Partners','bd.referralsReceived','lagging','Referred leads logged from partners this week.'), mk(6,'Networking events attended',2,'monthly','BD activity','bd.eventsAttended','leading','Distinct days this month with a logged Networking Event or Mixer activity.'), mk(7,'Site tours given',1,'monthly','BD activity','bd.siteTours','leading','Distinct days this month with a logged Site Visit activity.'), mk(8,'Books delivered',4,'monthly','BD activity','bd.booksDelivered','leading','Gift / Book Drop-Off activities logged this month.') ]; var nid=9; keep.forEach(function(m){ m.id=nid++; v2.push(m); }); sc.length=0; sc.push({ownerId:'DS',ownerName:'Dave Stephens',seat:'Business Development',color:'var(--cat-ind)',metrics:v2}); } sc.forEach(function(sec){ if(sec&&sec.ownerId==='BD'){ sec.ownerId='DS'; sec.ownerName='Dave Stephens'; sec.seat='Business Development'; sec.color='var(--cat-ind)'; } }); var _bdDescFix={'bd.newPartnerOutreach':'People contacted for the very first time this week. The first outreach to someone with no prior history in BD. Backlog burn-down; every later touch to them counts as Existing, not here.','bd.existingTouches':'Every touch this week to someone you have already been in contact with. Your reply back after they responded, and any follow-up to a partner already in your book, both count here. The farming number.'}; sc.forEach(function(sec){ if(sec&&Array.isArray(sec.metrics)){ sec.metrics=sec.metrics.filter(function(m){ return !(m&&m.auto==='bd.newActiveRelationships'); }); sec.metrics.forEach(function(m){ if(m&&m.auto&&_bdDescFix[m.auto]) m.description=_bdDescFix[m.auto]; }); } }); sc.forEach(function(sec){ (sec.metrics||[]).forEach(function(m){ if(!m||!Array.isArray(m.readings)) return; var L=_cadLen(m.cadence||'weekly'); while(m.readings.length<L) m.readings.push(null); }); }); }catch(_){} }
 /* BDM Scorecard shared surface (2-way with VSP LT scorecard).
    BD is the owner. Publishes to window.SMB_BDM_SCORECARD + localStorage
    smb_bdm_scorecard_v1; adopts VSP LT edits back by metric id (never
@@ -7639,8 +7641,8 @@ function _bdPersonLabel(p){ if(!p) return '?'; var n=((p.cf||'')+' '+(p.cl||''))
 function _bdCellTipItems(key,s,e){
   var out=[]; var people=_bdAllPeople();
   function push(l,r){ out.push([l,r]); }
-  if(key==='bd.newPartnerOutreach'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)) push(g.label,f); }); }
-  else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(!f) return; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&a.d>f&&_inWk(a.d,s,e)) push(g.label+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
+  if(key==='bd.newPartnerOutreach'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)&&_bdGrpIsNew(g,f)) push(g.label,f); }); }
+  else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var skip=(isNew&&f&&_inWk(f,s,e)); var arr=g.acts.filter(function(a){return _bdActReal(a)&&a.d&&_inWk(a.d,s,e);}).sort(function(a,b){return a.d<b.d?-1:(a.d>b.d?1:0);}); arr.forEach(function(a){ if(skip){ skip=false; return; } push(g.label+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
   else if(key==='bd.relationshipMeetings'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   else if(key==='bd.newActiveRelationships'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates['Meeting']; if(d&&_inWk(d,s,e)) push(_bdPersonLabel(p),d); }); }
   else if(key==='bd.referralsReceived'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ ((p.crmLeads)||[]).forEach(function(r){ if(_inWk(r.date,s,e)) push((r.name||'Referral')+' \u00b7 '+_bdPersonLabel(p),r.date||''); }); }); }
@@ -7767,7 +7769,7 @@ function _scMetricOrder(section){
   var srt=state.scorecardSort||'manual';
   var order=(section.metrics||[]).map(function(m,i){return i;});
   var _cad=state.scorecardPeriod||'weekly';
-  order=order.filter(function(i){var _mc=((section.metrics[i]||{}).cadence)||'weekly'; return _cad==='quarterly'?(_mc==='quarterly'||_mc==='monthly'):(_mc===_cad);});
+  order=order.filter(function(i){var _mm=(section.metrics[i]||{}); if(_mm.archived&&!state.scShowArchived) return false; var _mc=(_mm.cadence)||'weekly'; return _cad==='quarterly'?(_mc==='quarterly'||_mc==='monthly'):(_mc===_cad);});
   if(s) order=order.filter(function(i){return (section.metrics[i].title||'').toLowerCase().indexOf(s)>-1;});
   if(srt==='name-asc') order.sort(function(a,b){return (section.metrics[a].title||'').localeCompare(section.metrics[b].title||'');});
   else if(srt==='name-desc') order.sort(function(a,b){return (section.metrics[b].title||'').localeCompare(section.metrics[a].title||'');});
@@ -7975,6 +7977,9 @@ function deleteEditMeasurable(){
   state.editMeasurablePanel={open:false,metricId:null,ownerId:null};
   renderPage();
 }
+
+function archiveEditMeasurable(){ var p=state.editMeasurablePanel; var section=scorecard.find(function(s){return s.metrics.some(function(m){return m.id===p.metricId;});}); if(section){ var m=section.metrics.find(function(mm){return mm.id===p.metricId;}); if(m) m.archived=true; } state.editMeasurablePanel={open:false,metricId:null,ownerId:null}; try{save();}catch(e){} if(typeof toastSuccess==='function') toastSuccess('Archived','Row hidden from the scorecard. Turn on Show archived in the More menu to restore it.'); renderPage(); }
+function unarchiveEditMeasurable(){ var p=state.editMeasurablePanel; var section=scorecard.find(function(s){return s.metrics.some(function(m){return m.id===p.metricId;});}); if(section){ var m=section.metrics.find(function(mm){return mm.id===p.metricId;}); if(m) m.archived=false; } try{save();}catch(e){} if(typeof toastSuccess==='function') toastSuccess('Restored','Row is back on the scorecard.'); renderPage(); }
 
 function desc(lo,hi){ var r=[]; if(lo<0)lo=0; if(hi>N-1)hi=N-1; for(var i=hi;i>=lo;i--) r.push(i); return r; }
 
@@ -8294,6 +8299,7 @@ function renderEditMeasurableOverlay(){
     // Footer - Save + Delete + Cancel
     h+='<div style="padding:14px 20px;border-top:1px solid var(--brd);display:flex;gap:8px;flex-shrink:0;background:var(--sur)">';
     h+='<button type="button" onclick="saveEditMeasurable()" class="btn btn-blu" style="flex:1;justify-content:center;padding:9px">Save Changes</button>';
+    h+='<button type="button" onclick="'+((epMetric&&epMetric.archived)?'unarchiveEditMeasurable()':'archiveEditMeasurable()')+'" class="btn" style="padding:9px 12px">'+((epMetric&&epMetric.archived)?'Restore':'Archive')+'</button>';
     h+='<button onclick="deleteEditMeasurable()" class="btn" style="padding:9px 12px;color:var(--red);border-color:var(--reds);background:var(--redb)">';
     h+='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>';
     h+='<button type="button" onclick="closeEditMeasurable()" class="btn" style="padding:9px 16px">Cancel</button>';
@@ -8399,7 +8405,7 @@ function renderScorecardInline(opts){ _recalcAll();
   }
 
   scorecard.forEach(function(section, sIdx){
-    var _mets=section.metrics.filter(_inCad);
+    var _mets=section.metrics.filter(function(m){return _inCad(m)&&(!m.archived||state.scShowArchived);});
     if(!_mets.length) return;
     var onTrack=_mets.filter(function(m){return isOnTrack(m,_metricLatest(m));}).length;
 
@@ -8456,7 +8462,7 @@ function renderScorecardInline(opts){ _recalcAll();
 
       h+='<tr>';
       h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+(trend==="good"?"Trending right":"Trend wrong way")+'">'+trendIconInline(trend)+'</td>';
-      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRi}))+'</td>';
+      h+='<td onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')" style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);padding:8px 10px;text-align:left;white-space:normal;line-height:1.3;cursor:pointer')+'"><div data-tip-host>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRi}))+'</td>';
       h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+_goalLabel(m)+'</td>';
       var _cnpAi=_cnpAvgTip(m,allVals,avg||0); var _cnpTi=_cnpTotalTip(m,allVals);
       h+='<td tabindex="0" data-cnp="avg" style="'+scStkB(SC_OFF.avg,SC_W.avg,rowBg,'text-align:center;font-size:var(--fz-body);font-weight:600;color:'+(m.rollupAs==='Total'?'var(--txm)':_tierColor(_scTier(m,avg))))+'">'+scFmtVal(avg,m.unit)+_cnpAi+'</td>';
@@ -9018,6 +9024,7 @@ function scBuild(){
     h+='<div onclick="event.stopPropagation()" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--sur);border:1px solid var(--brd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:200;min-width:170px;padding:4px 0">';
     h+='<button onclick="state.scorecardMenu=false;state.scReorder=!state.scReorder;state.scMerged=false;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scReorder?'Done reordering':'Edit group order')+'</button>';
     h+='<button onclick="state.scorecardMenu=false;state.scMerged=!state.scMerged;state.scReorder=false;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scMerged?'Unmerge groups':'Merge all groups')+'</button>';
+    h+='<button onclick="state.scorecardMenu=false;state.scShowArchived=!state.scShowArchived;renderPage()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">'+(state.scShowArchived?'Hide archived':'Show archived')+' ('+(function(){var _n=0;scorecard.forEach(function(s){(s.metrics||[]).forEach(function(m){if(m&&m.archived)_n++;});});return _n;})()+')</button>';
     h+='<div style="height:1px;background:var(--brd);margin:4px 0"></div>';
     h+='<button onclick="state.scorecardMenu=false;exportScorecardCSV()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">Export as CSV</button>';
     h+='<button onclick="state.scorecardMenu=false;printScorecard()" style="display:block;width:100%;padding:8px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:var(--fz-lg);color:var(--txt);text-align:left">Print PDF</button>';
@@ -9036,7 +9043,7 @@ function scBuild(){
   // Merged: all groups in one read-only list
   if(state.scMerged){
     var _mg=[];
-    scorecard.forEach(function(s){ (s.metrics||[]).forEach(function(m){ var p=ppl.find(function(x){return x.initials===s.ownerId;}); _mg.push({m:m,oid:s.ownerId,oname:s.ownerName||(p?p.first+' '+p.last:s.ownerId),ocolor:s.color||pplColor(s.ownerId)}); }); });
+    scorecard.forEach(function(s){ (s.metrics||[]).forEach(function(m){ if(m&&m.archived&&!state.scShowArchived) return; var p=ppl.find(function(x){return x.initials===s.ownerId;}); _mg.push({m:m,oid:s.ownerId,oname:s.ownerName||(p?p.first+' '+p.last:s.ownerId),ocolor:s.color||pplColor(s.ownerId)}); }); });
     var _mq=(state.scorecardSearch||'').trim().toLowerCase();
     if(_mq) _mg=_mg.filter(function(r){return (r.m.title||'').toLowerCase().indexOf(_mq)>-1;});
     var _msrt=state.scorecardSort||'manual';
@@ -9065,7 +9072,7 @@ function scBuild(){
       var sum=nums.reduce(function(a,b){return a+b;},0);
       var avg=nums.length?sum/nums.length:0;
       h+='<tr style="border-bottom:0.5px solid var(--brd)">';
-      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRm}))+'</td>';
+      h+='<td style="padding:8px 10px;font-size:var(--fz-lg);text-align:left;position:sticky;left:0;background:var(--sur)"><div data-tip-host>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:_winRm}))+'</td>';
       h+='<td style="padding:8px 10px;text-align:left"><span style="display:inline-flex;align-items:center;gap:6px">'+_scAvatar((r.oid||'').slice(0,2),r.ocolor,18)+'<span style="font-size:var(--fz-body);color:var(--txm)">'+r.oname+'</span></span></td>';
       h+='<td style="text-align:center;font-size:var(--fz-body);color:var(--blu)">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
       var _cnpA=_cnpAvgTip(m,nums,avg); var _cnpT=_cnpTotalTip(m,nums);
@@ -9195,7 +9202,7 @@ function scBuild(){
         h+='<td style="'+scStkB(SC_OFF.trend,SC_W.trend,rowBg,'text-align:center;padding:0 2px')+'" title="'+trendLabel+'">'+trendIcon(trend)+'</td>';
 
         // Title (click to edit measurable)
-        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:cols}))+'</td>';
+        h+='<td style="'+scStkB(SC_OFF.title,SC_W.title,rowBg,'font-size:var(--fz-lg);cursor:pointer;text-align:left;white-space:normal;line-height:1.3')+'" onclick="openEditMeasurable(\''+section.ownerId+'\','+m.id+')"><div data-tip-host>'+m.title+_descTip(m)+_autoBadge(m)+_calcBadge(m)+indTag(m)+'</div>'+_renderGoalGauge(Object.assign({},m,{readings:cols}))+'</td>';
         h+='<td style="'+scStkB(SC_OFF.goal,SC_W.goal,rowBg,'text-align:center;font-size:var(--fz-body);color:var(--blu)')+'">'+(period==='quarterly'?_qGoalLabel(m):_goalLabel(m))+'</td>';
         var _cnpVm=validCols; var _cnpAvgN=_cnpVm.length?_cnpVm.reduce(function(a,b){return a+b;},0)/_cnpVm.length:0;
         var _cnpAm=_cnpAvgTip(m,_cnpVm,_cnpAvgN); var _cnpTm=_cnpTotalTip(m,_cnpVm);
@@ -11240,7 +11247,6 @@ function renderDash(){
   var _wqDormant=PARTNERS.filter(function(p){ return _own(p) && (p.relStage==='Dormant'||daysSince(p.lastContact)>60); }).length;
   html+=scoreboard;
 
-  try{ html+=_bdMsUnmatchedBlock(); }catch(e){}
 
   // Replies to Answer - inbound replies with no outbound response logged since.
   var _repl=_bdRepliesAwaiting().filter(function(r){ return _own(r.p); });
@@ -12411,7 +12417,6 @@ function bdMsRescan(){
   }
   openModal({title:'Rescan inbox', saveLabel:'Rescan now',
     body:'<div style="font-size:var(--fz-body);line-height:1.55">This forgets which messages have already been checked and re-reads the last year of your inbox and sent mail.'+
-      '<br><br>Replies from an address that is not on any record will be listed under Unmatched replies on the dashboard, where you can attach them to a contact.'+
       '<br><br>Nothing is duplicated: anything already logged is recognised and skipped.</div>',
     onSave:function(){
       closeModal();
