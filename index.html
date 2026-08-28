@@ -2229,7 +2229,7 @@ function openModal(opts){
     _grow();
     if(window.requestAnimationFrame){ requestAnimationFrame(function(){ requestAnimationFrame(_grow); }); } }
 }
-function closeModal(){ var h=document.getElementById('smb-modal-bd'); if(h){ h.classList.remove('open'); h.innerHTML=''; } _modalSave=null; if(_modalPrevFocus&&_modalPrevFocus.focus){ try{ _modalPrevFocus.focus(); }catch(e){} } _modalPrevFocus=null; }
+function closeModal(){ var h=document.getElementById('smb-modal-bd'); if(h){ h.classList.remove('open'); h.innerHTML=''; h.style.top=''; } _modalSave=null; if(_modalPrevFocus&&_modalPrevFocus.focus){ try{ _modalPrevFocus.focus(); }catch(e){} } _modalPrevFocus=null; }
 function modalErr(msg){ var e=document.getElementById('smb-modal-err'); if(e){ e.textContent=msg; e.classList.add('show'); } }
 
 /* field builders */
@@ -4091,6 +4091,8 @@ var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
+function bdDismissReply(pid,when){ if(!BD_DISMISS.rep)BD_DISMISS.rep={}; BD_DISMISS.rep[pid]=String(when||_today()); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Cleared from Today. It comes back if they email again.',function(){ delete BD_DISMISS.rep[pid]; save(); renderProspecting(); }); renderProspecting(); }
+function bdDismissFollowup(pid,eff){ if(!BD_DISMISS.fu)BD_DISMISS.fu={}; BD_DISMISS.fu[pid]=String(eff||''); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Follow-up cleared until they re-engage.',function(){ delete BD_DISMISS.fu[pid]; save(); renderProspecting(); }); renderProspecting(); }
 /* Per-lot archive for the triage queue: dismisses one listing without touching
    the agent or their other lots. Keyed like LOT_TYPES (address+price). */
 var LOT_ARCH = {};
@@ -4100,6 +4102,7 @@ function _lotArchToggle(address,price){ var k=_lotKeyOf(address,price); if(!k) r
 /* Sold / off-market lots. Keyed like LOT_TYPES/LOT_ARCH (address+price). Set by
    the feed reconcile when a scraper-sourced lot drops out of a healthy feed. */
 var LOT_OFFMARKET = {};
+var BD_DISMISS = {rep:{},fu:{}};
 var _lotReconcileNote = null;
 function _lotAddrKeyOf(address){ return String(address||'').toLowerCase().replace(/\|/g,', ').replace(/\s+/g,' ').trim(); }
 function _lotOffGet(r){ var k=_lotAddrKeyOf(r.address); return !!(k&&LOT_OFFMARKET[k]); }
@@ -4469,11 +4472,13 @@ function _mleadTodayStrip(){
   var pool=PROSPECTS.filter(function(p){ return (p.isAgent||p.type==='lot')&&!_prospArchived(p); });
   var replies=(typeof _bdRepliesAwaiting==='function')?_bdRepliesAwaiting():pool.filter(function(p){ return p.hasReply; }).map(function(p){ return {p:p,kind:'lot'}; });
   var due=pool.filter(_lotAgentDue);
+  replies=replies.filter(function(r){ var dd=BD_DISMISS.rep&&BD_DISMISS.rep[r.p.id]; return !(dd && String(dd)>=String(r.when||'')); });
+  due=due.filter(function(p){ var dd=BD_DISMISS.fu&&BD_DISMISS.fu[p.id]; return !(dd && dd===String(_bdXsEffNext(p)||'')); });
   if(!replies.length&&!due.length) return '';
   function row(p,chip,cls){
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="mleadOpenLot('+p.id+')">'+
       '<div style="min-width:0"><span style="font-weight:600">'+_esc(p.contactName||'-')+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(p.contactFirm||'')+'</span></div>'+
-      '<span class="chip '+cls+'" style="flex-shrink:0">'+_esc(chip)+'</span></div>';
+      '<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip '+cls+'">'+_esc(chip)+'</span><button type="button" class="btn btn-sm" title="Handled - clear this follow-up" onclick="event.stopPropagation();bdDismissFollowup('+p.id+',\''+_esc(String(_bdXsEffNext(p)||''))+'\')">Done</button></span></div>';
   }
   function replyRow(r){
     var p=r.p, isLot=(r.kind==='lot');
@@ -4482,7 +4487,7 @@ function _mleadTodayStrip(){
     var openFn=isLot?('mleadOpenLot('+p.id+')'):('bdOpenReplyContact(\''+r.kind+'\','+p.id+')');
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="'+openFn+'">'+
       '<div style="min-width:0"><span style="font-weight:600">'+_esc(nm)+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(firm)+'</span></div>'+
-      '<span class="chip c-grn" style="flex-shrink:0">Replied</span></div>';
+      '<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip c-grn">Replied</span><button type="button" class="btn btn-sm" title="Nothing to reply back - clear it" onclick="event.stopPropagation();bdDismissReply('+p.id+',\''+_esc(String(r.when||''))+'\')">Done</button></span></div>';
   }
   var h='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Today</span><span class="muted" style="font-size:var(--fz-body)">who needs a touch</span></div><div class="card-body" style="padding-top:8px">';
   if(replies.length){
@@ -5529,6 +5534,8 @@ function _cmpConfirmSend(who, onSent, onNotSent){
     extra:'<button type="button" class="btn btn-sm" onclick="_cmpConfirmResolve(false)">No, didn\'t send</button>',
     onSave:function(){ _cmpConfirmResolve(true); }
   });
+  var _pb=document.getElementById('bd-paste-banner'); var _mh=document.getElementById('smb-modal-bd');
+  if(_pb&&_mh){ var _bh=_pb.offsetHeight||52; _mh.style.top=_bh+'px'; }
 }
 function _cmpConfirmResolve(didSend){
   var cb=_cmpConfirmCb; _cmpConfirmCb=null;
@@ -5830,9 +5837,9 @@ function _mleadDetailLot(p){
     kv('Areas',lotAgentAreas(p)||'-')+'</div></div>';
   html+='</div>';
   var port=(p.portfolio||[]);
-  var prows=port.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):'<span class="muted">-</span>'; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="_setListingUrl('+p.id+',\''+_esc(mls)+'\',\'lot\')">'+(l.url?'edit link':'+ link')+'</a>'):''; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap">'+mc+lk+'</td></tr>'; }).join('');
+  var prows=port.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):'<span class="muted">-</span>'; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="_setListingUrl('+p.id+',\''+_esc(mls)+'\',\'lot\')">'+(l.url?'edit link':'+ link')+'</a>'):''; var _aa=String(l.address||'').replace(/'/g,"\\'"); var _pp=(l.price==null?"''":l.price); var _lt=LOT_TYPES[_lotKeyOf(l.address,l.price)]||''; var _act='<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+p.id+')">Email</button><button type="button" class="btn btn-sm" onclick="_lotArchToggle(\''+_aa+'\','+_pp+')">Archive</button><button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_aa+'\','+_pp+',\''+(_lt==='com'?'':'com')+'\')">'+(_lt==='com'?'Residential':'Commercial')+'</button></div>'; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap">'+mc+lk+'</td><td>'+_act+'</td></tr>'; }).join('');
   html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Listings</span><span class="muted" style="font-size:var(--fz-body)">'+num(port.length)+' lot'+(port.length===1?'':'s')+'</span></div>'+
-    (port.length?('<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">MLS</th></tr></thead><tbody>'+prows+'</tbody></table></div>'):'<div class="card-body"><div class="muted">No listings on record.</div></div>')+'</div>';
+    (port.length?('<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">MLS</th><th scope="col">Actions</th></tr></thead><tbody>'+prows+'</tbody></table></div>'):'<div class="card-body"><div class="muted">No listings on record.</div></div>')+'</div>';
   var _leadActs=_combinedActsForLead(p);
   html+=_emailThreadCard('lot',p.id,_leadActs,p.contactName,p.contactEmail);
   html+=_mleadActsCard(_leadActs,'lot',p.id);
@@ -10191,6 +10198,7 @@ function loadState(){
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com') LOT_TYPES[_lk]=_lv; } }
       if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]) LOT_ARCH[_ak]=1; } }
       if(s.LOT_OFFMARKET&&typeof s.LOT_OFFMARKET==='object'){ LOT_OFFMARKET={}; for(var _omk in s.LOT_OFFMARKET){ if(s.LOT_OFFMARKET[_omk]) LOT_OFFMARKET[_omk]=s.LOT_OFFMARKET[_omk]; } }
+      if(s.BD_DISMISS&&typeof s.BD_DISMISS==='object'){ BD_DISMISS={rep:(s.BD_DISMISS.rep&&typeof s.BD_DISMISS.rep==='object')?s.BD_DISMISS.rep:{}, fu:(s.BD_DISMISS.fu&&typeof s.BD_DISMISS.fu==='object')?s.BD_DISMISS.fu:{}}; }
       if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
       if(typeof s.BD_SIGNATURE_HTML==='string'){ BD_SIGNATURE_HTML=s.BD_SIGNATURE_HTML; }
       if(Object.prototype.toString.call(s.BD_SIGNATURE_ATTS)==='[object Array]'){ BD_SIGNATURE_ATTS=s.BD_SIGNATURE_ATTS.filter(function(a){ return a&&a.contentId&&a.contentBytes; }); }
@@ -10253,7 +10261,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_DISMISS:BD_DISMISS,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
