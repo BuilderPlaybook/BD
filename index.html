@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-17</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-18</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-17';
+var BD_BUILD='bd-2026-08-28-18';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -7862,9 +7862,9 @@ function _pndShowTip(cell){
   var w = el.offsetWidth, h = el.offsetHeight, pad = 8, vh = window.innerHeight;
   var left = r.left + (r.width/2) - (w/2);
   left = Math.max(pad, Math.min(left, window.innerWidth - w - pad));
-  var below = true, top = r.bottom + 8;
+  var below = true, top = r.bottom + 2;
   if(top + h > vh - pad){                       /* does not fit below */
-    var above = r.top - h - 8;
+    var above = r.top - h - 2;
     if(above >= pad){ top = above; below = false; }   /* fits above */
     else {                                        /* fits neither: pick larger side, cap height so it stays on-screen */
       var roomBelow = (vh - pad) - (r.bottom + 8);
@@ -7884,7 +7884,7 @@ function _pndShowTip(cell){
 var _pndHideT=null;
 function _pndHideTip(){
   if(_pndHideT){ clearTimeout(_pndHideT); }
-  _pndHideT=setTimeout(function(){ var el=document.getElementById('pnd-float'); if(el) el.className=''; }, 140);
+  _pndHideT=setTimeout(function(){ var el=document.getElementById('pnd-float'); if(el) el.className=''; }, 420);
 }
 function _pndKeepTip(){ if(_pndHideT){ clearTimeout(_pndHideT); _pndHideT=null; } }
 function _cnpEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
