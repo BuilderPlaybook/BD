@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-11</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-12</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-11';
+var BD_BUILD='bd-2026-08-28-12';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -3650,6 +3650,7 @@ function openBdSettings(){
       '<button type="button" class="btn btn-primary btn-sm" onclick="pullFromMarketing()">Pull entries from Marketing</button>'+
       '<button type="button" class="btn btn-sm" onclick="exportBackup()">Export backup</button>'+
       '<button type="button" class="btn btn-sm" onclick="importBackupPick()">Import backup</button>'+
+      '<button type="button" class="btn btn-primary btn-sm" onclick="bdPushToTeam()" title="Send this computer&#39;s data to the shared copy so every computer matches it">Push my data to team</button>'+
       '<button type="button" class="btn btn-sm" onclick="mergeDuplicateAgentsPrompt()">Merge duplicate agents</button>'+
       '<button type="button" class="btn btn-sm" onclick="openAgentDupes()">Agent and partner duplicates</button>'+
       '<button type="button" class="btn btn-sm" onclick="openPartnerDupes()">Merge duplicate partners</button>'+
@@ -10833,10 +10834,18 @@ function importBackup(input){
       try{ publishTemplatesSteward(); }catch(e){}
       try{ emitBdSignal(); }catch(e){}
       nav('dashboard');
-      if(typeof toastSuccess==='function') toastSuccess('Backup imported','Restored from '+(file.name||'file'));
+      try{ if(typeof window.bdForcePushToCloud==='function'){ setTimeout(window.bdForcePushToCloud, 300); } }catch(e){}
+      if(typeof toastSuccess==='function') toastSuccess('Backup imported','Restored and pushing to the team.');
     }catch(e){ alert('Import failed: '+(e&&e.message?e.message:e)); }
   };
   rd.readAsText(file);
+}
+function bdPushToTeam(){
+  if(typeof window.bdForcePushToCloud!=='function'){ alert('Sync is not active on this page.'); return; }
+  if(!window.confirm('Push THIS computer\u2019s data to the shared copy? Every computer will then match what you see here. Use this on the computer that has the correct, complete data.')) return;
+  var ok=window.bdForcePushToCloud();
+  if(ok){ if(typeof toastSuccess==='function') toastSuccess('Pushed to team','Other computers will match this one on their next refresh.'); }
+  else { alert('Push failed - no local data found.'); }
 }
 
 /* ---- channel email touch via the shared mail contract ---- */
@@ -13472,6 +13481,20 @@ else init();
     };
   }catch(e){}
 
+  // Force this browser's current data up to the cloud as the newest copy,
+  // overriding whatever is there. Used after a backup import so the restored
+  // data wins on every computer (Dave, 2026-08-28).
+  window.bdForcePushToCloud=function(){
+    try{
+      var raw=localStorage.getItem(KEY); if(!raw) return false;
+      var o=parse(raw)||{}; o.savedAt=new Date().toISOString(); var stamped=JSON.stringify(o);
+      try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, stamped); }catch(e){}
+      lastPushedRaw=null;            // ensure push is not suppressed as a no-op
+      push(stamped);
+      flash('sync','Pushed your data to the team',1600);
+      return true;
+    }catch(e){ return false; }
+  };
   // Boot: pull first, adopt if newer, then start pushing/polling.
   function boot(){
     badge('sync','Connecting sync...');
