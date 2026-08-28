@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD</div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-11</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,6 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
+var BD_BUILD='bd-2026-08-28-11';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -7684,7 +7685,19 @@ function _bdGrpFirst(g){ var f=null; g.acts.forEach(function(a){ if(_bdActReal(a
 function _bdActContact(a){ return !!(a && !a.dismissed && a.type!=='Created'); }
 function _bdGrpIsNew(g,fReal){ if(!fReal) return false; var prior=false; g.acts.forEach(function(a){ if(prior||!_bdActContact(a)||!a.d) return; if(a.d<fReal) prior=true; }); return !prior; }
 function _bdFeedNewOutreach(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)&&_bdGrpIsNew(g,f)) n++; }); return n; }
-function _bdFeedExistingTouches(s,e){ var n=0; _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var c=0; g.acts.forEach(function(a){ if(_bdActReal(a)&&a.d&&_inWk(a.d,s,e)) c++; }); if(isNew&&f&&_inWk(f,s,e)&&c>0) c--; n+=c; }); return n; }
+function _bdFeedExistingTouches(s,e){
+  /* One touch per person per week: many emails in the same thread to the same
+     partner count once, so the number reflects relationships worked, not send
+     volume (Dave, 2026-08-28). A person whose only touch this week is their
+     first-ever contact is New, not Existing, so they are excluded here. */
+  var n=0; _bdCountGroups().forEach(function(g){
+    var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f);
+    var touched=g.acts.some(function(a){ return _bdActReal(a)&&a.d&&_inWk(a.d,s,e); });
+    if(!touched) return;
+    if(isNew&&f&&_inWk(f,s,e)) return; // counted under New partner outreach
+    n++;
+  }); return n;
+}
 function _bdFeedMeetings(s,e){ var n=0; _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) n++; }); }); return n; }
 function _bdActReal(a){ return !!(a && !a.inbound && !a.dismissed && !a.synced && a.type!=='Created'); }
 
@@ -7742,7 +7755,7 @@ function bdOpenContactLog(){
   el.innerHTML='<div onclick="event.stopPropagation()" style="background:var(--sur);border:1px solid var(--brd);border-radius:10px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd);flex-shrink:0">'
     +'<div><div style="font-size:var(--fz-lg);font-weight:700">Contact log</div>'
-    +'<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">Every outreach you logged, newest first. Blue = counted as New partner outreach; the rest are Existing relationship touches. '+nNew+' New, '+nEx+' Existing in total.</div></div>'
+    +'<div style="font-size:var(--fz-body);color:var(--txm);margin-top:2px">Every outreach you logged, newest first. Blue = a first-ever contact (New); the rest are Existing touches. '+nNew+' New, '+nEx+' Existing logged in total. Scorecard cells count one touch per person per week, so a multi-email thread shows every line here but counts once there.</div></div>'
     +'<button type="button" onclick="bdCloseContactLog()" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--brd2);background:var(--sur2);cursor:pointer;font-size:var(--fz-lg);color:var(--txm);flex-shrink:0">\u00d7</button>'
     +'</div>'
     +'<div style="overflow:auto;flex:1">'+body+'</div>'
@@ -7955,7 +7968,7 @@ function _bdCellTipItems(key,s,e){
   var out=[]; var people=_bdAllPeople();
   function push(l,r){ out.push([l,r]); }
   if(key==='bd.newPartnerOutreach'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); if(f&&_inWk(f,s,e)&&_bdGrpIsNew(g,f)) push(g.label,f); }); }
-  else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); var skip=(isNew&&f&&_inWk(f,s,e)); var arr=g.acts.filter(function(a){return _bdActReal(a)&&a.d&&_inWk(a.d,s,e);}).sort(function(a,b){return a.d<b.d?-1:(a.d>b.d?1:0);}); arr.forEach(function(a){ if(skip){ skip=false; return; } push(g.label+' \u00b7 '+(a.type||'Touch'),a.d); }); }); }
+  else if(key==='bd.existingTouches'){ _bdCountGroups().forEach(function(g){ var f=_bdGrpFirst(g); var isNew=_bdGrpIsNew(g,f); if(isNew&&f&&_inWk(f,s,e)) return; var arr=g.acts.filter(function(a){return _bdActReal(a)&&a.d&&_inWk(a.d,s,e);}).sort(function(a,b){return a.d<b.d?1:(a.d>b.d?-1:0);}); if(!arr.length) return; var top=arr[0]; var extra=arr.length>1?(' \u00b7 +'+(arr.length-1)+' more'):''; push(g.label+' \u00b7 '+(top.type||'Touch')+extra,top.d); }); }
   else if(key==='bd.relationshipMeetings'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/meeting|coffee/i.test(a.type||'')&&!/booked/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   else if(key==='bd.newActiveRelationships'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ var d=p&&p.stageDates&&p.stageDates['Meeting']; if(d&&_inWk(d,s,e)) push(_bdPersonLabel(p),d); }); }
   else if(key==='bd.referralsReceived'){ (typeof PARTNERS!=='undefined'?PARTNERS:[]).forEach(function(p){ ((p.crmLeads)||[]).forEach(function(r){ if(_inWk(r.date,s,e)) push((r.name||'Referral')+' \u00b7 '+_bdPersonLabel(p),r.date||''); }); }); }
@@ -13356,17 +13369,83 @@ else init();
     }catch(e){ badge('err','Sync offline'); }
   }
 
+  /* Record-level merge, ported from the VSP staging adapter's mergeById
+     standard (Dave, 2026-08-28). BD's old adopt replaced the whole blob
+     newest-wins, so two computers editing the same week clobbered each
+     other. This merges PARTNERS and PROSPECTS by id, and unions each
+     record's act[] by msgId (Outlook) or a date|type|subj|by|notes
+     fingerprint (manual logs), so touches added on either computer all
+     survive. Non-record keys (settings, templates) take the newer side
+     by savedAt. Deletions win via a size guard is not used here: BD has no
+     tombstone store yet, so a record present on either side is kept. */
+  function _actKey(a){
+    if(!a) return '';
+    // msgId identifies an Outlook message, but the same message can appear as
+    // both an inbound and an outbound row in one thread, so direction is part
+    // of the key. Exact byte-dupes (same msgId + direction) still collapse.
+    if(a.msgId) return 'm:'+a.msgId+'|'+(a.inbound?'in':'out');
+    return 'f:'+[a.d||'',a.type||'',a.subj||'',a.by||'',(a.inbound?'in':'out'),String(a.notes||'').slice(0,40)].join('|');
+  }
+  function _mergeActs(localActs, remoteActs){
+    localActs=Array.isArray(localActs)?localActs:[];
+    remoteActs=Array.isArray(remoteActs)?remoteActs:[];
+    var out=[], seen={};
+    function take(arr){ arr.forEach(function(a){ var k=_actKey(a); if(k&&seen[k]) return; if(k) seen[k]=true; out.push(a); }); }
+    take(localActs); take(remoteActs);   // union; local copy of a shared act wins on ties
+    out.sort(function(a,b){ var x=String(a&&a.d||''),y=String(b&&b.d||''); return x<y?1:(x>y?-1:0); });
+    return out;
+  }
+  function _mergeList(localArr, remoteArr){
+    localArr=Array.isArray(localArr)?localArr:[];
+    remoteArr=Array.isArray(remoteArr)?remoteArr:[];
+    var byId={}, order=[];
+    function slot(r){ if(!r||r.id==null) return null; var id=r.id; if(!(id in byId)){ order.push(id); } return id; }
+    // Start from remote (incoming) as the base version of each record...
+    remoteArr.forEach(function(r){ var id=slot(r); if(id==null) return; byId[id]=r; });
+    // ...then fold local in: newer record wins by updatedAt/lastContact, and
+    // act[] is always unioned so no touch is lost either way.
+    localArr.forEach(function(r){
+      var id=slot(r); if(id==null){ return; }
+      var ex=byId[id];
+      if(!ex){ byId[id]=r; return; }
+      var acts=_mergeActs(r.act, ex.act);
+      function ts(x){ return new Date(x&&(x.updatedAt||x.lastContact||x.dateAssigned||0)||0).getTime()||0; }
+      var winner=(ts(r)>=ts(ex))?r:ex;
+      var merged={}; Object.keys(winner).forEach(function(k){ merged[k]=winner[k]; });
+      merged.act=acts;
+      byId[id]=merged;
+    });
+    return order.map(function(id){ return byId[id]; });
+  }
+  function _mergeStates(localRaw, remoteRaw){
+    var L=parse(localRaw), R=parse(remoteRaw);
+    if(!L||typeof L!=='object') return remoteRaw;
+    if(!R||typeof R!=='object') return localRaw;
+    var newerIsRemote=(savedAtOf(remoteRaw)>=savedAtOf(localRaw));
+    var base=newerIsRemote?R:L;              // scalar/settings keys: newer side wins
+    var out={}; Object.keys(base).forEach(function(k){ out[k]=base[k]; });
+    // Record lists always merge by id + act union, regardless of which is newer.
+    out.PARTNERS=_mergeList(L.PARTNERS, R.PARTNERS);
+    out.PROSPECTS=_mergeList(L.PROSPECTS, R.PROSPECTS);
+    out.savedAt=new Date().toISOString();
+    return JSON.stringify(out);
+  }
   function adopt(remoteRaw){
     try{
       if(!remoteRaw) return false;
       var localRaw = null;
       try{ localRaw = localStorage.getItem(KEY); }catch(e){}
-      // Newest wins by savedAt. Ties or missing stamps: prefer remote only if it differs and local is empty.
-      var rT=savedAtOf(remoteRaw), lT=savedAtOf(localRaw);
-      if(localRaw && rT<=lT) return false;         // ours is same/newer -> keep
       if(remoteRaw===localRaw) return false;
-      // Write remote into local and reload the module's state.
-      try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, remoteRaw); }catch(e){ try{ localStorage.setItem(KEY, remoteRaw); }catch(_){ } }
+      if(!localRaw){
+        // Nothing local: take remote wholesale.
+        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, remoteRaw); }catch(e){ try{ localStorage.setItem(KEY, remoteRaw); }catch(_){ } }
+      } else {
+        var merged=_mergeStates(localRaw, remoteRaw);
+        if(merged===localRaw) return false;   // nothing new to adopt
+        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, merged); }catch(e){ try{ localStorage.setItem(KEY, merged); }catch(_){ } }
+        // Push the merged copy so the cloud converges (both sides' edits).
+        try{ if(typeof merged==='string' && merged!==lastPushedRaw){ push(merged); } }catch(e){}
+      }
       if(typeof window.loadState==='function'){
         try{ window.loadState(); }catch(e){}
         try{ if(typeof window._bdHealSyncedActs==='function') window._bdHealSyncedActs(); }catch(e){}
