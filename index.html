@@ -2344,9 +2344,11 @@ function ptnFiltered(){
     return true;
   });
 }
-var _sortState={};
+var BD_SORT_KEY='smb_bd_sort_v1';
+var _sortState=(function(){ try{ var r=localStorage.getItem(BD_SORT_KEY); var o=r?JSON.parse(r):null; return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(e){ return {}; } })();
+function _sortSave(){ try{ localStorage.setItem(BD_SORT_KEY,JSON.stringify(_sortState)); }catch(e){} }
 function _sortGet(listId,defKey,defDir){ if(!_sortState[listId]) _sortState[listId]={key:defKey,dir:(defDir||1)}; return _sortState[listId]; }
-function _setSort(listId,key,rerender){ var s=_sortState[listId]||{key:key,dir:1}; if(s.key===key){ s.dir=(s.dir===1?-1:1); } else { s.key=key; s.dir=1; } _sortState[listId]=s; if(rerender&&typeof window[rerender]==='function') window[rerender](); }
+function _setSort(listId,key,rerender){ var s=_sortState[listId]||{key:key,dir:1}; if(s.key===key){ s.dir=(s.dir===1?-1:1); } else { s.key=key; s.dir=1; } _sortState[listId]=s; _sortSave(); if(rerender&&typeof window[rerender]==='function') window[rerender](); }
 function _sortTH(listId,key,label,opts){ opts=opts||{}; var s=_sortState[listId]||{}; var active=(s.key===key); var car=active?(s.dir===1?' \u25b2':' \u25bc'):''; var cls=opts.right?' class="right"':''; return '<th'+cls+' scope="col" style="cursor:pointer;user-select:none" onclick="_setSort(\''+listId+'\',\''+key+'\',\''+(opts.rerender||'')+'\')">'+_esc(label)+'<span class="muted">'+car+'</span></th>'; }
 function _applySort(rows,listId,acc){ var s=_sortState[listId]; if(!s||!s.key||!acc||!acc[s.key]) return rows; var fn=acc[s.key], dir=s.dir; return rows.slice().sort(function(a,b){ var x=fn(a),y=fn(b); if(typeof x==='number'&&typeof y==='number') return (x-y)*dir; x=(x==null?'':String(x)).toLowerCase(); y=(y==null?'':String(y)).toLowerCase(); return (x<y?-1:x>y?1:0)*dir; }); }
 var ACC_PARTNERS={
@@ -2369,7 +2371,9 @@ var ACC_LOTS={
   agent:function(p){return p.contactName||p.contactFirm||'';},
   inventory:function(p){return _numOr(p.listingCount,(p.portfolio?p.portfolio.length:0));},
   follow:function(p){return p.nextContact||'';},
-  value:function(p){return _numOr(p.totalValue,0);}
+  value:function(p){return _numOr(p.totalValue,0);},
+  contact:function(p){return (((p.contactEmail||'').trim())?2:0)+(((p.contactPhone||'').trim())?1:0);},
+  touch:function(p){var l=_mleadLastAct(p);return p.lastContact||(l?l.d:'')||'';}
 };
 function promotePartner(id){ partnerLogReferral(id); }
 function demotePartner(id){ var p=_partnerFind(id); if(!p) return; p.isPartner=false; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} save(); openPartner(id); if(typeof toastSuccess==='function') toastSuccess('Moved back to pipeline',''); }
@@ -5103,7 +5107,32 @@ var ACC_LOTLIST={
   acres:function(r){return r.acres==null?-1:r.acres;},
   listed:function(r){return r.listed||'';},
   dom:function(r){var dd=_lotDom(r);return dd==null?-1:dd;},
-  agent:function(r){return r.agent||'';}
+  agent:function(r){return r.agent||'';},
+  emailed:function(r){return _lotEmailedDate(r)||'';}
+};
+var ACC_PULLS={
+  pulled:function(pu){return pu.pulledDate||'';},
+  address:function(pu){return pu.address||'';},
+  hood:function(pu){return pu.neighbourhood||'';},
+  applicant:function(pu){return pu.applicant||'';},
+  phone:function(pu){return pu.phone||'';},
+  email:function(pu){return pu.email||'';},
+  apptype:function(pu){return pu.applicationType||'';},
+  projtype:function(pu){return pu.projectType||'';},
+  ref:function(pu){return pu.ref||'';},
+  value:function(pu){return _numOr(pu.value,0);},
+  status:function(pu){return _pullStatus(pu)||'';},
+  touch:function(pu){var l=_mleadActsLast(_mleadPullActsFor(pu));return (l&&l.d)||'';},
+  follow:function(pu){var l=_mleadActsLast(_mleadPullActsFor(pu));return (l&&l.nc)||'';}
+};
+var ACC_PULLERS={
+  builder:function(o){return o.display||'';},
+  total:function(o){return _numOr(o.total,0);},
+  value:function(o){return _numOr(o.value,0);},
+  work:function(o){return o.primaryWorkType||'';},
+  touch:function(o){var l=_mleadActsLast(_mleadBuilderActs(o));return (l&&l.d)||'';},
+  follow:function(o){var l=_mleadActsLast(_mleadBuilderActs(o));return (l&&l.nc)||'';},
+  status:function(o){return pullerStatus(o)||'';}
 };
 function _lotAcresCell(a){ return (a==null)?'<span class="muted">-</span>':(_esc((a<1?a.toFixed(2):a.toFixed(1))+' ac')); }
 function _lotMuniRollup(rows){
@@ -6173,7 +6202,7 @@ function mleadRenderList(){
           _sortTH('lotlist','price','Price',LL)+
           _sortTH('lotlist','acres','Lot size',LL)+
           _sortTH('lotlist','agent','Listing agent',LL)+
-          '<th scope="col">Status</th>'+
+          _sortTH('lotlist','emailed','Status',LL)+
           '<th scope="col"></th>'+
         '</tr></thead><tbody>'+bodyL+'</tbody></table></div></div>'+
         _lotMuniRollup(rowsL);
@@ -6210,7 +6239,7 @@ function mleadRenderList(){
         table=_leadTogHtml()+'<div class="card" style="padding:14px">'+_leadBoard(rows)+'</div>';
       } else {
       table=_leadTogHtml()+'<div class="card"><div class="card-hd"><span class="card-title">Lot agents</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows.length)+' of '+num(all.length)+'</span></div>'+
-        '<div class="tbl-wrap"><table><thead><tr>'+_sortTH('lots','agent','Agent',LR)+_sortTH('lots','inventory','Inventory',LR)+'<th scope="col">Contact</th><th scope="col">Last touch</th>'+_sortTH('lots','follow','Follow-up',LR)+_sortTH('lots','value','Value',LR)+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';
+        '<div class="tbl-wrap"><table><thead><tr>'+_sortTH('lots','agent','Agent',LR)+_sortTH('lots','inventory','Inventory',LR)+_sortTH('lots','contact','Contact',LR)+_sortTH('lots','touch','Last touch',LR)+_sortTH('lots','follow','Follow-up',LR)+_sortTH('lots','value','Value',LR)+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';
       }
     }
   } else if(t==='development'||t==='building'){
@@ -6237,7 +6266,9 @@ function mleadRenderList(){
       if(f.f4 && _pullStatus(pu)!==f.f4) return false;
       if(f.f5){ var _hasc=!!((pu.email||'').trim()||(pu.phone||'').trim()); if(f.f5==='yes'&&!_hasc) return false; if(f.f5==='no'&&_hasc) return false; }
       return true;
-    }).sort(function(a,b){ return new Date(b.pulledDate||0)-new Date(a.pulledDate||0); });
+    });
+    var _pulLid=(t==='development')?'pulldev':'pullbld';
+    _sortGet(_pulLid,'pulled',-1); rows2=_applySort(rows2,_pulLid,ACC_PULLS);
     if(!all2.length){ table=emptyState(t==='development'?'No development applications':'No building permits','Import permit data to populate this tab.',''); }
     else if(!rows2.length){ table=filteredEmpty('mleadClearFilters'); }
     else if(t==='development'){
@@ -6260,8 +6291,22 @@ function mleadRenderList(){
           '<td>'+_mleadActsFollowCell(_mleadPullActsFor(pu))+'</td>'+
           _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="tag tag-done" style="cursor:pointer" onclick="event.stopPropagation();openPartner('+pu.linkedPartnerId+')" title="View partner">In pipeline</span>':'')+'</td></tr>';
       }).join('');
+      var PD={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">Development permit applications</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows2.length)+' of '+num(all2.length)+'</span></div>'+
-        '<div class="tbl-wrap"><table><thead><tr><th scope="col">Date filed</th><th scope="col">Address</th><th scope="col">Neighbourhood</th><th scope="col">Applicant</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Application type</th><th scope="col">Project type</th><th scope="col">Application #</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>'+b1+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
+        '<div class="tbl-wrap"><table><thead><tr>'+
+        _sortTH('pulldev','pulled','Date filed',PD)+
+        _sortTH('pulldev','address','Address',PD)+
+        _sortTH('pulldev','hood','Neighbourhood',PD)+
+        _sortTH('pulldev','applicant','Applicant',PD)+
+        _sortTH('pulldev','phone','Phone',PD)+
+        _sortTH('pulldev','email','Email',PD)+
+        _sortTH('pulldev','apptype','Application type',PD)+
+        _sortTH('pulldev','projtype','Project type',PD)+
+        _sortTH('pulldev','ref','Application #',PD)+
+        _sortTH('pulldev','touch','Last touch',PD)+
+        _sortTH('pulldev','follow','Follow-up',PD)+
+        _sortTH('pulldev','status','Status',PD)+
+        '<th scope="col"></th></tr></thead><tbody>'+b1+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
     } else {
       var b2=rows2.slice(0,_prospShown).map(function(pu){
         var key=pu.applicantKey||_pullKey(pu.applicant,'');
@@ -6281,8 +6326,22 @@ function mleadRenderList(){
           '<td>'+_mleadActsFollowCell(_mleadPullActsFor(pu))+'</td>'+
           _pullStatusCell(pu)+'<td class="right nowrap">'+((pu.linkedPartnerId!=null)?'<span class="tag tag-done" style="cursor:pointer" onclick="event.stopPropagation();openPartner('+pu.linkedPartnerId+')" title="View partner">In pipeline</span>':'')+'</td></tr>';
       }).join('');
+      var PB={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">Building permits issued</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows2.length)+' of '+num(all2.length)+'</span></div>'+
-        '<div class="tbl-wrap"><table><thead><tr><th scope="col">Date issued</th><th scope="col">Address</th><th scope="col">Neighbourhood</th><th scope="col">Project type</th><th scope="col">Description</th><th scope="col">Est. value</th><th scope="col">Applicant</th><th scope="col">Phone</th><th scope="col">Email</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>'+b2+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
+        '<div class="tbl-wrap"><table><thead><tr>'+
+        _sortTH('pullbld','pulled','Date issued',PB)+
+        _sortTH('pullbld','address','Address',PB)+
+        _sortTH('pullbld','hood','Neighbourhood',PB)+
+        _sortTH('pullbld','projtype','Project type',PB)+
+        '<th scope="col">Description</th>'+
+        _sortTH('pullbld','value','Est. value',PB)+
+        _sortTH('pullbld','applicant','Applicant',PB)+
+        _sortTH('pullbld','phone','Phone',PB)+
+        _sortTH('pullbld','email','Email',PB)+
+        _sortTH('pullbld','touch','Last touch',PB)+
+        _sortTH('pullbld','follow','Follow-up',PB)+
+        _sortTH('pullbld','status','Status',PB)+
+        '<th scope="col"></th></tr></thead><tbody>'+b2+_prospMoreRow(rows2.length,12)+'</tbody></table></div></div>';
     }
   } else if(t==='builders'){
     var stats=permitPullStats();
@@ -6296,6 +6355,7 @@ function mleadRenderList(){
       if(f.f2 && pullerStatus(o)!==f.f2) return false;
       return true;
     });
+    _sortGet('pullers','total',-1); rows3=_applySort(rows3,'pullers',ACC_PULLERS);
     if(!stats.length){ table=emptyState('No permit activity yet','Import permits to build this list.',''); }
     else if(!rows3.length){ table=filteredEmpty('mleadClearFilters'); }
     else {
@@ -6312,8 +6372,17 @@ function mleadRenderList(){
           '<td class="nowrap muted">'+_esc(o.primaryWorkType||'-')+'</td>'+
           '<td>'+_mleadActsTouchCell(_mleadBuilderActs(o))+'</td>'+'<td>'+_mleadActsFollowCell(_mleadBuilderActs(o))+'</td>'+'<td><span class="tag '+stg+'">'+(st==='Tracked'?'Tracked':'In pipeline')+'</span></td></tr>';
       }).join('');
+      var PB2={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">Active builders</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(rows3.length)+' of '+num(stats.length)+'</span></div>'+
-        '<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Builder</th><th scope="col">Permits</th><th scope="col">Value</th><th scope="col">Primary work</th><th scope="col">Last touch</th><th scope="col">Follow-up</th><th scope="col">Status</th></tr></thead><tbody>'+b3+'</tbody></table></div></div>';
+        '<div class="tbl-wrap"><table><thead><tr><th scope="col">#</th>'+
+        _sortTH('pullers','builder','Builder',PB2)+
+        _sortTH('pullers','total','Permits',PB2)+
+        _sortTH('pullers','value','Value',PB2)+
+        _sortTH('pullers','work','Primary work',PB2)+
+        _sortTH('pullers','touch','Last touch',PB2)+
+        _sortTH('pullers','follow','Follow-up',PB2)+
+        _sortTH('pullers','status','Status',PB2)+
+        '</tr></thead><tbody>'+b3+'</tbody></table></div></div>';
     }
   }
   if(miniEl) miniEl.innerHTML=mini;
