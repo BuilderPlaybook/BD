@@ -5598,8 +5598,19 @@ function _cmpConfirmResolve(didSend){
     else { if(cb&&typeof cb.notSent==='function') cb.notSent(); }
   }catch(e){}
 }
-function mleadComposeEmail(kind,id,tplName){
-  if(kind==='lot'){ var p=_prospFind(id); if(!p) return; var fn=String(p.contactName||'').trim().split(/\s+/)[0]||'there'; var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area'; _composeEmail(p.contactEmail||p.altEmail||'', p.contactName||'', function(s,m){ mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
+function mleadComposeEmail(kind,id,tplName,coIds){
+  if(kind==='lot'){ var p=_prospFind(id); if(!p) return;
+    /* Co-listing agents on the same lot: one email, every agent in To,
+       greeting names joined, the touch logged on every agent (Dave, 2026-08-28). */
+    var co=[]; if(coIds){ String(coIds).split(',').forEach(function(x){ var cid=parseInt(x,10); if(!isNaN(cid)&&cid!==id){ var cp=_prospFind(cid); if(cp&&co.indexOf(cp)<0) co.push(cp); } }); }
+    var tos=[p.contactEmail||p.altEmail||''];
+    co.forEach(function(cp){ var e=cp.contactEmail||cp.altEmail||''; if(e&&tos.indexOf(e)<0) tos.push(e); });
+    tos=tos.filter(function(e){return !!e;});
+    var fns=[String(p.contactName||'').trim().split(/\s+/)[0]||'there'];
+    co.forEach(function(cp){ var f=String(cp.contactName||'').trim().split(/\s+/)[0]; if(f&&fns.indexOf(f)<0) fns.push(f); });
+    var fn=(fns.length>1)?(fns.slice(0,-1).join(', ')+' and '+fns[fns.length-1]):fns[0];
+    var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area';
+    _composeEmail(tos.join(','), p.contactName||'', function(s,m){ co.forEach(function(cp){ mleadLogEmail('lot',cp.id,s,m,true); _mleadSetFollowup(cp.id,tplName); }); mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, audience:'Outreach', undo:function(){ return _mktgActResolve('pull',id); }}); }
 }
 function _mleadAutoPartner(kind,id){
@@ -5641,7 +5652,7 @@ function _mleadAutoPartner(kind,id){
   grp.forEach(function(x){ x.linkedPartnerId=rec2.id; });
   return rec2;
 }
-function mleadLogEmail(kind,id,subj,notes){
+function mleadLogEmail(kind,id,subj,notes,quiet){
   var by=_curName().split(' ')[0];
   var a={d:_today(),type:'Email',subj:(subj||'Email sent'),notes:(notes||''),na:'',nc:'',by:by,loggedAt:new Date().toISOString()};
   var who='this lead';
@@ -5656,8 +5667,8 @@ function mleadLogEmail(kind,id,subj,notes){
     try{ var lp=_prospFind(id); if(lp&&lp.linkedPartnerId!=null){ var pn=_partnerFind(lp.linkedPartnerId); if(pn){ if(!pn.act) pn.act=[]; pn.act.unshift({d:a.d,type:'Email',subj:a.subj,notes:a.notes,by:a.by,loggedAt:a.loggedAt}); if(a.d>(pn.lastContact||'')) pn.lastContact=a.d; _advanceStageOnTouch(pn); try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){} } } }catch(e){}
   }
   try{ save(); }catch(e){}
-  if(typeof toastSuccess==='function') toastSuccess(_np?'Added to pipeline':'Email logged', _np?(who+' has been added to your pipeline.'):('Logged to '+who+'.'));
-  if(MLEAD_VIEW) renderProspecting();
+  if(!quiet && typeof toastSuccess==='function') toastSuccess(_np?'Added to pipeline':'Email logged', _np?(who+' has been added to your pipeline.'):('Logged to '+who+'.'));
+  if(!quiet && MLEAD_VIEW) renderProspecting();
 }
 
 function _mktgActResolve(kind,id){
@@ -6163,6 +6174,7 @@ function mleadRenderList(){
       var bodyL=rowsL.slice(0,_prospShown).map(function(r){
         var mlsCell=(r.mlsList&&r.mlsList.length)?('<div class="muted" style="font-size:var(--fz-body)" onclick="event.stopPropagation()">'+r.mlsList.map(function(x){ return _mlsLink(x.mls,r.address,x.url); }).join(' \u00b7 ')+'</div>'):'';
         var agents=(r.agents&&r.agents.length)?r.agents:[{agentId:r.agentId,agent:r.agent,firm:r.firm}];
+        var _coIds=agents.map(function(a){return a.agentId;}).filter(function(x,ix,arr){ return x!=null&&x!==r.agentId&&arr.indexOf(x)===ix; });
         var agentCell=agents.map(function(a){
           return '<div style="cursor:pointer" onclick="event.stopPropagation();mleadOpenLot('+a.agentId+')"><div>'+_esc(a.agent||'-')+'</div>'+(a.firm?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(a.firm)+'</div>'):'')+'</div>';
         }).join('');
@@ -6175,7 +6187,7 @@ function mleadRenderList(){
         var _prArg=(r.price==null?"''":r.price);
         var _isArch=_lotArchGet(r);
         var _btns='<div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">'+
-          '<button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+r.agentId+')">Email</button>'+
+          '<button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+r.agentId+',null,\''+_coIds.join(',')+'\')">Email</button>'+
           '<button type="button" class="btn btn-sm" onclick="_lotArchToggle(\''+_addrEsc+'\','+_prArg+')">'+(_isArch?'Restore':'Archive')+'</button>'+
           (LOT_VIEW==='commercial'
             ? '<button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_addrEsc+'\','+_prArg+',\'res\')">Residential</button>'
@@ -12624,6 +12636,24 @@ function _bdMsProcessMessages(msgs, ix, seen){
   });
   return logged+_re;
 }
+function _bdSubjBase(s){ return String(s||'').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i,'').trim().toLowerCase(); }
+/* A thread 'originated in BDM' when the record carries an earlier deliberate
+   BD send (non-synced or bdTouch) with the same base subject. Replies the user
+   sends from Outlook inside such a thread score on the scorecard exactly like
+   a BDM send (Dave, 2026-08-28). Mailbox history outside BDM threads stays
+   off the scorecard as before. */
+function _bdThreadFromBD(rec, subj, whenDate){
+  var base=_bdSubjBase(subj); if(!base) return false;
+  var acts=(rec&&rec.act)||[];
+  for(var i=0;i<acts.length;i++){
+    var a=acts[i]; if(!a||a.inbound||a.type!=='Email') continue;
+    if(a.synced&&!a.bdTouch) continue;
+    if(_bdSubjBase(a.subj)!==base) continue;
+    if(whenDate&&a.d&&a.d>whenDate) continue;
+    return true;
+  }
+  return false;
+}
 function _bdMsProcessSent(msgs, ix){
   // Process the user's SENT mail: match by RECIPIENT address, log as OUTBOUND.
   // Two jobs: (1) fill the body of a reply that was logged blank when the user
@@ -12656,11 +12686,13 @@ function _bdMsProcessSent(msgs, ix){
       }
     }
     if(filled) return; // silent body-fill, not a new log
-    // Otherwise log the sent message as a new outbound activity. synced:true
-    // keeps mailbox history OFF the scorecard - only deliberate BD actions score.
+    // Otherwise log the sent message as a new outbound activity. A reply in a
+    // thread that originated in BDM scores like a BDM send (bdTouch); any other
+    // mailbox history stays synced:true and off the scorecard.
+    var _fromBD=_bdThreadFromBD(rec,subj,_bdMsLocalDate(when));
     rec.act.unshift({
       d:_bdMsLocalDate(when), type:'Email', subj:(subj||'Email sent'),
-      notes:body, na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:true,
+      notes:body, na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:!_fromBD, bdTouch:!!_fromBD,
       msgId:mid, sentAt:when, loggedAt:new Date().toISOString()
     });
     if(_bdMsLocalDate(when)>(rec.lastContact||'')) rec.lastContact=_bdMsLocalDate(when);
@@ -12944,6 +12976,18 @@ function _bdHealSyncedActs(){
   }
   try{ scrub(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
   try{ scrub(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
+  /* Retro-score (idempotent): an already-synced Outlook outbound whose thread
+     originated in BDM flips to a scoring bdTouch, so replies sent from Outlook
+     before this rule shipped count too (Dave, 2026-08-28). */
+  function rescore(list){
+    (list||[]).forEach(function(p){
+      (p&&p.act||[]).forEach(function(a){
+        if(a && a.type==='Email' && !a.inbound && a.synced && !a.bdTouch && a.by==='Outlook' && typeof _bdThreadFromBD==='function' && _bdThreadFromBD(p,a.subj,a.d)){ a.synced=false; a.bdTouch=true; changed++; }
+      });
+    });
+  }
+  try{ rescore(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
+  try{ rescore(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
   if(changed){ try{ _bdGrpCache=null; }catch(e){} try{ save(); }catch(e){} }
   return changed;
 }
