@@ -1462,6 +1462,7 @@ td:hover > .sc-note-pop{display:block}
   <div class="page" id="p-partners">
     <div class="pg"><div><div class="pg-title">Partners</div><div class="pg-sub">Referral partners, architects, designers, and influence relationships</div></div>
     <div class="pg-actions"><button class="btn btn-primary btn-sm" onclick="openPartnerModal(null)"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>Add Partner</button></div></div>
+    <div id="ptn-head"></div>
     <div id="ptn-mini"></div>
     <div class="filter-bar">
       <input id="ptn-q" type="text" placeholder="Search firm, contact, city..." oninput="_ptnFilterChanged()">
@@ -2460,7 +2461,7 @@ function _refWonTrailing(p,months){
 function navPtn(scope){ _ptnTab=scope; nav('partners'); }
 function _ptnSeg(){ return _ptnArchive?'archive':(_ptnTab==='referral'?'referral':(_ptnTab==='bd100'?'bd100':'all')); }
 function _ptnSetSeg(seg){ if(seg==='archive'){ _ptnArchive=true; } else { _ptnArchive=false; _ptnTab=(seg==='referral'?'referral':(seg==='bd100'?'bd100':'all')); } renderPartners(); }
-function _ptnSegBar(){ var s=_ptnSeg(); function b(v,l){ return '<button class="'+(s===v?'active':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+l+'</button>'; } var na=(PARTNERS||[]).filter(_isArchived).length; return '<div class="crm-view-toggle">'+b('all','Directory')+b('referral','Referring')+b('bd100','BD 100')+b('archive','Archive'+(na?' ('+na+')':''))+'</div>'; }
+function _ptnSegBar(){ var s=_ptnSeg(); var cAll=(PARTNERS||[]).filter(function(p){ return !_isArchived(p); }).length; var cRef=(PARTNERS||[]).filter(_isReferralPartner).length; var c100=_bd100Counts(); var cBd=(c100.A+c100.B+c100.C); var cArc=(PARTNERS||[]).filter(_isArchived).length; function b(v,l,n){ return '<button class="btn btn-sm'+(s===v?' btn-primary':'')+'" onclick="_ptnSetSeg(\''+v+'\')" aria-selected="'+(s===v?'true':'false')+'">'+_esc(l)+(n!=null?(' <span style="opacity:.65">'+num(n)+'</span>'):'')+'</button>'; } return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">'+b('all','Directory',cAll)+b('referral','Referring',cRef)+b('bd100','BD 100',cBd)+b('archive','Archive',cArc)+'</div>'; }
 function bdMoney(v){ return fmtVal(Number(v)||0,'$'); }
 function _refStatCell(lbl,val){ return '<div><div class="muted" style="font-size:var(--fz-xs);text-transform:uppercase;letter-spacing:.05em">'+_esc(lbl)+'</div><div style="font-weight:700;font-size:var(--fz-lg)">'+val+'</div></div>'; }
 function _referralPartnersView(list){
@@ -2500,6 +2501,7 @@ function renderPartners(){
     '<div class="ms" title="Share of earned A partners with a meaningful touch this month">A coverage <strong>'+(cov100.pct==null?'-':cov100.pct+'%')+'</strong></div>'+
     '</div>';
 
+  var _hHost=document.getElementById('ptn-head'); if(_hHost) _hHost.innerHTML=_ptnTodayStrip()+_ptnSegBar();
   var rows=ptnFiltered();
   var prospects=(_ptnTab==='all')?rows.slice():rows.filter(function(p){ return !_isReferralPartner(p); });
   var referral=rows.filter(_isReferralPartner);
@@ -2509,17 +2511,14 @@ function renderPartners(){
       '<button class="btn btn-primary btn-sm" onclick="openPartnerModal(null)">+ Add Partner</button>');
     return;
   }
-  var seg=_ptnSegBar();
   var fstate=_ptnFilterStrip();
-  var todayStrip=_ptnTodayStrip();
-  if(_ptnTab==='bd100'){ host.innerHTML=seg+renderBd100Tab(); return; }
-  if(_ptnTab==='referral'){ host.innerHTML=seg+fstate+_referralPartnersView(referral); return; }
+  if(_ptnTab==='bd100'){ host.innerHTML=renderBd100Tab(); return; }
+  if(_ptnTab==='referral'){ host.innerHTML=fstate+_referralPartnersView(referral); return; }
   /* Partners is list-only. The kanban view was removed: partner work is driven
      by tier and reach-out cadence, not by dragging cards between relationship
      stages, and the board hid untouched directory contacts and dormant
      partners from view. Stage is still editable inline and in bulk. */
-  var _ptnToggle='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">'+seg+'</div>';
-  if(!prospects.length){ host.innerHTML=_ptnToggle+filteredEmpty('clearPtnFilters'); return; }
+  if(!prospects.length){ host.innerHTML=filteredEmpty('clearPtnFilters'); return; }
   _sortGet('partners','firm',1); prospects=_applySort(prospects,'partners',ACC_PARTNERS);
   prospects.sort(function(a,b){ return _tierRank(a)-_tierRank(b); });
   var body=prospects.map(function(p){
@@ -2552,7 +2551,7 @@ function renderPartners(){
     '<tbody>'+body+'</tbody></table></div></div>';
   var selCount=0; for(var _sk in _ptnSel){ if(_ptnSel[_sk]) selCount++; }
   var bar=selCount>0?('<div class="card" style="margin-bottom:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:600">'+selCount+' selected</span>'+'<button class="btn btn-sm" onclick="_ptnBulkTier()">Set tier...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkAssign()">Assign to...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkStage()">Set stage...</button>'+'<button class="btn btn-sm" onclick="_ptnBulkDormant()">Mark dormant</button>'+'<button class="btn btn-sm" onclick="_ptnClearSel()">Clear</button></div>'):'';
-  host.innerHTML=_ptnToggle+todayStrip+fstate+bar+tableHtml;
+  host.innerHTML=fstate+bar+tableHtml;
 }
 /* Visible filter state: when any facet is active, say so and show what is
    hidden, so a stale search can never silently shrink a segment again. */
@@ -2575,38 +2574,27 @@ function _ptnFilterStrip(){
    the person. Hidden when there is nothing to act on. */
 function _ptnTodayStrip(){
   if(_ptnSeg()!=='all') return '';
-  var dueList=(PARTNERS||[]).filter(_ptnFollowupDue);
-  var inact=(PARTNERS||[]).filter(function(p){ return _bd100InactiveA(p); });
-  var over=_bd100Over();
-  if(!dueList.length&&!inact.length&&!over.length) return '';
-  function row(p,note,noteCls){
-    var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner');
-    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer" onclick="openPartner('+p.id+')">'+
-      '<span style="font-weight:600">'+_esc(nm)+'</span>'+
-      (p.firm&&p.firm!==nm?'<span class="muted" style="font-size:var(--fz-body)">'+_esc(p.firm)+'</span>':'')+
-      '<span class="chip '+noteCls+'" style="margin-left:auto">'+_esc(note)+'</span></div>';
-  }
-  var inner='';
-  if(dueList.length){
-    var shown=dueList.slice(0,5);
-    inner+='<div style="margin-bottom:'+(inact.length||over.length?'10px':'0')+'">'+
-      '<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Follow-ups due ('+dueList.length+')</div>'+
-      shown.map(function(p){ var du=daysUntil(p.nextContact); var os=_bdOutreachStats(p); return row(p,(os.sent?os.sent+'x \u00b7 ':'')+(du===null?'due':Math.abs(du)+'d overdue'),'c-red'); }).join('')+
-      (dueList.length>5?'<div class="muted" style="font-size:var(--fz-body);padding-top:2px;cursor:pointer" onclick="_ptnSetSel(\'ptn-f-quick\',\'overdue\');renderPartners()">Show all '+dueList.length+' in the list below</div>':'')+
-      '</div>';
-  }
-  if(inact.length){
-    inner+='<div style="margin-bottom:'+(over.length?'10px':'0')+'">'+
-      '<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Inactive A partners ('+inact.length+')</div>'+
-      inact.slice(0,3).map(function(p){ return row(p,'no touch 90d','c-amb'); }).join('')+
-      '</div>';
-  }
-  if(over.length){
-    var c=_bd100Counts();
-    inner+='<div><div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px;color:var(--red)">Over cap</div>'+
-      '<div class="muted" style="font-size:var(--fz-body)">'+over.map(function(t){ return 'Tier '+t+' ('+c[t]+'/'+BD100_CAPS[t]+')'; }).join(', ')+'. Relegate the weakest to restore the caps.</div></div>';
-  }
-  return '<div class="card" style="margin-bottom:10px"><div class="card-hd"><span class="card-title">Today</span><span class="card-hd-meta">who needs a touch</span></div><div class="card-body" style="padding-top:8px">'+inner+'</div></div>';
+  return _bdTodayStrip({
+    pool:(PARTNERS||[]).filter(function(p){ return !_isArchived(p); }),
+    kind:'partner',
+    openFn:function(p){ return 'openPartner('+p.id+')'; },
+    nameOf:function(p){ return (((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner'); },
+    firmOf:function(p){ var nm=(((p.cf||'')+' '+(p.cl||'')).trim()); return (p.firm&&p.firm!==nm)?p.firm:''; },
+    dueOf:_ptnFollowupDue,
+    effNextOf:function(p){ return String(p.nextContact||''); },
+    overdueChip:function(p){ var os=_bdOutreachStats(p); var du=daysUntil(p.nextContact); return {txt:(os.sent?os.sent+'x \u00b7 ':'')+(du===null?'due':Math.abs(du)+'d overdue'), cls:'c-red'}; },
+    fuMore:function(extra,total){ return '<div class="muted" style="font-size:var(--fz-body);padding-top:2px;cursor:pointer" onclick="_ptnSetSel(\'ptn-f-quick\',\'overdue\');renderPartners()">Show all '+total+' in the list below</div>'; },
+    extraSections:function(){
+      var inact=(PARTNERS||[]).filter(function(p){ return _bd100InactiveA(p); });
+      var over=_bd100Over();
+      if(!inact.length && !over.length) return '';
+      function prow(p,note,noteCls){ var nm=(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner'); return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer" onclick="openPartner('+p.id+')"><span style="font-weight:600">'+_esc(nm)+'</span>'+(p.firm&&p.firm!==nm?'<span class="muted" style="font-size:var(--fz-body)">'+_esc(p.firm)+'</span>':'')+'<span class="chip '+noteCls+'" style="margin-left:auto">'+_esc(note)+'</span></div>'; }
+      var out='';
+      if(inact.length){ out+='<div style="margin-bottom:'+(over.length?'10px':'0')+'"><div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Inactive A partners ('+inact.length+')</div>'+inact.slice(0,3).map(function(p){ return prow(p,'no touch 90d','c-amb'); }).join('')+'</div>'; }
+      if(over.length){ var c=_bd100Counts(); out+='<div><div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px;color:var(--red)">Over cap</div><div class="muted" style="font-size:var(--fz-body)">'+over.map(function(t){ return 'Tier '+t+' ('+c[t]+'/'+BD100_CAPS[t]+')'; }).join(', ')+'. Relegate the weakest to restore the caps.</div></div>'; }
+      return out;
+    }
+  });
 }
 /* Partners kanban removed: the page is list-only. Market Leads keeps its own
    board (_leadBoard), which is unaffected. */
@@ -4091,8 +4079,40 @@ var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
-function bdDismissReply(pid,when){ if(!BD_DISMISS.rep)BD_DISMISS.rep={}; BD_DISMISS.rep[pid]=String(when||_today()); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Cleared from Today. It comes back if they email again.',function(){ delete BD_DISMISS.rep[pid]; save(); renderProspecting(); }); renderProspecting(); }
+function bdTodayReplyDone(pid,when){ if(!BD_DISMISS.rep)BD_DISMISS.rep={}; BD_DISMISS.rep[pid]=String(when||_today()); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Cleared from Today. It comes back if they email again.',function(){ delete BD_DISMISS.rep[pid]; save(); renderProspecting(); }); renderProspecting(); }
 function bdDismissFollowup(pid,eff){ if(!BD_DISMISS.fu)BD_DISMISS.fu={}; BD_DISMISS.fu[pid]=String(eff||''); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Follow-up cleared until they re-engage.',function(){ delete BD_DISMISS.fu[pid]; save(); renderProspecting(); }); renderProspecting(); }
+
+/* ===== Shared BD Today strip (Market Leads + Partners) =====
+   One renderer so both tabs show Replies to answer + Follow-ups due with the
+   same rows, chips, caps, and a Done button (soft-dismiss + undo). Dismiss
+   keys are namespaced by kind so a partner id cannot collide with a lot id;
+   old un-namespaced lot keys are still honoured on read. */
+function _bdDismKey(kind,id){ return String(kind)+':'+String(id); }
+function _bdDismRep(kind,id){ if(!BD_DISMISS.rep) return null; return BD_DISMISS.rep[_bdDismKey(kind,id)] || (kind==='lot'?BD_DISMISS.rep[id]:null) || null; }
+function _bdDismFu(kind,id){ if(!BD_DISMISS.fu) return null; return BD_DISMISS.fu[_bdDismKey(kind,id)] || (kind==='lot'?BD_DISMISS.fu[id]:null) || null; }
+function _bdRerenderToday(){ try{ if(_curPage==='partners' && typeof renderPartners==='function'){ renderPartners(); } else if(typeof renderProspecting==='function'){ renderProspecting(); } }catch(e){} }
+function bdTodayDismissReply(kind,id,when){ if(!BD_DISMISS.rep)BD_DISMISS.rep={}; var k=_bdDismKey(kind,id); BD_DISMISS.rep[k]=String(when||_today()); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Cleared from Today. It comes back if they email again.',function(){ delete BD_DISMISS.rep[k]; save(); _bdRerenderToday(); }); _bdRerenderToday(); }
+function bdTodayDismissFollowup(kind,id,eff){ if(!BD_DISMISS.fu)BD_DISMISS.fu={}; var k=_bdDismKey(kind,id); BD_DISMISS.fu[k]=String(eff||''); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Follow-up cleared until they re-engage.',function(){ delete BD_DISMISS.fu[k]; save(); _bdRerenderToday(); }); _bdRerenderToday(); }
+function _bdTodayStrip(cfg){
+  var pool=cfg.pool||[]; var kind=cfg.kind;
+  var poolIds={}; pool.forEach(function(p){ poolIds[p.id]=1; });
+  var allRep=(typeof _bdRepliesAwaiting==='function')?_bdRepliesAwaiting():[];
+  var replies=allRep.filter(function(r){ return r.kind===kind && poolIds[r.p.id]; });
+  replies=replies.filter(function(r){ var dd=_bdDismRep(kind,r.p.id); return !(dd && String(dd)>=String(r.when||'')); });
+  var due=pool.filter(cfg.dueOf);
+  due=due.filter(function(p){ var dd=_bdDismFu(kind,p.id); return !(dd && dd===String(cfg.effNextOf(p)||'')); });
+  var extra=(typeof cfg.extraSections==='function')?(cfg.extraSections()||''):'';
+  if(!replies.length && !due.length && !extra) return '';
+  function nmeta(p){ var nm=cfg.nameOf(p)||'-', fm=cfg.firmOf(p)||''; return '<div style="min-width:0"><span style="font-weight:600">'+_esc(nm)+'</span>'+(fm?' <span class="muted" style="font-size:var(--fz-body)">'+_esc(fm)+'</span>':'')+'</div>'; }
+  function replyRow(r){ var p=r.p; return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="'+cfg.openFn(p)+'">'+nmeta(p)+'<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip c-grn">Replied</span><button type="button" class="btn btn-sm" title="Nothing to reply back - clear it" onclick="event.stopPropagation();bdTodayDismissReply(\''+kind+'\','+p.id+',\''+_esc(String(r.when||''))+'\')">Done</button></span></div>'; }
+  function dueRow(p){ var ch=cfg.overdueChip(p); return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="'+cfg.openFn(p)+'">'+nmeta(p)+'<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip '+ch.cls+'">'+_esc(ch.txt)+'</span><button type="button" class="btn btn-sm" title="Handled - clear this follow-up" onclick="event.stopPropagation();bdTodayDismissFollowup(\''+kind+'\','+p.id+',\''+_esc(String(cfg.effNextOf(p)||''))+'\')">Done</button></span></div>'; }
+  var inner='';
+  if(replies.length){ inner+='<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Replies to answer ('+replies.length+')</div>'+replies.slice(0,5).map(replyRow).join(''); if(replies.length>5) inner+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(replies.length-5)+' more</div>'; }
+  if(due.length){ inner+='<div style="font-weight:700;font-size:var(--fz-body);margin:'+(replies.length?'10px':'0')+' 0 2px">Follow-ups due ('+due.length+')</div>'+due.slice(0,5).map(dueRow).join(''); if(due.length>5) inner+=(typeof cfg.fuMore==='function'?cfg.fuMore(due.length-5,due.length):('<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(due.length-5)+' more</div>')); }
+  if(extra) inner+=((replies.length||due.length)?'<div style="margin-top:10px"></div>':'')+extra;
+  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Today</span><span class="card-hd-meta">who needs a touch</span></div><div class="card-body" style="padding-top:8px">'+inner+'</div></div>';
+}
+
 /* Per-lot archive for the triage queue: dismisses one listing without touching
    the agent or their other lots. Keyed like LOT_TYPES (address+price). */
 var LOT_ARCH = {};
@@ -4470,37 +4490,16 @@ function _bdXsLinkAndMerge(){
    follow-ups due, across lot agents. Hidden when empty. */
 function _mleadTodayStrip(){
   var pool=PROSPECTS.filter(function(p){ return (p.isAgent||p.type==='lot')&&!_prospArchived(p); });
-  var replies=(typeof _bdRepliesAwaiting==='function')?_bdRepliesAwaiting():pool.filter(function(p){ return p.hasReply; }).map(function(p){ return {p:p,kind:'lot'}; });
-  var due=pool.filter(_lotAgentDue);
-  replies=replies.filter(function(r){ var dd=BD_DISMISS.rep&&BD_DISMISS.rep[r.p.id]; return !(dd && String(dd)>=String(r.when||'')); });
-  due=due.filter(function(p){ var dd=BD_DISMISS.fu&&BD_DISMISS.fu[p.id]; return !(dd && dd===String(_bdXsEffNext(p)||'')); });
-  if(!replies.length&&!due.length) return '';
-  function row(p,chip,cls){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="mleadOpenLot('+p.id+')">'+
-      '<div style="min-width:0"><span style="font-weight:600">'+_esc(p.contactName||'-')+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(p.contactFirm||'')+'</span></div>'+
-      '<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip '+cls+'">'+_esc(chip)+'</span><button type="button" class="btn btn-sm" title="Handled - clear this follow-up" onclick="event.stopPropagation();bdDismissFollowup('+p.id+',\''+_esc(String(_bdXsEffNext(p)||''))+'\')">Done</button></span></div>';
-  }
-  function replyRow(r){
-    var p=r.p, isLot=(r.kind==='lot');
-    var nm=isLot?(p.contactName||p.contactFirm||'-'):(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'-');
-    var firm=isLot?(p.contactFirm||''):(p.firm||'');
-    var openFn=isLot?('mleadOpenLot('+p.id+')'):('bdOpenReplyContact(\''+r.kind+'\','+p.id+')');
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;cursor:pointer" onclick="'+openFn+'">'+
-      '<div style="min-width:0"><span style="font-weight:600">'+_esc(nm)+'</span> <span class="muted" style="font-size:var(--fz-body)">'+_esc(firm)+'</span></div>'+
-      '<span style="flex-shrink:0;display:flex;align-items:center;gap:6px"><span class="chip c-grn">Replied</span><button type="button" class="btn btn-sm" title="Nothing to reply back - clear it" onclick="event.stopPropagation();bdDismissReply('+p.id+',\''+_esc(String(r.when||''))+'\')">Done</button></span></div>';
-  }
-  var h='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Today</span><span class="muted" style="font-size:var(--fz-body)">who needs a touch</span></div><div class="card-body" style="padding-top:8px">';
-  if(replies.length){
-    h+='<div style="font-weight:700;font-size:var(--fz-body);margin-bottom:2px">Replies to answer ('+replies.length+')</div>'+
-      replies.slice(0,5).map(replyRow).join('');
-    if(replies.length>5) h+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(replies.length-5)+' more</div>';
-  }
-  if(due.length){
-    h+='<div style="font-weight:700;font-size:var(--fz-body);margin:'+(replies.length?'10px':'0')+' 0 2px">Follow-ups due ('+due.length+')</div>'+
-      due.slice(0,5).map(function(p){ var du2=daysUntil(_bdXsEffNext(p)); var os=_bdOutreachStats(p); return row(p,(os.sent?os.sent+'x \u00b7 ':'')+(du2===null?'due':Math.abs(du2)+'d overdue'),'c-red'); }).join('');
-    if(due.length>5) h+='<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+(due.length-5)+' more under the Agents segment</div>';
-  }
-  return h+'</div></div>';
+  return _bdTodayStrip({
+    pool:pool, kind:'lot',
+    openFn:function(p){ return 'mleadOpenLot('+p.id+')'; },
+    nameOf:function(p){ return p.contactName||p.contactFirm||'-'; },
+    firmOf:function(p){ return p.contactFirm||''; },
+    dueOf:_lotAgentDue,
+    effNextOf:function(p){ return String(_bdXsEffNext(p)||''); },
+    overdueChip:function(p){ var du=daysUntil(_bdXsEffNext(p)); var os=_bdOutreachStats(p); return {txt:(os.sent?os.sent+'x \u00b7 ':'')+(du===null?'due':Math.abs(du)+'d overdue'), cls:'c-red'}; },
+    fuMore:function(extra,total){ return '<div class="muted" style="font-size:var(--fz-body);padding:3px 0">and '+extra+' more under the Lot agents segment</div>'; }
+  });
 }
 /* Names the active filters above every Market Leads list so nothing hides
    silently behind a forgotten facet. */
