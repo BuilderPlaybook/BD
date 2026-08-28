@@ -4091,7 +4091,6 @@ var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
-function _lotTypeCycle(address,price){ var k=_lotKeyOf(address,price); var cur=k?LOT_TYPES[k]:''; var nx=(cur==='res')?'com':((cur==='com')?'':'res'); _lotTypeSet(address,price,nx); }
 /* Per-lot archive for the triage queue: dismisses one listing without touching
    the agent or their other lots. Keyed like LOT_TYPES (address+price). */
 var LOT_ARCH = {};
@@ -4503,7 +4502,7 @@ function _mleadTodayStrip(){
 function _mleadFilterStrip(){
   var f=_mleadF(); var t=_mleadKey();
   var LBL={
-    lots:{f1:'Municipality',f5:'Type',f2:'Min price',f3:'Max price',f4:'Min acres'},
+    lots:{f1:'Municipality',f2:'Min price',f3:'Max price',f4:'Min acres'},
     agents:{f1:'Area',f2:'Contact',f3:'List'},
     development:{f1:'Neighbourhood',f2:'Score',f3:'Project type',f4:'Status',f5:'Contact'},
     building:{f1:'Neighbourhood',f2:'Score',f3:'Project type',f4:'Status',f5:'Contact'},
@@ -5018,13 +5017,6 @@ function _median(arr){
   if(!a.length) return null;
   var m=Math.floor(a.length/2);
   return (a.length%2)?a[m]:((a[m-1]+a[m])/2);
-}
-function _lotTypePill(t){ if(t==='res') return '<span class="tag tag-sky">Residential</span>'; if(t==='com') return '<span class="tag tag-indigo">Commercial</span>'; return '<span class="tag tag-slate">Unsorted</span>'; }
-function _lotTypeControl(r){
-  var t=_lotTypeGet(r); var a=String(r.address||'').replace(/'/g,"\\'"); var pr=(r.price==null?'':r.price);
-  return '<div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:3px">'+_lotTypePill(t)+
-    '<select aria-label="Set lot type" onchange="_lotTypeSet(\''+a+'\','+ (pr===''?"''":pr) +',this.value)" style="padding:2px 6px;border:1px solid var(--brd);border-radius:5px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
-    [['','Unsorted'],['res','Residential'],['com','Commercial']].map(function(o){ return '<option value="'+o[0]+'"'+(t===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>';
 }
 function _lotListingRows(){
   var out=[];
@@ -5947,7 +5939,7 @@ function _prospLotsShell(){
   if(LOT_VIEW==='listings'||LOT_VIEW==='commercial'){
     var _com=(LOT_VIEW==='commercial');
     var _intro=_com?'Commercial lots - a separate business. Work this list to zero the same way, or send one back to Residential.':'One row per lot for sale; co-listed lots grouped. Click a row for its listing agent.';
-    var _typeSel=_com?'':_mleadSel('f5','All types',[{v:'res',l:'Residential'},{v:'unsorted',l:'Unsorted'}]);
+    var _typeSel='';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'+
       '<div class="muted" style="font-size:var(--fz-body)">'+_intro+'</div>'+
       actions+'</div>'+
@@ -6084,7 +6076,7 @@ function mleadRenderList(){
       if(f.f1 && r.muni!==f.f1) return false;
       var _isCom=_lotTypeGet(r)==='com';
       if(LOT_VIEW==='commercial'){ if(!_isCom) return false; }
-      else { if(_isCom) return false; if(f.f5){ var _rt=_lotTypeGet(r); if(f.f5==='unsorted'){ if(_rt) return false; } else if(_rt!==f.f5) return false; } }
+      else { if(_isCom) return false; }
       var _arch=_lotArchGet(r);
       var _off=_lotOffGet(r);
       if(f.f6==='archived'){ if(!_arch) return false; }
@@ -6101,13 +6093,7 @@ function mleadRenderList(){
     });
     _sortGet('lotlist','listed',-1); rowsL=_applySort(rowsL,'lotlist',ACC_LOTLIST);
     var askTotal=rowsL.reduce(function(a,r){ return a+(r.price||0); },0);
-    var medAsk=_median(rowsL.map(function(r){ return r.price; }));
-    var noSize=rowsL.filter(function(r){ return r.acres==null; }).length;
-    var nPriced=rowsL.filter(function(r){ return r.price!=null; }).length;
-    var nRes=rowsL.filter(function(r){ return _lotTypeGet(r)==='res'; }).length;
-    var nCom=rowsL.filter(function(r){ return _lotTypeGet(r)==='com'; }).length;
-    var nUns=rowsL.length-nRes-nCom;
-    mini=_miniBar([['Lots',num(rowsL.length)],['Residential',num(nRes)],['Commercial',num(nCom)],['Unsorted',num(nUns),nUns>0],['Total ask',fmtVal(askTotal,'$')]]);
+    mini=_miniBar([['Lots',num(rowsL.length)],['Total ask',fmtVal(askTotal,'$')]]);
     if(!allL.length){
       table=emptyState('No lot listings yet','Import your lot-agent list. Each agent row carries its listing addresses, and optionally the prices and lot sizes.','<button class="btn btn-primary btn-sm" onclick="lotAgentImport()">Import lot agents</button>');
     } else if(!rowsL.length){
@@ -6123,7 +6109,7 @@ function mleadRenderList(){
         var _off=_lotOffGet(r);
         var _emCell=_off?('<span class="chip c-gry" style="white-space:nowrap">Off-market</span>'):(_em?('<span class="chip c-grn" style="white-space:nowrap">Emailed '+(typeof fmtDateShort==='function'?fmtDateShort(_em):_esc(_em))+'</span>'):'<span class="muted" style="white-space:nowrap">Not contacted</span>');
         var _lstCell=(r.listed?((typeof fmtDateShort==='function'?fmtDateShort(r.listed):_esc(r.listed))+(_lotIsNew(r)?' <span class="chip c-blu">New</span>':'')):'<span class="muted">-</span>');
-        var _dom=_lotDom(r); var _domCell=(_dom==null)?'<span class="muted">-</span>':(_dom+'d');
+        var _dom=_lotDom(r); var _domCell=(_dom==null)?'<span class="muted">-</span>':((_dom>=180)?('<span class="chip c-amb" title="Aging listing - motivated seller conversation">'+_dom+'d</span>'):(_dom+'d'));
         var _addrEsc=String(r.address||'').replace(/'/g,"\\'");
         var _prArg=(r.price==null?"''":r.price);
         var _isArch=_lotArchGet(r);
@@ -6141,11 +6127,10 @@ function mleadRenderList(){
           '<td>'+(r.muni?('<span class="tag tag-indigo">'+_esc(r.muni)+'</span>'):'<span class="muted">-</span>')+'</td>'+
           '<td class="nowrap">'+(r.price==null?'<span class="muted">-</span>':fmtVal(r.price,'$'))+'</td>'+
           '<td class="nowrap">'+_lotAcresCell(r.acres)+'</td>'+
-          '<td>'+_lotTypeControl(r)+'</td>'+
           '<td>'+agentCell+'</td>'+
           '<td>'+_emCell+'</td>'+
           '<td>'+_btns+'</td></tr>';
-      }).join('')+_prospMoreRow(rowsL.length,10);
+      }).join('')+_prospMoreRow(rowsL.length,9);
       var LL={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">'+(LOT_VIEW==='commercial'?'Commercial lots':'Lots for sale')+'</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr>'+
@@ -6155,7 +6140,6 @@ function mleadRenderList(){
           _sortTH('lotlist','muni','Municipality',LL)+
           _sortTH('lotlist','price','Price',LL)+
           _sortTH('lotlist','acres','Lot size',LL)+
-          '<th scope="col">Type</th>'+
           _sortTH('lotlist','agent','Listing agent',LL)+
           '<th scope="col">Status</th>'+
           '<th scope="col"></th>'+
@@ -6484,7 +6468,7 @@ function _lotFeedStale(){
   return isFinite(t) && (Date.now()-t) > 7*24*3600*1000;
 }
 function _lotFeedRows(doc){
-  var out=[]; var agents=(doc&&doc.agents)||[];
+  var out=[]; var agents=Array.isArray(doc)?doc:((doc&&doc.agents)||[]);
   agents.forEach(function(a){
     var name=String(a.name||'').trim(), email=String(a.email||'').trim();
     if(!name && !email) return;
@@ -6552,6 +6536,7 @@ function refreshLotFeed(silent){
       if(typeof renderProspecting==='function') renderProspecting();
       return;
     }
+    if(!newest && rows.length){ newest=_today(); }
     var res=_lotAgentMergeRows(rows);
     _lotReconcileNote=null; _lotFeedReconcile(rows);
     if(newest){ LOT_FEED_UPDATED=newest; try{ localStorage.setItem(_tkey('bd_lot_feed_updated'), newest); }catch(e){} }
