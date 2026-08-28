@@ -1387,6 +1387,9 @@ td:hover > .sc-note-pop{display:block}
 .pnd-tip-r>span:first-child{min-width:0;flex:1 1 auto;overflow-wrap:anywhere;word-break:break-word}
 .pnd-tip-r>span:last-child{flex:0 0 auto;white-space:nowrap;text-align:right}
 .pnd-tip-r.pnd-out{opacity:.62}
+.pnd-tip-scroll{display:block;max-height:min(52vh,340px);overflow-y:auto;margin:0 -2px;padding:0 2px}
+.pnd-tip-scroll::-webkit-scrollbar{width:8px}
+.pnd-tip-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:4px}
 .pnd-tip-sum{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-top:7px;padding-top:7px;
   border-top:1px solid rgba(255,255,255,.28);font-weight:700}
 .pnd-tip-sum>span:last-child{flex:0 0 auto;white-space:nowrap;text-align:right}
@@ -1395,7 +1398,7 @@ td:hover > .sc-note-pop{display:block}
 #pnd-float{display:none;position:fixed;
   background:var(--sb);color:#fff;padding:11px 13px;border-radius:6px;font-size:var(--fz-body);font-weight:400;
   line-height:1.45;letter-spacing:0;text-transform:none;width:360px;max-width:min(360px,calc(100vw - 24px));white-space:normal;
-  text-align:left;box-shadow:0 4px 12px rgba(15,23,42,0.22);z-index:1000;pointer-events:none;font-variant-numeric:tabular-nums}
+  text-align:left;box-shadow:0 4px 12px rgba(15,23,42,0.22);z-index:1000;pointer-events:auto;font-variant-numeric:tabular-nums}
 #pnd-float::before{content:"";position:absolute;top:-5px;left:var(--pnd-ax,50%);transform:translateX(-50%);
   border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid var(--sb)}
 #pnd-float[data-above="yes"]::before{top:auto;bottom:-5px;border-bottom:none;border-top:6px solid var(--sb)}
@@ -1760,7 +1763,7 @@ function _ensurePartnersSeed(){
 function _ensureOutreachAssets(){
   var V=5;
   var DEFS=[
-    {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on [street name]',body:'Hi {{first_name}},\n\nI saw your lot listing on [street name]. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
+    {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on {{lot_address}}',body:'Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
     {name:'Lot Agent Nudge',subject:'Following up, {{first_name}}',body:'Hi {{first_name}},\n\nFollowing up on my note about helping your clients with feasibility, build, and renovation questions. The offer stands: free renderings, ballpark estimates, or a quick call, plus the $10,000 referral fee on a new-build contract.\n\nOne thing that may be useful to you: I wrote a homeowner guide, Build Your Dream Home Without the Nightmare, that walks buyers through the build process so they go in with realistic expectations. It is on Amazon here: https://a.co/d/04W0Xnh0. I am glad to drop off a few signed copies for clients who are weighing a build, a handy thing to put in the hands of someone on the fence.\n\nWant me to bring some by, or put together a quick feasibility sketch on one of your listings?\n\nBest,'},
     {name:'Lot Agent Check-in',subject:'Still happy to help your buyers, {{first_name}}',body:'Hi {{first_name}},\n\nJust keeping the door open. If you have a client who is unsure whether or what they can build or renovate, send them our way and we\'ll help at no charge. And the $10,000 referral fee applies whenever a new-build contract comes from an introduction.\n\nMy offer to drop off signed copies of my homeowner guide, Build Your Dream Home Without the Nightmare, still stands too. It is on Amazon here: https://a.co/d/04W0Xnh0, and it makes a nice gift for buyers starting a project.\n\nNo rush, just let me know when something fits.\n\nBest,'},
     {name:'Multi-Family Lot Outreach',subject:'Building on your multi-family lots, {{first_name}}',body:'Hi {{first_name}},\n\nI was going through your listings in {{area}} and noticed several are multi-family lots, duplex, townhouse, or small multiplex sites.\n\nA lot of the buyers for these aren\'t builders. They see the upside in the land but don\'t have a way to actually design, permit, and build the project, and that gap can make them hesitate or walk. I\'m the owner of LIDA Homes. We build multi-family and custom homes across Vancouver Island, and we can be the build partner that makes one of these lots pencil out for a buyer who doesn\'t build.\n\nWe\'re glad to help your clients at no charge: a feasibility review, a rough pro forma, or concept renderings so they can see what the site can become before they commit.\n\nWe also pay a $10,000 referral fee for any new-build contract that comes from an introduction. And if we buy the lot ourselves, we honour list-backs, so you\'d have the listing on the finished project.\n\nWorth a quick coffee or a 15-minute call? Reply here or call me anytime.\n\nBest,'},
@@ -5193,6 +5196,7 @@ function _cmpTokens(str,tk){
   var s=String(str||''); tk=tk||{};
   s=s.replace(/\{\{\s*first_name\s*\}\}/g,(tk.first_name!=null?tk.first_name:'there'));
   s=s.replace(/\{\{\s*area\s*\}\}/g,(tk.area!=null?tk.area:'your area'));
+  s=s.replace(/\{\{\s*lot_address\s*\}\}/g,(tk.lot_address!=null&&tk.lot_address!==''?tk.lot_address:'your listing'));
   return s;
 }
 function _cmpTplList(aud){
@@ -5610,7 +5614,8 @@ function mleadComposeEmail(kind,id,tplName,coIds){
     co.forEach(function(cp){ var f=String(cp.contactName||'').trim().split(/\s+/)[0]; if(f&&fns.indexOf(f)<0) fns.push(f); });
     var fn=(fns.length>1)?(fns.slice(0,-1).join(', ')+' and '+fns[fns.length-1]):fns[0];
     var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area';
-    _composeEmail(tos.join(','), p.contactName||'', function(s,m){ co.forEach(function(cp){ mleadLogEmail('lot',cp.id,s,m,true); _mleadSetFollowup(cp.id,tplName); }); mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
+    var _lotAddr=(function(){ var pf=(p.portfolio&&p.portfolio.length)?p.portfolio[0].address:''; return String(pf||p.address||'').trim(); })();
+    _composeEmail(tos.join(','), p.contactName||'', function(s,m){ co.forEach(function(cp){ mleadLogEmail('lot',cp.id,s,m,true); _mleadSetFollowup(cp.id,tplName); }); mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area,lot_address:_lotAddr}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, audience:'Outreach', undo:function(){ return _mktgActResolve('pull',id); }}); }
 }
 function _mleadAutoPartner(kind,id){
@@ -7814,6 +7819,8 @@ function _pndFloatEl(){
   if(!el){
     el = document.createElement('div');
     el.id = 'pnd-float';
+    el.addEventListener('mouseenter', _pndKeepTip);
+    el.addEventListener('mouseleave', function(){ var e=document.getElementById('pnd-float'); if(e) e.className=''; });
     document.body.appendChild(el);
   }
   return el;
@@ -7848,10 +7855,12 @@ function _pndShowTip(cell){
   el.style.setProperty('--pnd-ax', Math.round(ax)+'px');
   el.setAttribute('data-above', below ? 'no' : 'yes');
 }
+var _pndHideT=null;
 function _pndHideTip(){
-  var el = document.getElementById('pnd-float');
-  if(el) el.className = '';
+  if(_pndHideT){ clearTimeout(_pndHideT); }
+  _pndHideT=setTimeout(function(){ var el=document.getElementById('pnd-float'); if(el) el.className=''; }, 140);
 }
+function _pndKeepTip(){ if(_pndHideT){ clearTimeout(_pndHideT); _pndHideT=null; } }
 function _cnpEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function _cnpFmt(v, unit){
   try{ return (typeof scFmtVal==='function') ? scFmtVal(v, unit) : String(v); }
@@ -7962,7 +7971,7 @@ function _bdCellTip(m,weekIdx,isWeekly){
     var items=_bdCellTipItems(m.auto,w.s,w.e);
     var h='<span class="pnd-tip"><span class="pnd-tip-hd">'+_cnpEsc(m.title)+' \u00b7 '+_cnpEsc(label)+'</span>';
     if(!items.length){ h+='<span class="pnd-tip-r pnd-out"><span>Nothing logged this '+(monthly?'month':'week')+'.</span><span></span></span>'; }
-    else{ var cap=8; items.slice(0,cap).forEach(function(it){ h+='<span class="pnd-tip-r"><span>'+_cnpEsc(it[0])+'</span><span>'+_cnpEsc(it[1])+'</span></span>'; }); if(items.length>cap) h+='<span class="pnd-tip-r pnd-out"><span>+'+(items.length-cap)+' more</span><span></span></span>'; }
+    else{ h+='<span class="pnd-tip-scroll">'; items.forEach(function(it){ h+='<span class="pnd-tip-r"><span>'+_cnpEsc(it[0])+'</span><span>'+_cnpEsc(it[1])+'</span></span>'; }); h+='</span>'; }
     h+='<span class="pnd-tip-sum"><span>Count</span><span>'+items.length+'</span></span>';
     h+='<span class="pnd-tip-r pnd-out"><span>Auto-fed from '+_cnpEsc(String(m.autoSrc||'BD activity'))+' \u00b7 read-only</span><span></span></span>';
     return h+'</span>';
@@ -9845,9 +9854,19 @@ function _reachDueDate(p){
 }
 function reachState(p){
   var lt=_lastRealTouch(p);
+  var today=new Date(_today()+'T00:00:00');
+  /* Snooze: a future reachSnoozeUntil parks the contact off My Day until that
+     date, then it returns as due (Dave, 2026-08-28). A past/empty snooze is
+     ignored. Snoozing works even with no prior touch, so a never-contacted
+     lead can be deferred too. */
+  if(p&&p.reachSnoozeUntil&&/^\d{4}-\d{2}-\d{2}$/.test(p.reachSnoozeUntil)){
+    var sd=new Date(p.reachSnoozeUntil+'T00:00:00');
+    var sIn=Math.round((sd-today)/86400000);
+    if(sIn>0) return {state:'green',label:'Snoozed to '+(typeof fmtDateShort==='function'?fmtDateShort(p.reachSnoozeUntil):p.reachSnoozeUntil),dueIn:sIn,due:sd,snoozed:true};
+    if(sIn===0) return {state:'red',label:'Snooze ended today',dueIn:0,due:sd};
+  }
   if(!lt) return {state:'none',label:'No contact logged',dueIn:null};
   var due=_reachDueDate(p); if(!due) return {state:'none',label:'No contact logged',dueIn:null};
-  var today=new Date(_today()+'T00:00:00');
   var dueIn=Math.round((due-today)/86400000);
   if(dueIn<0) return {state:'red',label:Math.abs(dueIn)+'d overdue',dueIn:dueIn,due:due};
   if(dueIn<=7) return {state:'amber',label:'Due in '+dueIn+'d',dueIn:dueIn,due:due};
@@ -9882,6 +9901,49 @@ function tierCounts(){
   _reachContacts().forEach(function(p){ var t=partnerTier(p); if(t) o[t]++; else o.none++; });
   return o;
 }
+function _bdNextLabourDayNext(){
+  /* First Monday of September (Labour Day); returns the day AFTER it. If that
+     day is already past this year, use next year. */
+  var t=new Date(_today()+'T00:00:00'); var y=t.getFullYear();
+  function compute(yr){ var d=new Date(yr,8,1); while(d.getDay()!==1){ d.setDate(d.getDate()+1); } d.setDate(d.getDate()+1); return d; }
+  var d=compute(y); if(d<t) d=compute(y+1);
+  var mm=('0'+(d.getMonth()+1)).slice(-2),dd=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+mm+'-'+dd;
+}
+function reachSnooze(id){
+  var p=_partnerFind(id); if(!p) return;
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this contact';
+  var ld=_bdNextLabourDayNext();
+  var body='<div style="font-size:var(--fz-body);line-height:1.55;margin-bottom:12px">Park <strong>'+_esc(nm)+'</strong> off My Day and bring it back on the date you pick. Overdue never gets lost - it returns as due on that day.</div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px">'+
+    '<button type="button" class="btn btn-sm" onclick="_reachSnoozeSet('+id+',\''+ld+'\')">After Labour Day ('+(typeof fmtDateShort==='function'?fmtDateShort(ld):ld)+')</button>'+
+    '<button type="button" class="btn btn-sm" onclick="_reachSnoozeSet('+id+',\''+_addDays(7)+'\')">In 1 week</button>'+
+    '<button type="button" class="btn btn-sm" onclick="_reachSnoozeSet('+id+',\''+_addDays(14)+'\')">In 2 weeks</button>'+
+    '<button type="button" class="btn btn-sm" onclick="_reachSnoozeSet('+id+',\''+_addDays(30)+'\')">In 1 month</button>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:4px"><input type="date" id="reach-snz-date" min="'+_addDays(1)+'" style="padding:7px 10px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)"><button type="button" class="btn btn-primary btn-sm" onclick="var v=document.getElementById(\'reach-snz-date\').value; if(v)_reachSnoozeSet('+id+',v);">Set date</button></div>'+
+    '</div>';
+  openModal({title:'Snooze reminder',body:body,saveLabel:'Cancel',onSave:closeModal});
+}
+function _reachSnoozeSet(id,date){
+  var p=_partnerFind(id); if(!p||!date) return;
+  p.reachSnoozeUntil=String(date);
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  try{ closeModal(); }catch(e){}
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
+  if(typeof toastUndo==='function') toastUndo('Snoozed', nm+' returns '+(typeof fmtDateShort==='function'?fmtDateShort(date):date)+'.', function(){ delete p.reachSnoozeUntil; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}; save(); if(typeof renderDash==='function') renderDash(); });
+  if(typeof renderDash==='function') renderDash();
+}
+function reachDismiss(id){
+  var p=_partnerFind(id); if(!p) return;
+  if(!BD_DISMISS.fu) BD_DISMISS.fu={};
+  var k=_bdDismKey('partner',id);
+  BD_DISMISS.fu[k]=String(p.nextContact||_reachStamp(p)||_today());
+  try{ save(); }catch(e){}
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
+  if(typeof toastUndo==='function') toastUndo('Dismissed', nm+' cleared from My Day. Returns if they re-engage.', function(){ delete BD_DISMISS.fu[k]; save(); if(typeof renderDash==='function') renderDash(); });
+  if(typeof renderDash==='function') renderDash();
+}
+function _reachStamp(p){ try{ var r=reachState(p); return r&&r.due?(function(dd){ var mm=('0'+(dd.getMonth()+1)).slice(-2),d2=('0'+dd.getDate()).slice(-2); return dd.getFullYear()+'-'+mm+'-'+d2; })(r.due):''; }catch(e){ return ''; } }
 function reachCheckin(id){
   var p=_partnerFind(id); if(!p) return;
   _composeEmail(p.email||'', ((p.cf||'')+' '+(p.cl||'')).trim(),
@@ -11510,7 +11572,8 @@ function renderDash(){
   };
   var contacts=_reachContacts().filter(_own);
   var actPartners=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'&&_own(p); }).length;
-  var overdue=reachOverdue().filter(_own), dueSoon=reachDueSoon().filter(_own);
+  function _reachNotDism(p){ var dd=_bdDismFu('partner',p.id); if(!dd) return true; return dd!==String(p.nextContact||_reachStamp(p)||''); }
+  var overdue=reachOverdue().filter(_own).filter(_reachNotDism), dueSoon=reachDueSoon().filter(_own).filter(_reachNotDism);
   var html='<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><div class="crm-view-toggle"><button class="'+(_bdDashView!=='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;all&quot;)" aria-selected="'+(_bdDashView!=='mine'?'true':'false')+'">All team</button><button class="'+(_bdDashView==='mine'?'active':'')+'" onclick="_bdDashSetView(&quot;mine&quot;)" aria-selected="'+(_bdDashView==='mine'?'true':'false')+'">Mine</button></div></div>';
 
   /* Scoreboard band. Built here but rendered AFTER My Day: the queue is what
@@ -11533,7 +11596,7 @@ function renderDash(){
   // then scheduled resurfacing (contacts with no contact ever logged).
   // Each row names the partner, the reason it is in the queue, and the next action.
   // Footer offers bulk cleanup (triage) for dormant partners.
-  var _wqNoTouch=contacts.filter(function(p){ return reachState(p).state==='none'; });
+  var _wqNoTouch=contacts.filter(function(p){ return reachState(p).state==='none'; }).filter(_reachNotDism);
   var _wqRows=[];
   overdue.forEach(function(p){ _wqRows.push({p:p,rank:0}); });
   dueSoon.forEach(function(p){ _wqRows.push({p:p,rank:1}); });
@@ -11605,7 +11668,11 @@ function renderDash(){
         '<td class="nowrap" style="padding-right:18px">'+catPill(p.cat)+'</td>'+
         '<td class="nowrap" style="padding-right:18px"><span class="chip '+reasonCls+'">'+reason+'</span></td>'+
         '<td class="nowrap muted" style="padding-right:18px">'+(p.lastContact?fmtDateShort(p.lastContact):'-')+'</td>'+
-        '<td class="right nowrap" style="padding-right:16px"><button class="btn btn-sm" onclick="reachCheckin('+p.id+')">'+action+'</button></td></tr>';
+        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:6px;justify-content:flex-end">'+
+          '<button class="btn btn-sm" type="button" onclick="event.stopPropagation();reachSnooze('+p.id+')" title="Remind me on a later date">Snooze</button>'+
+          '<button class="btn btn-sm" type="button" onclick="event.stopPropagation();reachDismiss('+p.id+')" title="Clear from My Day - returns if they re-engage">Dismiss</button>'+
+          '<button class="btn btn-sm" onclick="event.stopPropagation();reachCheckin('+p.id+')">'+action+'</button>'+
+        '</div></td></tr>';
     });
     html+='</tbody></table></div>';
     if(_wqRows.length>12){
@@ -12305,11 +12372,13 @@ function bdRemoveEmailAt(i){
    holds the old seed body, and never when the user has edited it. Idempotent:
    once upgraded, the old marker is gone so it never fires again. */
 function _migrateLotAgentOutreach(){
-  var NEWSUBJ='LIDA Homes: your lot listing on [street name]';
-  var NEWBODY='Hi {{first_name}},\n\nI saw your lot listing on [street name]. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,';
+  var NEWSUBJ='LIDA Homes: your lot listing on {{lot_address}}';
+  var NEWBODY='Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,';
   var changed=false;
   (TEMPLATES||[]).forEach(function(t){
-    if(t && t.name==='Lot Agent Outreach' && !t._userEdited && (t.body||'').indexOf('I came across your lot listings')>=0){
+    if(t && t.name==='Lot Agent Outreach' && !t._userEdited &&
+       ((t.body||'').indexOf('I came across your lot listings')>=0 ||
+        (t.subject||'').indexOf('[street name]')>=0 || (t.body||'').indexOf('[street name]')>=0)){
       t.subject=NEWSUBJ; t.body=NEWBODY; t.updated=_today(); changed=true;
     }
   });
@@ -12643,13 +12712,24 @@ function _bdSubjBase(s){ return String(s||'').replace(/^\s*((re|fw|fwd)\s*:\s*)+
    a BDM send (Dave, 2026-08-28). Mailbox history outside BDM threads stays
    off the scorecard as before. */
 function _bdThreadFromBD(rec, subj, whenDate){
-  var base=_bdSubjBase(subj); if(!base) return false;
-  var acts=(rec&&rec.act)||[];
+  var acts=(rec&&rec.act)||[]; var base=_bdSubjBase(subj);
+  /* Primary: a prior deliberate BD send with the same base subject. */
   for(var i=0;i<acts.length;i++){
     var a=acts[i]; if(!a||a.inbound||a.type!=='Email') continue;
     if(a.synced&&!a.bdTouch) continue;
-    if(_bdSubjBase(a.subj)!==base) continue;
-    if(whenDate&&a.d&&a.d>whenDate) continue;
+    if(base&&_bdSubjBase(a.subj)===base){ if(whenDate&&a.d&&a.d>whenDate) continue; return true; }
+  }
+  /* Fallback (subject drift, e.g. an unfilled merge token in the logged
+     subject vs the sent one): any prior person-sent BD email on this record
+     on/before the reply still marks the thread as BDM-originated, so the
+     reply scores (Dave, 2026-08-28). A person send has by set to a name, not
+     'Outlook', and is not a synced mailbox row. */
+  for(var j=0;j<acts.length;j++){
+    var b2=acts[j]; if(!b2||b2.inbound||b2.type!=='Email') continue;
+    var byPerson=(b2.by && String(b2.by).toLowerCase()!=='outlook');
+    if(!byPerson) continue;
+    if(b2.synced&&!b2.bdTouch) continue;
+    if(whenDate&&b2.d&&b2.d>whenDate) continue;
     return true;
   }
   return false;
