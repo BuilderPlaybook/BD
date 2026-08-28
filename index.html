@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-15</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-17</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-15';
+var BD_BUILD='bd-2026-08-28-17';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -4117,8 +4117,8 @@ var BD_SIGNATURE='';
 var BD_SIGNATURE_HTML='';
 var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
-function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
-function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
+function _lotTypeGet(r){ var k=_lotAddrKeyOf(r.address); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
+function _lotTypeSet(address,price,val){ var k=_lotAddrKeyOf(address); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
 
 /* ===== Shared BD Today strip (Market Leads + Partners) =====
    One renderer so both tabs show Replies to answer + Follow-ups due with the
@@ -4154,9 +4154,9 @@ function _bdTodayStrip(cfg){
 /* Per-lot archive for the triage queue: dismisses one listing without touching
    the agent or their other lots. Keyed like LOT_TYPES (address+price). */
 var LOT_ARCH = {};
-function _lotArchGet(r){ var k=_lotKeyOf(r.address,r.price); return !!(k&&LOT_ARCH[k]); }
-function _lotArchSet(address,price,on){ var k=_lotKeyOf(address,price); if(!k) return; if(on) LOT_ARCH[k]=1; else delete LOT_ARCH[k]; save(); renderProspecting(); }
-function _lotArchToggle(address,price){ var k=_lotKeyOf(address,price); if(!k) return; var on=!LOT_ARCH[k]; _lotArchSet(address,price,on); if(typeof toastSuccess==='function') toastSuccess(on?'Lot archived':'Lot restored', on?'Removed from the To do queue. Find it under Status: Archived.':'Back in the working list.'); }
+function _lotArchGet(r){ var k=_lotAddrKeyOf(r.address); return !!(k&&LOT_ARCH[k]); }
+function _lotArchSet(address,price,on){ var k=_lotAddrKeyOf(address); if(!k) return; if(on) LOT_ARCH[k]=1; else delete LOT_ARCH[k]; save(); renderProspecting(); }
+function _lotArchToggle(address,price){ var k=_lotAddrKeyOf(address); if(!k) return; var on=!LOT_ARCH[k]; _lotArchSet(address,price,on); if(typeof toastSuccess==='function') toastSuccess(on?'Lot archived':'Lot restored', on?'Removed from the To do queue. Find it under Status: Archived.':'Back in the working list.'); }
 /* Sold / off-market lots. Keyed like LOT_TYPES/LOT_ARCH (address+price). Set by
    the feed reconcile when a scraper-sourced lot drops out of a healthy feed. */
 var LOT_OFFMARKET = {};
@@ -5913,7 +5913,7 @@ function _mleadDetailLot(p){
     kv('Areas',lotAgentAreas(p)||'-')+'</div></div>';
   html+='</div>';
   var port=(p.portfolio||[]);
-  var prows=port.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):'<span class="muted">-</span>'; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="_setListingUrl('+p.id+',\''+_esc(mls)+'\',\'lot\')">'+(l.url?'edit link':'+ link')+'</a>'):''; var _aa=String(l.address||'').replace(/'/g,"\\'"); var _pp=(l.price==null?"''":l.price); var _lt=LOT_TYPES[_lotKeyOf(l.address,l.price)]||''; var _act='<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+p.id+')">Email</button><button type="button" class="btn btn-sm" onclick="_lotArchToggle(\''+_aa+'\','+_pp+')">Archive</button><button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_aa+'\','+_pp+',\''+(_lt==='com'?'':'com')+'\')">'+(_lt==='com'?'Residential':'Commercial')+'</button></div>'; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap">'+mc+lk+'</td><td>'+_act+'</td></tr>'; }).join('');
+  var prows=port.map(function(l){ var mls=String(l.mls||'').trim(); var mc=mls?(_mlsLink(mls,l.address,l.url)):'<span class="muted">-</span>'; var lk=mls?(' <a class="muted" style="font-size:var(--fz-xs);cursor:pointer;white-space:nowrap" onclick="_setListingUrl('+p.id+',\''+_esc(mls)+'\',\'lot\')">'+(l.url?'edit link':'+ link')+'</a>'):''; var _aa=String(l.address||'').replace(/'/g,"\\'"); var _pp=(l.price==null?"''":l.price); var _lt=LOT_TYPES[_lotAddrKeyOf(l.address)]||''; var _act='<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm" onclick="mleadComposeEmail(\'lot\','+p.id+')">Email</button><button type="button" class="btn btn-sm" onclick="_lotArchToggle(\''+_aa+'\','+_pp+')">Archive</button><button type="button" class="btn btn-sm" onclick="_lotTypeSet(\''+_aa+'\','+_pp+',\''+(_lt==='com'?'':'com')+'\')">'+(_lt==='com'?'Residential':'Commercial')+'</button></div>'; return '<tr><td>'+_esc(l.address||'-')+'</td><td class="nowrap">'+mc+lk+'</td><td>'+_act+'</td></tr>'; }).join('');
   html+='<div class="card" style="margin-top:16px"><div class="card-hd"><span class="card-title">Listings</span><span class="muted" style="font-size:var(--fz-body)">'+num(port.length)+' lot'+(port.length===1?'':'s')+'</span></div>'+
     (port.length?('<div class="tbl-wrap"><table><thead><tr><th scope="col">Address</th><th scope="col">MLS</th><th scope="col">Actions</th></tr></thead><tbody>'+prows+'</tbody></table></div>'):'<div class="card-body"><div class="muted">No listings on record.</div></div>')+'</div>';
   var _leadActs=_combinedActsForLead(p);
@@ -7951,14 +7951,19 @@ function _cnpTotalTip(m, vals){
   return h;
 }
 (function(){
+  var _pndCur=null;
   function bind(){
-    document.addEventListener('mouseover', function(e){
-      var c = e.target.closest ? e.target.closest('.pnd-cell,[data-cnp]') : null;
-      if(c) _pndShowTip(c);
-    }, true);
-    document.addEventListener('mouseout', function(e){
-      var c = e.target.closest ? e.target.closest('.pnd-cell,[data-cnp]') : null;
-      if(c && !(e.relatedTarget && c.contains(e.relatedTarget))) _pndHideTip();
+    /* Use mousemove to track which cell the pointer is actually in. mouseover/
+       mouseout fire on every child-element transition (number, A badge, note
+       dot), which made the tip flash on and immediately hide. We only show on
+       entering a new cell and only hide when the pointer leaves the cell AND
+       is not over the floating tip (Dave, 2026-08-28). */
+    document.addEventListener('mousemove', function(e){
+      var c = e.target && e.target.closest ? e.target.closest('.pnd-cell,[data-cnp]') : null;
+      var overTip = e.target && e.target.closest ? !!e.target.closest('#pnd-float') : false;
+      if(c){ if(c!==_pndCur){ _pndCur=c; _pndKeepTip&&_pndKeepTip(); _pndShowTip(c); } return; }
+      if(overTip){ _pndKeepTip&&_pndKeepTip(); return; }
+      if(_pndCur){ _pndCur=null; _pndHideTip(); }
     }, true);
     document.addEventListener('focusin', function(e){
       var c = e.target.closest ? e.target.closest('.pnd-cell,[data-cnp]') : null;
@@ -10398,8 +10403,8 @@ function loadState(){
       if(s.BD_MEAS_CFG) BD_MEAS_CFG=s.BD_MEAS_CFG;
       if(s.BD_MEAS_OV) BD_MEAS_OV=s.BD_MEAS_OV;
       if(s.OUTREACH&&typeof s.OUTREACH==='object'){ OUTREACH.drafts=Array.isArray(s.OUTREACH.drafts)?s.OUTREACH.drafts:[]; if(s.OUTREACH.settings&&typeof s.OUTREACH.settings==='object'){ for(var _ok in s.OUTREACH.settings) OUTREACH.settings[_ok]=s.OUTREACH.settings[_ok]; } if(s.OUTREACH.tplByCat&&typeof s.OUTREACH.tplByCat==='object') OUTREACH.tplByCat=s.OUTREACH.tplByCat; }
-      if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com') LOT_TYPES[_lk]=_lv; } }
-      if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]) LOT_ARCH[_ak]=1; } }
+      if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com'){ var _lk2=_lk.split('|')[0].trim(); LOT_TYPES[_lk2||_lk]=_lv; } } }
+      if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]){ var _ak2=_ak.split('|')[0].trim(); LOT_ARCH[_ak2||_ak]=1; } } }
       if(s.LOT_OFFMARKET&&typeof s.LOT_OFFMARKET==='object'){ LOT_OFFMARKET={}; for(var _omk in s.LOT_OFFMARKET){ if(s.LOT_OFFMARKET[_omk]) LOT_OFFMARKET[_omk]=s.LOT_OFFMARKET[_omk]; } }
       if(s.BD_DISMISS&&typeof s.BD_DISMISS==='object'){ BD_DISMISS={rep:(s.BD_DISMISS.rep&&typeof s.BD_DISMISS.rep==='object')?s.BD_DISMISS.rep:{}, fu:(s.BD_DISMISS.fu&&typeof s.BD_DISMISS.fu==='object')?s.BD_DISMISS.fu:{}}; }
       if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
