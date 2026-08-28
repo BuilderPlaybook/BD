@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-14</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-15</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-14';
+var BD_BUILD='bd-2026-08-28-15';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -8029,7 +8029,7 @@ function _renderWeekCell(m, val, weekIdx, ownerId, bgRow, isWeekly, goalOverride
   var cellTip = isAuto ? _bdCellTip(m, weekIdx, isWeekly) : '';
   return '<td onclick="'+clickHandler+'" oncontextmenu="event.preventDefault();scOpenNote('+m.id+','+weekIdx+');return false" '
     + (cellTip ? 'class="pnd-cell" tabindex="0" ' : '')
-    + 'title="'+cellTitle+'" '
+    + (cellTip ? '' : ('title="'+cellTitle+'" '))
     + 'style="position:relative;text-align:center;background:'+bg+';color:'+color+';font-size:var(--fz-body);padding:8px 4px;cursor:pointer;border-right:0.5px solid var(--brd);font-variant-numeric:tabular-nums">'
     + display + noteDot + autoBadge + cellTip
     + '</td>';
