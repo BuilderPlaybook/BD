@@ -4098,6 +4098,13 @@ var LOT_ARCH = {};
 function _lotArchGet(r){ var k=_lotKeyOf(r.address,r.price); return !!(k&&LOT_ARCH[k]); }
 function _lotArchSet(address,price,on){ var k=_lotKeyOf(address,price); if(!k) return; if(on) LOT_ARCH[k]=1; else delete LOT_ARCH[k]; save(); renderProspecting(); }
 function _lotArchToggle(address,price){ var k=_lotKeyOf(address,price); if(!k) return; var on=!LOT_ARCH[k]; _lotArchSet(address,price,on); if(typeof toastSuccess==='function') toastSuccess(on?'Lot archived':'Lot restored', on?'Removed from the To do queue. Find it under Status: Archived.':'Back in the working list.'); }
+/* Sold / off-market lots. Keyed like LOT_TYPES/LOT_ARCH (address+price). Set by
+   the feed reconcile when a scraper-sourced lot drops out of a healthy feed. */
+var LOT_OFFMARKET = {};
+var _lotReconcileNote = null;
+function _lotAddrKeyOf(address){ return String(address||'').toLowerCase().replace(/\|/g,', ').replace(/\s+/g,' ').trim(); }
+function _lotOffGet(r){ var k=_lotAddrKeyOf(r.address); return !!(k&&LOT_OFFMARKET[k]); }
+function _lotOffDate(r){ var k=_lotAddrKeyOf(r.address); return (k&&LOT_OFFMARKET[k])||''; }
 /* Latest outbound email to any of the lot's listing agents ('' when none).
    Synced Outlook sends count; inbound and dismissed notes do not. */
 function _lotEmailedDate(r){
@@ -4116,6 +4123,7 @@ function _lotEmailedDate(r){
   return best;
 }
 function _lotIsNew(r){ if(!r.listed) return false; var t=new Date(r.listed+'T00:00:00').getTime(); if(isNaN(t)) return false; return (Date.now()-t) <= 7*24*3600*1000; }
+function _lotDom(r){ if(!r.listed) return null; var t=new Date(r.listed+'T00:00:00').getTime(); if(isNaN(t)) return null; var dd=Math.floor((Date.now()-t)/86400000); return dd<0?0:dd; }
 
 var PROSPECT_FILTER = {type:'all',status:'all'};
 var PROSPECT_TAB='lots';
@@ -4788,7 +4796,8 @@ function parseLotAgents(text){
     prices:_laIdx(headers,['listing_prices'],[]),
     sizes:_laIdx(headers,['listing_sizes','lot_sizes'],[]),
     lats:_laIdx(headers,['listing_latitudes','latitudes'],[]),
-    lons:_laIdx(headers,['listing_longitudes','longitudes'],[])
+    lons:_laIdx(headers,['listing_longitudes','longitudes'],[]),
+    listDates:_laIdx(headers,['listing_list_dates'],[])
   };
   if(idx.name<0 && idx.email<0) return {ok:false,rows:[]};
   function cell(c,i){ return (i>=0 && i<c.length) ? String(c[i]==null?'':c[i]).trim() : ''; }
@@ -4805,13 +4814,15 @@ function parseLotAgents(text){
     var sizes=idx.sizes>=0?cell(c,idx.sizes).split(';'):[];
     var lats=idx.lats>=0?cell(c,idx.lats).split(';'):[];
     var lons=idx.lons>=0?cell(c,idx.lons).split(';'):[];
-    var portfolio=[]; var n=Math.max(addrs.length,mls.length,prices.length,sizes.length);
+    var listDates=idx.listDates>=0?cell(c,idx.listDates).split(';'):[];
+    var portfolio=[]; var n=Math.max(addrs.length,mls.length,prices.length,sizes.length,listDates.length);
     for(var pi=0;pi<n;pi++){
       var _pe={address:addrs[pi]||'',mls:mls[pi]||''};
       var _pp=String(prices[pi]||'').trim(); if(_pp) _pe.price=_pp;
       var _ps=String(sizes[pi]||'').trim(); if(_ps) _pe.size=_ps;
       var _pla=parseFloat(String(lats[pi]||'').trim()); if(!isNaN(_pla)) _pe.lat=_pla;
       var _plo=parseFloat(String(lons[pi]||'').trim()); if(!isNaN(_plo)) _pe.lon=_plo;
+      var _pld=String(listDates[pi]||'').trim(); if(_pld) _pe.listDate=_pld;
       portfolio.push(_pe);
     }
     var cnt=parseInt(cell(c,idx.count),10); if(isNaN(cnt)) cnt=portfolio.length;
@@ -5028,7 +5039,7 @@ function _lotListingRows(){
           address:String(l.address||'').replace(/\|/g,', '), muni:_lotMuni(l.address||''),
           price:price, acres:acres, ppa:(price&&acres)?(price/acres):null,
           mls:String(l.mls||'').trim(), url:l.url||'', ptype:l.ptype||l.propertyType||'',
-          lat:_numOrNull(l.lat), lon:_numOrNull(l.lon), listed:p.listedDate||''});
+          lat:_numOrNull(l.lat), lon:_numOrNull(l.lon), listed:(l.listDate||p.listedDate||'')});
       });
     } else if(!p.isAgent && String(p.address||'').trim()){
       var pr=_lotPrice(p.value), ac=_lotAcres(p.lotSize);
@@ -5036,7 +5047,7 @@ function _lotListingRows(){
         address:String(p.address||'').replace(/\|/g,', '), muni:_lotMuni(p.address||''),
         price:pr, acres:ac, ppa:(pr&&ac)?(pr/ac):null,
         mls:String(p.ref||'').trim(), url:p.listingUrl||'', ptype:p.ptype||p.propertyType||'',
-        lat:_numOrNull(p.lat), lon:_numOrNull(p.lon), listed:p.listedDate||''});
+        lat:_numOrNull(p.lat), lon:_numOrNull(p.lon), listed:(p.listDate||p.listedDate||'')});
     }
   });
   /* One row per lot. Co-listed lots arrive once per agent (and sometimes under
@@ -5058,6 +5069,7 @@ function _lotListingRows(){
       if(g.acres==null && r.acres!=null){ g.acres=r.acres; g.ppa=r.ppa; }
       if(!g.ptype && r.ptype) g.ptype=r.ptype;
       if(!g.url && r.url) g.url=r.url;
+      if(!g.listed && r.listed) g.listed=r.listed;
       if(g.lat==null && r.lat!=null){ g.lat=r.lat; g.lon=r.lon; }
     }
   });
@@ -5069,6 +5081,7 @@ var ACC_LOTLIST={
   price:function(r){return r.price==null?-1:r.price;},
   acres:function(r){return r.acres==null?-1:r.acres;},
   listed:function(r){return r.listed||'';},
+  dom:function(r){var dd=_lotDom(r);return dd==null?-1:dd;},
   agent:function(r){return r.agent||'';}
 };
 function _lotAcresCell(a){ return (a==null)?'<span class="muted">-</span>':(_esc((a<1?a.toFixed(2):a.toFixed(1))+' ac')); }
@@ -5942,7 +5955,7 @@ function _prospLotsShell(){
       _mleadBar('Search address, municipality, MLS, agent...',
         _mleadSel('f1','All municipalities',_allLotMunis())+
         _typeSel+
-        _mleadSel('f6','To do',[{v:'emailed',l:'Emailed'},{v:'archived',l:'Archived'},{v:'all',l:'Everything'}])+
+        _mleadSel('f6','To do',[{v:'emailed',l:'Emailed'},{v:'offmarket',l:'Off-market'},{v:'archived',l:'Archived'},{v:'all',l:'Everything'}])+
         _mleadNum('f2','Min price')+_mleadNum('f3','Max price')+_mleadNum('f4','Min acres','0.01'))+
       '<div id="mlead-table"></div>';
   }
@@ -6073,11 +6086,13 @@ function mleadRenderList(){
       if(LOT_VIEW==='commercial'){ if(!_isCom) return false; }
       else { if(_isCom) return false; if(f.f5){ var _rt=_lotTypeGet(r); if(f.f5==='unsorted'){ if(_rt) return false; } else if(_rt!==f.f5) return false; } }
       var _arch=_lotArchGet(r);
+      var _off=_lotOffGet(r);
       if(f.f6==='archived'){ if(!_arch) return false; }
-      else if(f.f6==='emailed'){ if(_arch||!_lotEmailedDate(r)) return false; }
+      else if(f.f6==='offmarket'){ if(!_off||_arch) return false; }
+      else if(f.f6==='emailed'){ if(_arch||_off||!_lotEmailedDate(r)) return false; }
       else if(f.f6==='all'){ /* everything in this tab */ }
-      else { /* To do (default): not emailed, not archived */
-        if(_arch||_lotEmailedDate(r)) return false; }
+      else { /* To do (default): not emailed, not archived, not off-market */
+        if(_arch||_off||_lotEmailedDate(r)) return false; }
       var mn=parseFloat(f.f2), mx=parseFloat(f.f3), ma=parseFloat(f.f4);
       if(!isNaN(mn) && (r.price==null || r.price<mn)) return false;
       if(!isNaN(mx) && (r.price==null || r.price>mx)) return false;
@@ -6105,8 +6120,10 @@ function mleadRenderList(){
           return '<div style="cursor:pointer" onclick="event.stopPropagation();mleadOpenLot('+a.agentId+')"><div>'+_esc(a.agent||'-')+'</div>'+(a.firm?('<div class="muted" style="font-size:var(--fz-body)">'+_esc(a.firm)+'</div>'):'')+'</div>';
         }).join('');
         var _em=_lotEmailedDate(r);
-        var _emCell=_em?('<span class="chip c-grn" style="white-space:nowrap">Emailed '+(typeof fmtDateShort==='function'?fmtDateShort(_em):_esc(_em))+'</span>'):'<span class="muted" style="white-space:nowrap">Not contacted</span>';
+        var _off=_lotOffGet(r);
+        var _emCell=_off?('<span class="chip c-gry" style="white-space:nowrap">Off-market</span>'):(_em?('<span class="chip c-grn" style="white-space:nowrap">Emailed '+(typeof fmtDateShort==='function'?fmtDateShort(_em):_esc(_em))+'</span>'):'<span class="muted" style="white-space:nowrap">Not contacted</span>');
         var _lstCell=(r.listed?((typeof fmtDateShort==='function'?fmtDateShort(r.listed):_esc(r.listed))+(_lotIsNew(r)?' <span class="chip c-blu">New</span>':'')):'<span class="muted">-</span>');
+        var _dom=_lotDom(r); var _domCell=(_dom==null)?'<span class="muted">-</span>':(_dom+'d');
         var _addrEsc=String(r.address||'').replace(/'/g,"\\'");
         var _prArg=(r.price==null?"''":r.price);
         var _isArch=_lotArchGet(r);
@@ -6120,6 +6137,7 @@ function mleadRenderList(){
         return '<tr style="cursor:pointer" onclick="mleadOpenLot('+r.agentId+')">'+
           '<td><div style="font-weight:600;color:var(--txt)">'+_esc(r.address||'-')+'</div>'+mlsCell+'</td>'+
           '<td class="nowrap">'+_lstCell+'</td>'+
+          '<td class="nowrap">'+_domCell+'</td>'+
           '<td>'+(r.muni?('<span class="tag tag-indigo">'+_esc(r.muni)+'</span>'):'<span class="muted">-</span>')+'</td>'+
           '<td class="nowrap">'+(r.price==null?'<span class="muted">-</span>':fmtVal(r.price,'$'))+'</td>'+
           '<td class="nowrap">'+_lotAcresCell(r.acres)+'</td>'+
@@ -6127,12 +6145,13 @@ function mleadRenderList(){
           '<td>'+agentCell+'</td>'+
           '<td>'+_emCell+'</td>'+
           '<td>'+_btns+'</td></tr>';
-      }).join('')+_prospMoreRow(rowsL.length,6);
+      }).join('')+_prospMoreRow(rowsL.length,10);
       var LL={rerender:'renderProspecting'};
       table='<div class="card"><div class="card-hd"><span class="card-title">'+(LOT_VIEW==='commercial'?'Commercial lots':'Lots for sale')+'</span><span class="muted" style="font-size:var(--fz-body)">Showing '+num(Math.min(_prospShown,rowsL.length))+' of '+num(allL.length)+'</span></div>'+
         '<div class="tbl-wrap"><table><thead><tr>'+
           _sortTH('lotlist','address','Address',LL)+
           _sortTH('lotlist','listed','Listed',LL)+
+          _sortTH('lotlist','dom','Days',LL)+
           _sortTH('lotlist','muni','Municipality',LL)+
           _sortTH('lotlist','price','Price',LL)+
           _sortTH('lotlist','acres','Lot size',LL)+
@@ -6472,6 +6491,7 @@ function _lotFeedRows(doc){
     var portfolio=[];
     (a.listings||[]).forEach(function(l){
       var e={address:String(l.address||''),mls:String(l.mls||'')};
+      var _ld=String(l.list_date||'').trim(); if(_ld) e.listDate=_ld;
       var pr=(l.price==null||l.price==='')?NaN:Number(l.price); if(isFinite(pr)&&pr>0) e.price=pr;
       var sz=String(l.size||'').trim(); if(sz) e.size=sz;
       var la=parseFloat(l.lat); if(!isNaN(la)) e.lat=la;
@@ -6486,6 +6506,31 @@ function _lotFeedRows(doc){
       includeInCampaign:'',sent:'',profileUrl:String(a.profile_url||''),websites:String(webs||'')});
   });
   return out;
+}
+function _lotFeedReconcile(feedRows){
+  /* Sold / off-market detection. refreshLotFeed pulls every region together, so
+     the combined feed is the full current active set: any scraper-sourced (agent)
+     lot absent from a healthy feed is off-market. Manual market leads (non-agent)
+     are never touched. Safety: never retire on an empty or suspiciously small feed. */
+  try{
+    var feedKeys={}, nFeed=0;
+    (feedRows||[]).forEach(function(a){ (a.portfolio||[]).forEach(function(l){
+      var k=_lotAddrKeyOf(l.address);
+      if(k && !feedKeys[k]){ feedKeys[k]=1; nFeed++; }
+    }); });
+    if(!nFeed) return;
+    var elig={}, nElig=0;
+    _lotListingRows().forEach(function(r){
+      var p=_prospFind(r.agentId); if(!(p&&p.isAgent)) return;
+      var k=_lotAddrKeyOf(r.address); if(k && !elig[k]){ elig[k]=1; nElig++; }
+    });
+    var relisted=0;
+    for(var fk in feedKeys){ if(LOT_OFFMARKET[fk]){ delete LOT_OFFMARKET[fk]; relisted++; } }
+    if(nFeed < 20 || (nElig>0 && nFeed < nElig*0.5)){ _lotReconcileNote={retired:0,relisted:relisted}; return; }
+    var today=_today(), retired=0;
+    for(var ek in elig){ if(!feedKeys[ek] && !LOT_OFFMARKET[ek]){ LOT_OFFMARKET[ek]=today; retired++; } }
+    _lotReconcileNote={retired:retired,relisted:relisted};
+  }catch(e){}
 }
 function refreshLotFeed(silent){
   if(LOT_FEED_LOADING) return;
@@ -6508,12 +6553,13 @@ function refreshLotFeed(silent){
       return;
     }
     var res=_lotAgentMergeRows(rows);
+    _lotReconcileNote=null; _lotFeedReconcile(rows);
     if(newest){ LOT_FEED_UPDATED=newest; try{ localStorage.setItem(_tkey('bd_lot_feed_updated'), newest); }catch(e){} }
     try{ localStorage.setItem(_tkey('bd_lot_feed_pulled'), new Date().toISOString()); }catch(e){}
     try{ save(); }catch(e){}
     LOT_FEED_LOADING=false;
     if(typeof renderProspecting==='function') renderProspecting();
-    if(!silent && typeof toastSuccess==='function') toastSuccess('Lot listings refreshed', res.added+' agent'+(res.added===1?'':'s')+' added'+(res.refreshed?(', '+res.refreshed+' refreshed'):'')+(res.linked?(', '+res.linked+' linked to a partner'):'')+(res.dupes?(', '+res.dupes+' already tracked'):''));
+    if(!silent && typeof toastSuccess==='function') toastSuccess('Lot listings refreshed', res.added+' agent'+(res.added===1?'':'s')+' added'+(res.refreshed?(', '+res.refreshed+' refreshed'):'')+(res.linked?(', '+res.linked+' linked to a partner'):'')+(res.dupes?(', '+res.dupes+' already tracked'):'')+((_lotReconcileNote&&_lotReconcileNote.retired)?(', '+_lotReconcileNote.retired+' moved to off-market'):''));
   }).catch(function(){
     LOT_FEED_LOADING=false;
     if(!silent && typeof toastInfo==='function') toastInfo('Refresh failed','Could not load the lot listings feed. Try again shortly.');
@@ -10159,6 +10205,7 @@ function loadState(){
       if(s.OUTREACH&&typeof s.OUTREACH==='object'){ OUTREACH.drafts=Array.isArray(s.OUTREACH.drafts)?s.OUTREACH.drafts:[]; if(s.OUTREACH.settings&&typeof s.OUTREACH.settings==='object'){ for(var _ok in s.OUTREACH.settings) OUTREACH.settings[_ok]=s.OUTREACH.settings[_ok]; } if(s.OUTREACH.tplByCat&&typeof s.OUTREACH.tplByCat==='object') OUTREACH.tplByCat=s.OUTREACH.tplByCat; }
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com') LOT_TYPES[_lk]=_lv; } }
       if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]) LOT_ARCH[_ak]=1; } }
+      if(s.LOT_OFFMARKET&&typeof s.LOT_OFFMARKET==='object'){ LOT_OFFMARKET={}; for(var _omk in s.LOT_OFFMARKET){ if(s.LOT_OFFMARKET[_omk]) LOT_OFFMARKET[_omk]=s.LOT_OFFMARKET[_omk]; } }
       if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
       if(typeof s.BD_SIGNATURE_HTML==='string'){ BD_SIGNATURE_HTML=s.BD_SIGNATURE_HTML; }
       if(Object.prototype.toString.call(s.BD_SIGNATURE_ATTS)==='[object Array]'){ BD_SIGNATURE_ATTS=s.BD_SIGNATURE_ATTS.filter(function(a){ return a&&a.contentId&&a.contentBytes; }); }
@@ -10221,7 +10268,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
