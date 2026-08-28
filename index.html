@@ -2714,6 +2714,28 @@ function refMarkWon(pid,idx){
     }});
 }
 function refMarkPaid(pid,idx){ var f=_refFind(pid,idx); if(!f) return; f.r.feePaid=!f.r.feePaid; f.r.feePaidDate=f.r.feePaid?_today():''; _refAfterChange(); if(typeof toastSuccess==='function') toastSuccess(f.r.feePaid?'Fee marked paid':'Fee marked unpaid',_refLabel(f)); }
+/* Correct a logged referral after the fact: the date, the referred name, the
+   estimated value, or the project type. The date is otherwise stamped at log
+   time with no way to fix a wrong entry. */
+function refEditModal(pid,idx){
+  var f=_refFind(pid,idx); if(!f) return; var r=f.r;
+  var body=_section('Referral',
+    _fld('Referred name','name','text',r.name||'',{full:true})+
+    _fld('Date referred','date','date',r.date||_today())+
+    _fld('Estimated value','value','number',(r.value!=null?r.value:''))+
+    _fld('Project type','projectType','text',r.projectType||''))+
+    '<div class="muted" style="font-size:var(--fz-body);margin-top:6px">Corrects the logged referral. Won contract value and won date are edited from Mark won.</div>';
+  openModal({title:'Edit referral', sub:_refLabel(f), body:body, saveLabel:'Save', onSave:function(){
+    var x=_readForm();
+    r.name=String(x.name||'').trim()||r.name;
+    r.date=String(x.date||r.date||_today());
+    r.value=_numOr(x.value,r.value||0);
+    r.projectType=String(x.projectType||'').trim();
+    closeModal(); _refAfterChange();
+    if(typeof openPartner==='function'&&document.getElementById('ptn-rec')&&_activePageId()==='partner-record') openPartner(f.p.id);
+    if(typeof toastSuccess==='function') toastSuccess('Referral updated',_refLabel(f));
+  }});
+}
 function refClaim(pid,idx){
   var f=_refFind(pid,idx); if(!f) return; var me=_curName().split(' ')[0];
   if(f.r.claimedBy && f.r.claimedBy!==me){ if(!confirm('This referral is currently owned by '+f.r.claimedBy+'. Take ownership?')) return; }
@@ -3543,7 +3565,7 @@ function openPartner(id){
         (x.projectType?' <span class="muted">'+_esc(x.projectType)+'</span>':'')+
         (won&&x.feeAmount?(' '+(x.feePaid?'<span class="chip c-grn">Fee paid</span>':'<span class="chip c-amb">Fee owed '+bdMoney(x.feeAmount)+'</span>')):'')+'</span>'+
         '<span class="nowrap"><span class="muted">'+(won?bdMoney(x.contractValue):(x.value?fmtM(x.value):''))+(won&&_refGp(x)?(' &middot; GP '+bdMoney(_refGp(x))):'')+' &middot; '+fmtDate(x.date)+'</span> '+
-        (won?'<button class="btn btn-sm" onclick="refMarkPaid('+p.id+','+_i+')">'+(x.feePaid?'Unpay':'Mark fee paid')+'</button>':'<button class="btn btn-sm" onclick="refMarkWon('+p.id+','+_i+')">Mark won</button>')+'</span></div>';
+        '<button class="btn btn-sm" onclick="refEditModal('+p.id+','+_i+')">Edit</button> '+(won?'<button class="btn btn-sm" onclick="refMarkPaid('+p.id+','+_i+')">'+(x.feePaid?'Unpay':'Mark fee paid')+'</button>':'<button class="btn btn-sm" onclick="refMarkWon('+p.id+','+_i+')">Mark won</button>')+'</span></div>';
     });
     main+='</div></div>';
   }
@@ -4039,6 +4061,11 @@ function memberNextEmailDue(ch,p){
 
 /* ---- channel builder ---- */
 function _numOr(v,d){ var n=Number(v); return isNaN(n)?d:n; }
+/* Open a web search for a lot agent's contact details in a new tab, pre-filled
+   with their name and brokerage, so filling a missing email or phone does not
+   start with typing a query. The paste still happens in Edit; this removes the
+   go-to-Google-and-type step. Full auto-enrichment waits on the backend. */
+function _bdFindContact(pid){ var p=(typeof _prospFind==='function')?_prospFind(pid):null; if(!p) return; var q=encodeURIComponent(((p.contactName||'')+' '+(p.contactFirm||'')+' realtor email contact').replace(/\s+/g,' ').trim()); try{ window.open('https://www.google.com/search?q='+q,'_blank','noopener'); }catch(e){} }
 
 /* ============================================================
    Prospecting surface (outbound). A builder-unique feature: pull market
@@ -4079,8 +4106,6 @@ var BD_SIGNATURE_ATTS=[];
 function _lotKeyOf(address,price){ var a=String(address||'').toLowerCase().replace(/\s+/g,' ').trim(); return a?(a+'|'+(price==null||price===''?'':price)):''; }
 function _lotTypeGet(r){ var k=_lotKeyOf(r.address,r.price); var m=k&&LOT_TYPES[k]; if(m==='res'||m==='com') return m; var s=String(r.ptype||'').toLowerCase(); if(s.indexOf('res')>=0) return 'res'; if(s.indexOf('com')>=0||s.indexOf('indust')>=0) return 'com'; return ''; }
 function _lotTypeSet(address,price,val){ var k=_lotKeyOf(address,price); if(!k) return; if(val==='res'||val==='com') LOT_TYPES[k]=val; else delete LOT_TYPES[k]; save(); renderProspecting(); }
-function bdTodayReplyDone(pid,when){ if(!BD_DISMISS.rep)BD_DISMISS.rep={}; BD_DISMISS.rep[pid]=String(when||_today()); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Cleared from Today. It comes back if they email again.',function(){ delete BD_DISMISS.rep[pid]; save(); renderProspecting(); }); renderProspecting(); }
-function bdDismissFollowup(pid,eff){ if(!BD_DISMISS.fu)BD_DISMISS.fu={}; BD_DISMISS.fu[pid]=String(eff||''); save(); if(typeof toastUndo==='function') toastUndo('Marked done','Follow-up cleared until they re-engage.',function(){ delete BD_DISMISS.fu[pid]; save(); renderProspecting(); }); renderProspecting(); }
 
 /* ===== Shared BD Today strip (Market Leads + Partners) =====
    One renderer so both tabs show Replies to answer + Follow-ups due with the
@@ -5810,6 +5835,7 @@ function _mleadDetailLot(p){
       '<button class="btn btn-sm" onclick="mleadLogActivity(\'lot\','+p.id+')">Log activity</button>'+
       '<button class="btn btn-sm" onclick="_setFollowUp(\'lot\','+p.id+')">Set follow-up</button>'+
       (p.linkedPartnerId!=null?('<button class="btn btn-primary btn-sm" onclick="openPartner('+p.linkedPartnerId+')">View partner</button>'):('<button class="btn btn-primary btn-sm" onclick="prospectLogContact('+p.id+')">Add to pipeline</button>'))+
+      '<button class="btn btn-sm" onclick="_bdFindContact('+p.id+')" title="Open a web search for this agent&#39;s email and phone in a new tab">Find contact</button>'+
       '<button class="btn btn-sm" onclick="prospectEdit('+p.id+')">Edit</button>'+
       (_prospArchived(p)
         ? '<button class="btn btn-sm" onclick="prospectRestore('+p.id+')">Restore</button>'
@@ -11907,7 +11933,12 @@ function bdSearchGo(type,id){ bdGsearchHide(); var gs=document.getElementById('b
 function buildBdSignals(){
   var contacts=_reachContacts();
   var actPartners=PARTNERS.filter(function(p){ return p.ownershipStatus==='Active'; });
-  var overdue=reachOverdue(), dueSoon=reachDueSoon(), byPri=reachByPriority();
+  /* Honor the Today-strip Done dismisses: a partner or lot cleared for its
+     current cycle drops out of the bell and the Coach signal too, so one Done
+     quiets the item everywhere. The dismiss auto-expires when the record's
+     next-contact date changes (they re-engage or a new follow-up is set). */
+  var _dfu=function(kind,id){ try{ return (typeof _bdDismFu==='function')?_bdDismFu(kind,id):null; }catch(e){ return null; } };
+  var overdue=reachOverdue().filter(function(p){ var dd=_dfu('partner',p.id); return !(dd && dd===String(p.nextContact||'')); }), dueSoon=reachDueSoon(), byPri=reachByPriority();
   var noTouch=contacts.filter(function(p){ return reachState(p).state==='none'; }).length;
   var activeChannels=CHANNELS.filter(function(c){ return c.status==='active'; });
   var channelEmailsDue=activeChannels.reduce(function(a,c){ return a+chEmailStepsDue(c).length; },0);
@@ -11915,7 +11946,7 @@ function buildBdSignals(){
   var channelReferrals=activeChannels.reduce(function(a,c){ return a+chReferrals(c); },0);
   var dormant=PARTNERS.filter(function(p){ return p.relStage==='Dormant'; }).length;
   var marketLeads=PROSPECTS.length;
-  var lotFollowOverdue=PROSPECTS.filter(function(p){ var d=daysUntil(p.nextContact); return d!==null&&d<0; }).length;
+  var lotFollowOverdue=PROSPECTS.filter(function(p){ var d=daysUntil(p.nextContact); if(d===null||d>=0) return false; var eff=(typeof _bdXsEffNext==='function')?_bdXsEffNext(p):p.nextContact; var dd=_dfu('lot',p.id); return !(dd && dd===String(eff||'')); }).length;
   var activePullersNP=(typeof activePullersNotPartner==='function')?activePullersNotPartner():0;
   var needsResearch=(typeof needsContactResearchCount==='function')?needsContactResearchCount():0;
 
@@ -11924,7 +11955,7 @@ function buildBdSignals(){
   if(dueSoon.length) exceptions.push({type:'partner_reachout_due_soon',severity:'low',label:dueSoon.length+' contact'+(dueSoon.length===1?'':'s')+' due for a check-in within 7 days',ref:'partners'});
   if(channelEmailsDue>0) exceptions.push({type:'channel_emails_due',severity:'low',label:channelEmailsDue+' partner-channel email touch'+(channelEmailsDue===1?'':'es')+' due',ref:'channels'});
   if(overduePersonalTouches>0) exceptions.push({type:'partner_touch_overdue',severity:'medium',label:overduePersonalTouches+' partner'+(overduePersonalTouches===1?'':'s')+' need a personal touch',ref:'channels'});
-  if(lotFollowOverdue>0) exceptions.push({type:'lot_followup_overdue',severity:'medium',label:lotFollowOverdue+' prospecting follow-up'+(lotFollowOverdue===1?'':'s')+' overdue',ref:'prospecting'});
+  if(lotFollowOverdue>0) exceptions.push({type:'lot_followup_overdue',severity:'medium',label:lotFollowOverdue+' market-lead follow-up'+(lotFollowOverdue===1?'':'s')+' due',ref:'prospecting'});
   if(activePullersNP>0) exceptions.push({type:'active_pullers_not_partner',severity:'low',label:activePullersNP+' active permit-puller'+(activePullersNP===1?'':'s')+' (3+) not yet a partner',ref:'prospecting'});
   if(needsResearch>0) exceptions.push({type:'needs_contact_research',severity:'low',label:needsResearch+' market lead'+(needsResearch===1?'':'s')+' missing contact info',ref:'prospecting'});
 
