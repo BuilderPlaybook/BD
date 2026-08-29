@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-20</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-23</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-20';
+var BD_BUILD='bd-2026-08-28-23';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -3494,6 +3494,7 @@ function openPartner(id){
       ((p.phone||p.mobile)?('<a class="btn btn-sm" href="tel:'+_esc((p.phone||p.mobile).replace(/[^0-9+]/g,''))+'" title="Call '+_esc(p.phone||p.mobile)+'" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call</a>'):'')+
       '<button class="btn btn-sm" onclick="openBookMeetingModal('+p.id+')" title="Book a meeting with this partner and an assigned team member (calendar invites pending backend)" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Book Meeting</button>'+
       '<button class="btn btn-sm" onclick="openActivityModal('+p.id+')" title="Log a call, email, meeting, or note" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Log Activity</button>'+
+      '<button class="btn btn-sm" onclick="giftBook('+p.id+')" title="Gift the Kindle book to this partner on Amazon and log the touch" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>Gift book</button>'+
       '<button class="btn btn-sm" onclick="reachSnooze('+p.id+')" title="Remind me to reach out on a later date" style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>Snooze</button>'+
       '<button class="coach-ask-btn" onclick="askPartnerCoach('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg>Ask Coach</button>'+
       '<button class="btn btn-sm" onclick="partnerPushLead('+p.id+')">Push to CRM as lead</button>'+
@@ -3655,6 +3656,15 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="openAgentDupes()">Agent and partner duplicates</button>'+
       '<button type="button" class="btn btn-sm" onclick="openPartnerDupes()">Merge duplicate partners</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
+    '</div>'+
+    '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Free book links (prepaid Kindle)</div>'+
+    '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
+      'Buy copies of your book on Amazon (Buy for others - Prepaid eBooks) and paste the redemption links below, one per line. When a partner replies to your outreach, the Book follow-up queue on the Dashboard offers a one-click email that drops in the next unused link. Unredeemed copies are refundable within 60 days. Currently '+_bookLinksAvail().length+' available, '+BD_BOOK_LINKS.filter(function(x){return x.usedBy!=null;}).length+' used.'+
+    '</p>'+
+    '<textarea id="bd-book-links-ta" style="width:100%;min-height:96px;padding:9px 11px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt);resize:vertical" placeholder="https://www.amazon.com/gp/redeem/... (one link per line)">'+_esc(BD_BOOK_LINKS.filter(function(x){return x.usedBy==null;}).map(function(x){return x.link;}).join(String.fromCharCode(10)))+'</textarea>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin:10px 0 24px 0">'+
+      '<button type="button" class="btn btn-primary btn-sm" onclick="saveBookLinks()">Save book links</button>'+
+      '<label style="font-size:var(--fz-body);color:var(--txm)">Follow-up after <input type="number" min="0" id="bd-book-delay" value="'+(BOOK_FUP.delayDays||3)+'" onchange="BOOK_FUP.delayDays=parseInt(this.value,10)||0;save();" style="width:52px;padding:5px 7px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);background:var(--sur);color:var(--txt)"> days after a reply</label>'+
     '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
@@ -6827,6 +6837,11 @@ function prospectLogContact(id){
    business hours) are stored in OUTREACH.settings for the backend.
    ============================================================ */
 var OUTREACH={drafts:[],settings:{maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true},tplByCat:{}};
+/* Prepaid Kindle redemption-link pool for the book follow-up (Dave, 2026-08-28).
+   Each entry: {link, usedBy:partnerId|null, usedAt}. BOOK_FUP.delayDays sets how
+   long after a reply a partner becomes due for the free-book follow-up. */
+var BD_BOOK_LINKS=[];
+var BOOK_FUP={delayDays:3};
 var OR_DEFAULT_TPL={'Realtor':'Realtor Book Delivery','Architect':'Architect Book Delivery','Residential Designer':'Architect Book Delivery','Building Plan Designer':'Architect Book Delivery','Interior Designer':'Architect Book Delivery','Developer':'Partner Check-in','_mlead':'Lot Agent Outreach','_default':'Partner Check-in'};
 function _orTplFor(cat){ var pick=OUTREACH.tplByCat[cat]||OR_DEFAULT_TPL[cat]||OR_DEFAULT_TPL._default; for(var i=0;i<TEMPLATES.length;i++){ var t=TEMPLATES[i]; if(t.channel!=='sms'&&!t.archived&&(t.id===pick||t.name===pick)) return t; } return null; }
 function orFreezeFor(kind,id){ var hit=false; OUTREACH.drafts.forEach(function(d){ if(d.kind===kind&&d.refId===id&&(d.status==='pending'||d.status==='approved')){ d.status='frozen'; d.note='Frozen automatically: this contact replied.'; hit=true; } }); if(hit){ save(); } }
@@ -9972,6 +9987,97 @@ function _reachSnoozeSet(id,date){
   if(typeof toastUndo==='function') toastUndo('Snoozed', nm+' returns '+(typeof fmtDateShort==='function'?fmtDateShort(date):date)+'.', function(){ delete p.reachSnoozeUntil; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}; save(); _reachRerenderAfterSnooze(id); });
   _reachRerenderAfterSnooze(id);
 }
+var BD_BOOK_URL='https://a.co/d/04W0Xnh0';
+function giftBook(id){
+  var p=_partnerFind(id); if(!p) return;
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
+  try{ window.open(BD_BOOK_URL,'_blank','noopener'); }catch(e){}
+  var body='<div style="font-size:var(--fz-body);line-height:1.55">Amazon opened in a new tab. On the book page use <strong>Buy for others</strong> and enter '+_esc(nm)+'\u2019s email to send the Kindle gift.'+((p.email||'').trim()?(' Their email: <strong>'+_esc(p.email)+'</strong>'):' (No email on file - add one on the record.)')+'</div>'+
+    '<div style="margin-top:12px;font-size:var(--fz-body)">Log this as a book gift touch?</div>';
+  openModal({title:'Gift book to '+nm, body:body, saveLabel:'Log book gift', onSave:function(){ _giftBookLog(id); closeModal(); }});
+}
+function _giftBookLog(id){
+  var p=_partnerFind(id); if(!p) return; if(!p.act) p.act=[];
+  var today=_today();
+  p.act.unshift({d:today,type:'Gift / Book Drop-Off',subj:'Gifted Kindle book',notes:'Sent Build Your Dream Home Without the Nightmare as an Amazon Kindle gift.',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+  if(today>(p.lastContact||'')) p.lastContact=today;
+  try{ if(typeof _advanceStageOnTouch==='function') _advanceStageOnTouch(p); }catch(e){}
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ _bdGrpCache=null; }catch(e){}
+  save();
+  if(typeof toastSuccess==='function') toastSuccess('Book gift logged','Logged to '+(((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'partner')+'.');
+  openPartner(id);
+}
+/* ---- Book follow-up (prepaid Kindle links) ---- */
+function _bookLinksAvail(){ return BD_BOOK_LINKS.filter(function(x){ return x&&x.link&&x.usedBy==null; }); }
+function _bookLinkForPartner(id){ for(var i=0;i<BD_BOOK_LINKS.length;i++){ if(BD_BOOK_LINKS[i]&&BD_BOOK_LINKS[i].usedBy===id) return BD_BOOK_LINKS[i]; } return null; }
+function _bookTakeNextLink(id){ var ex=_bookLinkForPartner(id); if(ex) return ex; var a=_bookLinksAvail(); if(!a.length) return null; a[0].usedBy=id; a[0].usedAt=_today(); return a[0]; }
+/* A partner is due for the book follow-up when they have replied, the reply is
+   at least BOOK_FUP.delayDays old, and no book has been sent to them yet. */
+function _bookFupDue(){
+  var out=[]; var today=new Date(_today()+'T00:00:00');
+  (PARTNERS||[]).forEach(function(p){
+    if(!p||p.isPartner) return;
+    if(!p.hasReply||!p.replyAt) return;
+    if(p.bookGiftSentAt) return;
+    var rd=new Date(String(p.replyAt).slice(0,10)+'T00:00:00'); if(isNaN(rd.getTime())) return;
+    var days=Math.round((today-rd)/86400000);
+    if(days>=(BOOK_FUP.delayDays||3)) out.push({p:p,repliedDays:days});
+  });
+  out.sort(function(a,b){ return b.repliedDays-a.repliedDays; });
+  return out;
+}
+function _bookFupBody(p,link){
+  var fn=(p.cf||'there');
+  return 'Hi '+fn+',\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): '+link+'\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at '+BD_BOOK_URL+', or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
+}
+function bookFollowUp(id){
+  var p=_partnerFind(id); if(!p) return;
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
+  if(!_bookLinksAvail().length && !_bookLinkForPartner(id)){
+    openModal({title:'No prepaid book links left', body:'<div style="font-size:var(--fz-body);line-height:1.55">You have no unused prepaid Kindle links. Buy a batch on Amazon (Buy for others - Prepaid eBooks), then paste the redemption links in <strong>Settings - Data - Book links</strong>. Unredeemed copies are refundable within 60 days.</div>', saveLabel:'Close', onSave:closeModal});
+    return;
+  }
+  var link=_bookTakeNextLink(id); if(!link){ return; }
+  var to=(p.email||'').trim();
+  var subj='A free copy of my homeowner guide, '+(p.cf||'');
+  var bodyText=_bookFupBody(p,link.link);
+  // Send via the standard mail contract (mailto/compose stub until backend).
+  try{
+    if(typeof _bdMailto==='function'){ _bdMailto(to,subj,bodyText); }
+    else { window.open('mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(bodyText),'_blank'); }
+  }catch(e){}
+  // Log the touch + mark the book sent + advance the pipeline.
+  if(!p.act) p.act=[];
+  p.act.unshift({d:_today(),type:'Gift / Book Drop-Off',subj:'Sent free Kindle copy',notes:'Prepaid redemption link: '+link.link,na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+  p.bookGiftSentAt=_today();
+  if(_today()>(p.lastContact||'')) p.lastContact=_today();
+  try{ if(typeof _advanceStageOnTouch==='function') _advanceStageOnTouch(p); }catch(e){}
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ _bdGrpCache=null; }catch(e){}
+  save();
+  if(typeof toastSuccess==='function') toastSuccess('Book follow-up sent', nm+' - free copy link inserted. '+_bookLinksAvail().length+' links left.');
+  if(typeof renderDash==='function') renderDash();
+}
+function bookFupSkip(id){
+  var p=_partnerFind(id); if(!p) return; p.bookGiftSentAt='skipped';
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){} save();
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Partner';
+  if(typeof toastUndo==='function') toastUndo('Skipped', nm+' removed from the book queue.', function(){ delete p.bookGiftSentAt; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}; save(); if(typeof renderDash==='function') renderDash(); });
+  if(typeof renderDash==='function') renderDash();
+}
+function saveBookLinks(){
+  var ta=document.getElementById('bd-book-links-ta'); if(!ta) return;
+  var lines=String(ta.value||'').split(/[\r\n]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+  var existing={}; BD_BOOK_LINKS.forEach(function(x){ existing[x.link]=x; });
+  var next=[];
+  lines.forEach(function(l){ if(existing[l]){ next.push(existing[l]); delete existing[l]; } else { next.push({link:l,usedBy:null,usedAt:''}); } });
+  // keep already-used links that were removed from the textarea (do not lose history)
+  for(var k in existing){ if(existing[k].usedBy!=null) next.push(existing[k]); }
+  BD_BOOK_LINKS=next; save();
+  if(typeof toastSuccess==='function') toastSuccess('Book links saved', _bookLinksAvail().length+' available, '+BD_BOOK_LINKS.filter(function(x){return x.usedBy!=null;}).length+' used.');
+  if(_activePageId&&_activePageId()==='settings' && typeof renderSettings==='function') renderSettings();
+}
 function reachClearSnooze(id){
   var p=_partnerFind(id); if(!p) return;
   delete p.reachSnoozeUntil;
@@ -10388,6 +10494,7 @@ function loadState(){
   BD_EVENTS=[];
   BD_SC_PLANS={}; BD_SC_LOG={}; BD_MEAS_CFG={}; BD_MEAS_OV={};
   OUTREACH.drafts=[]; OUTREACH.tplByCat={}; OUTREACH.settings={maxPerDay:10,expiryDays:30,weekdaysOnly:true,businessHoursOnly:true};
+  BD_BOOK_LINKS=[]; BOOK_FUP={delayDays:3};
   try{
     var raw=localStorage.getItem(_tkey(STORE_KEY));
     if(raw){
@@ -10410,6 +10517,8 @@ function loadState(){
       if(s.BD_MEAS_CFG) BD_MEAS_CFG=s.BD_MEAS_CFG;
       if(s.BD_MEAS_OV) BD_MEAS_OV=s.BD_MEAS_OV;
       if(s.OUTREACH&&typeof s.OUTREACH==='object'){ OUTREACH.drafts=Array.isArray(s.OUTREACH.drafts)?s.OUTREACH.drafts:[]; if(s.OUTREACH.settings&&typeof s.OUTREACH.settings==='object'){ for(var _ok in s.OUTREACH.settings) OUTREACH.settings[_ok]=s.OUTREACH.settings[_ok]; } if(s.OUTREACH.tplByCat&&typeof s.OUTREACH.tplByCat==='object') OUTREACH.tplByCat=s.OUTREACH.tplByCat; }
+      if(Array.isArray(s.BD_BOOK_LINKS)) BD_BOOK_LINKS=s.BD_BOOK_LINKS.filter(function(x){ return x&&x.link; });
+      if(s.BOOK_FUP&&typeof s.BOOK_FUP==='object'&&s.BOOK_FUP.delayDays!=null) BOOK_FUP.delayDays=parseInt(s.BOOK_FUP.delayDays,10)||3;
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com'){ var _lk2=_lk.split('|')[0].trim(); LOT_TYPES[_lk2||_lk]=_lv; } } }
       if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]){ var _ak2=_ak.split('|')[0].trim(); LOT_ARCH[_ak2||_ak]=1; } } }
       if(s.LOT_OFFMARKET&&typeof s.LOT_OFFMARKET==='object'){ LOT_OFFMARKET={}; for(var _omk in s.LOT_OFFMARKET){ if(s.LOT_OFFMARKET[_omk]) LOT_OFFMARKET[_omk]=s.LOT_OFFMARKET[_omk]; } }
@@ -10476,7 +10585,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_DISMISS:BD_DISMISS,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,BD_BOOK_LINKS:BD_BOOK_LINKS,BOOK_FUP:BOOK_FUP,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_DISMISS:BD_DISMISS,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
@@ -11706,6 +11815,28 @@ function renderDash(){
     html+='</tbody></table></div>';
   }
   html+='</div>';
+
+  /* Book follow-up queue: partners who replied >= delay days ago and have not
+     been sent the free book yet. One click drops the next prepaid link into an
+     email (Dave, 2026-08-28). */
+  var _bookDue=_bookFupDue().filter(function(x){ return _own(x.p); });
+  var _bookAvail=_bookLinksAvail().length;
+  if(_bookDue.length){
+    html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Book follow-up</span>'+
+      '<span class="card-hd-meta">'+_bookDue.length+' ready \u00b7 '+_bookAvail+' free links left</span></div>';
+    if(!_bookAvail){ html+='<div class="card-bd"><div class="muted">These partners replied and are ready for a free book, but you have no prepaid links left. Add links in Settings - Data - Free book links.</div></div>'; }
+    html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col"></th></tr></thead><tbody>';
+    _bookDue.slice(0,12).forEach(function(x){
+      var p=x.p; var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
+      var subFirm=(p.firm&&nm!==p.firm)?p.firm:'';
+      html+='<tr><td class="cell-firm" style="cursor:pointer;width:100%;min-width:180px" onclick="openPartner('+p.id+')">'+_esc(nm)+(subFirm?' <span class="muted">'+_esc(subFirm)+'</span>':'')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+(_tierBadge(p)||'<span class="muted">-</span>')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+(catPill(p.cat)||'<span class="muted">-</span>')+'</td>'+
+        '<td class="nowrap" style="padding-right:18px">'+x.repliedDays+'d ago</td>'+
+        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary btn-sm" onclick="bookFollowUp('+p.id+')"'+(_bookAvail?'':' disabled')+'>Send free book</button><button type="button" class="btn btn-sm" onclick="bookFupSkip('+p.id+')" title="Remove from this queue without sending">Skip</button></div></td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+  }
 
   html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">My Day</span>'+
     '<span class="card-hd-meta">'+overdue.length+' overdue, '+dueSoon.length+' due soon</span></div>';
