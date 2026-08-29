@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-24</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-26</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-24';
+var BD_BUILD='bd-2026-08-28-26';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -1765,6 +1765,7 @@ function _ensureOutreachAssets(){
   var V=5;
   var DEFS=[
     {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on {{lot_address}}',body:'Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
+    {name:'Book Follow-Up',subject:'A free copy of my homeowner guide, {{first_name}}',category:'Partner',channel:'email',body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): {{book_link}}\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at https://a.co/d/04W0Xnh0, or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'},
     {name:'Lot Agent Nudge',subject:'Following up, {{first_name}}',body:'Hi {{first_name}},\n\nFollowing up on my note about helping your clients with feasibility, build, and renovation questions. The offer stands: free renderings, ballpark estimates, or a quick call, plus the $10,000 referral fee on a new-build contract.\n\nOne thing that may be useful to you: I wrote a homeowner guide, Build Your Dream Home Without the Nightmare, that walks buyers through the build process so they go in with realistic expectations. It is on Amazon here: https://a.co/d/04W0Xnh0. I am glad to drop off a few signed copies for clients who are weighing a build, a handy thing to put in the hands of someone on the fence.\n\nWant me to bring some by, or put together a quick feasibility sketch on one of your listings?\n\nBest,'},
     {name:'Lot Agent Check-in',subject:'Still happy to help your buyers, {{first_name}}',body:'Hi {{first_name}},\n\nJust keeping the door open. If you have a client who is unsure whether or what they can build or renovate, send them our way and we\'ll help at no charge. And the $10,000 referral fee applies whenever a new-build contract comes from an introduction.\n\nMy offer to drop off signed copies of my homeowner guide, Build Your Dream Home Without the Nightmare, still stands too. It is on Amazon here: https://a.co/d/04W0Xnh0, and it makes a nice gift for buyers starting a project.\n\nNo rush, just let me know when something fits.\n\nBest,'},
     {name:'Multi-Family Lot Outreach',subject:'Building on your multi-family lots, {{first_name}}',body:'Hi {{first_name}},\n\nI was going through your listings in {{area}} and noticed several are multi-family lots, duplex, townhouse, or small multiplex sites.\n\nA lot of the buyers for these aren\'t builders. They see the upside in the land but don\'t have a way to actually design, permit, and build the project, and that gap can make them hesitate or walk. I\'m the owner of LIDA Homes. We build multi-family and custom homes across Vancouver Island, and we can be the build partner that makes one of these lots pencil out for a buyer who doesn\'t build.\n\nWe\'re glad to help your clients at no charge: a feasibility review, a rough pro forma, or concept renderings so they can see what the site can become before they commit.\n\nWe also pay a $10,000 referral fee for any new-build contract that comes from an introduction. And if we buy the lot ourselves, we honour list-backs, so you\'d have the listing on the finished project.\n\nWorth a quick coffee or a 15-minute call? Reply here or call me anytime.\n\nBest,'},
@@ -5213,6 +5214,7 @@ function _cmpTokens(str,tk){
   s=s.replace(/\{\{\s*first_name\s*\}\}/g,(tk.first_name!=null?tk.first_name:'there'));
   s=s.replace(/\{\{\s*area\s*\}\}/g,(tk.area!=null?tk.area:'your area'));
   s=s.replace(/\{\{\s*lot_address\s*\}\}/g,(tk.lot_address!=null&&tk.lot_address!==''?tk.lot_address:'your listing'));
+  s=s.replace(/\{\{\s*book_link\s*\}\}/g,(tk.book_link!=null?tk.book_link:''));
   return s;
 }
 function _cmpTplList(aud){
@@ -8022,6 +8024,7 @@ function scOpenCellDetail(ownerId,mId,weekIdx,isWeekly){
   var w=monthly?_bdScMonth(weekIdx):_bdScWk(weekIdx);
   var label=monthly?(w.s.toLocaleString('en-US',{month:'long'})+' '+w.s.getFullYear()):(weekRanges[weekIdx]||'');
   var items=_bdCellTipItems(m.auto,w.s,w.e);
+  items.sort(function(a,b){ var x=String(a[1]||''),y=String(b[1]||''); return x<y?1:(x>y?-1:0); });
   var rows='';
   if(!items.length){ rows='<div class="muted" style="font-size:var(--fz-body);padding:8px 0">Nothing logged this '+(monthly?'month':'week')+'.</div>'; }
   else{
@@ -10063,8 +10066,10 @@ function bookFollowUp(id){
   }
   var link=_bookTakeNextLink(id); if(!link){ return; }
   var to=(p.email||'').trim();
-  var subj='A free copy of my homeowner guide, '+(p.cf||'');
-  var bodyText=_bookFupBody(p,link.link);
+  var _tpl=TEMPLATES.filter(function(t){ return t&&t.name==='Book Follow-Up'&&!t.archived; })[0];
+  var _tk={first_name:(p.cf||'there'),book_link:link.link};
+  var subj=_tpl?_cmpTokens(_tpl.subject,_tk):('A free copy of my homeowner guide, '+(p.cf||''));
+  var bodyText=_tpl?_cmpTokens(_tpl.body,_tk):_bookFupBody(p,link.link);
   // Send via the standard mail contract (mailto/compose stub until backend).
   try{
     if(typeof _bdMailto==='function'){ _bdMailto(to,subj,bodyText); }
@@ -10573,6 +10578,7 @@ function loadState(){
   try{ _ensurePartnersSeed(); }catch(e){}
   try{ _ensureOutreachAssets(); }catch(e){}
   try{ _migrateLotAgentOutreach(); }catch(e){}
+  try{ _ensureBookFupTemplate(); }catch(e){}
   /* Tier normalisation runs LAST. The enrichment importers above
      (_bdImportV2, _bdImportDesigners, _bdSeedRealtors, _ensurePartnersSeed)
      carry their own priorityTier values in the legacy 'Tier 1/2/3' form, so
@@ -12582,6 +12588,12 @@ function bdRemoveEmailAt(i){
    is still the old seed. Only touches that one template, only when it still
    holds the old seed body, and never when the user has edited it. Idempotent:
    once upgraded, the old marker is gone so it never fires again. */
+function _ensureBookFupTemplate(){
+  try{
+    var has=TEMPLATES.some(function(t){ return t&&t.name==='Book Follow-Up'; });
+    if(!has){ TEMPLATES.push({name:'Book Follow-Up',subject:'A free copy of my homeowner guide, {{first_name}}',category:'Partner',channel:'email',updated:_today(),sends:0,body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): {{book_link}}\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at https://a.co/d/04W0Xnh0, or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'}); save(); }
+  }catch(e){}
+}
 function _migrateLotAgentOutreach(){
   var NEWSUBJ='LIDA Homes: your lot listing on {{lot_address}}';
   var NEWBODY='Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,';
