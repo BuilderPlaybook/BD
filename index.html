@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-34</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-36</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-34';
+var BD_BUILD='bd-2026-08-29-36';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -5245,6 +5245,40 @@ function _copyToClipboard(text){
   try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text); return true; } }catch(e){}
   return false;
 }
+/* Copy rich HTML (plus a plain-text fallback) to the clipboard synchronously,
+   inside the click gesture, via a one-shot copy-event listener + execCommand.
+   The async Clipboard API loses the race once the mailto opens Outlook and
+   steals focus (same reason _copyToClipboard stays synchronous), so this is the
+   reliable path. When the user pastes into the Outlook body, Outlook honours the
+   text/html flavour and the book title renders bold-italic and as the clickable
+   link. Falls back to a plain-text copy if the HTML write cannot complete.
+   (Dave, 2026-08-29 - fixes book-email formatting on the Outlook paste flow.) */
+function _copyHtmlToClipboard(html, plain){
+  var wrote=false;
+  var handler=function(e){
+    try{
+      if(e&&e.clipboardData){
+        e.clipboardData.setData('text/html', String(html==null?'':html));
+        e.clipboardData.setData('text/plain', String(plain==null?'':plain));
+        e.preventDefault();
+        wrote=true;
+      }
+    }catch(_e){}
+  };
+  try{
+    document.addEventListener('copy', handler);
+    var ta=document.createElement('textarea');
+    ta.value=String(plain==null?'':plain);
+    ta.style.position='fixed'; ta.style.top='0'; ta.style.left='0'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ ta.setSelectionRange(0, ta.value.length); }catch(_e){}
+    var ex=false; try{ ex=document.execCommand('copy'); }catch(_e){}
+    document.body.removeChild(ta);
+    document.removeEventListener('copy', handler);
+    if(wrote || ex) return true;
+  }catch(e){ try{ document.removeEventListener('copy', handler); }catch(_e){} }
+  return _copyToClipboard(plain);
+}
 var _cmpCtx=null;
 var _cmpConfirmCb=null;
 function _bdHtmlToText(h){
@@ -5522,7 +5556,7 @@ function _cmpApplyTpl(){
    fades, so it got missed and Outlook looked broken. This banner stays on
    screen until dismissed, with a Copy again button in case the clipboard got
    overwritten before pasting. */
-function _showPasteBanner(bodyText){
+function _showPasteBanner(bodyText, htmlBody){
   var old=document.getElementById('bd-paste-banner'); if(old) old.remove();
   var bar=document.createElement('div');
   bar.id='bd-paste-banner';
@@ -5533,7 +5567,7 @@ function _showPasteBanner(bodyText){
   txt.innerHTML='<strong>Your email body is copied.</strong> Click in the Outlook window, put your cursor above your signature, and press <strong>Ctrl+V</strong>. Nothing pasted? Click <strong>Copy again</strong>, then Ctrl+V.';
   var again=document.createElement('button');
   again.type='button'; again.className='btn btn-primary btn-sm'; again.textContent='Copy again';
-  again.onclick=function(){ var ok=_copyToClipboard(bodyText); if(typeof toastSuccess==='function') toastSuccess(ok?'Copied':'Copy failed', ok?'Body copied. Switch to Outlook and press Ctrl+V.':'Select the text manually and copy.'); };
+  again.onclick=function(){ var ok=(htmlBody&&typeof _copyHtmlToClipboard==='function')?_copyHtmlToClipboard(htmlBody,bodyText):_copyToClipboard(bodyText); if(typeof toastSuccess==='function') toastSuccess(ok?'Copied':'Copy failed', ok?'Body copied. Switch to Outlook and press Ctrl+V.':'Select the text manually and copy.'); };
   var x=document.createElement('button');
   x.type='button'; x.className='btn btn-sm'; x.textContent='Done';
   x.onclick=function(){ bar.remove(); };
@@ -5558,7 +5592,17 @@ function _cmpDoSend(){
      its images attached inline, logs on success, and never opens Outlook. */
   var _handoff=function(){
     var copied=false;
-    if(body.replace(/\s/g,'')!==''){ copied=_copyToClipboard(body); }
+    /* Put the body on the clipboard as rich HTML (book-aware: bold-italic title
+       + title-as-link when a book URL is present), plain text as the fallback,
+       so Ctrl+V into Outlook keeps the formatting. No signature block here -
+       Outlook adds the signature; this pastes above it. (Dave, 2026-08-29) */
+    var _clipHtml=null;
+    try{
+      _clipHtml=(typeof _bookUrlInBody==='function'&&_bookUrlInBody(body)&&typeof _bookFupHtml==='function')
+        ? _bookFupHtml(body)
+        : (typeof _bdPlainToHtml==='function' ? _bdPlainToHtml(body) : null);
+    }catch(e){ _clipHtml=null; }
+    if(body.replace(/\s/g,'')!==''){ copied=_clipHtml ? _copyHtmlToClipboard(_clipHtml, body) : _copyToClipboard(body); }
     try{
       var href='mailto:'+encodeURIComponent(c.to).replace(/%40/g,'@');
       var _qs=[];
@@ -5567,7 +5611,7 @@ function _cmpDoSend(){
       if(_qs.length){ href+='?'+_qs.join('&'); }
       var el=document.createElement('a'); el.href=href; document.body.appendChild(el); el.click(); document.body.removeChild(el);
     }catch(e){}
-    if(body.replace(/\s/g,'')!==''){ try{ _showPasteBanner(body); }catch(e){} }
+    if(body.replace(/\s/g,'')!==''){ try{ _showPasteBanner(body, _clipHtml); }catch(e){} }
     _cmpConfirmSend(_who,
       function(){ try{ if(typeof c.onSend==='function') c.onSend(subj, body); }catch(e){} try{ save(); }catch(e){} if(typeof toastSuccess==='function') toastSuccess('Logged as sent', _who+'. Counted as a touch on the scorecard.'); },
       function(){ if(typeof toastInfo==='function') toastInfo('Not logged', _who+'. Nothing was recorded.'); });
@@ -5575,7 +5619,7 @@ function _cmpDoSend(){
   if(_bdSigReady() && typeof _bdMsConnected==='function' && _bdMsConnected()){
     var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
     var logBody=body.replace(/\s+$/,'')+sigText;
-    var htmlBody=((typeof BD_BOOK_URL==='string'&&body.indexOf(BD_BOOK_URL)>=0&&typeof _bookFupHtml==='function')?_bookFupHtml(body):_bdPlainToHtml(body))+_bdSignatureHtmlBlock();
+    var htmlBody=((typeof _bookUrlInBody==='function'&&_bookUrlInBody(body)&&typeof _bookFupHtml==='function')?_bookFupHtml(body):_bdPlainToHtml(body))+_bdSignatureHtmlBlock();
     if(typeof toastInfo==='function') toastInfo('Sending...', _who);
     _bdMsSendMail(c.to, c.cc, subj, htmlBody, BD_SIGNATURE_ATTS).then(function(){
       try{ if(typeof c.onSend==='function') c.onSend(subj, logBody); }catch(e){}
@@ -10027,6 +10071,22 @@ function _reachSnoozeSet(id,date){
   _reachRerenderAfterSnooze(id);
 }
 var BD_BOOK_URL='https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/';
+var BD_BOOK_URL_ALT='https://a.co/d/04W0Xnh0';
+/* Find the book's URL in a body regardless of which form it takes: the full
+   amazon.ca URL, the a.co short link, or any URL carrying the ASIN or the
+   amazon slug. Returns the exact URL substring present (so the transform
+   protects and links the real one), or null. Broadened 2026-08-29 (Dave): the
+   HTML transform previously keyed only off the literal BD_BOOK_URL, so any
+   book email built on the a.co short link - which the Realtor, Architect, and
+   Lot Agent templates all use - got no title link and no title bolding. */
+function _bookUrlInBody(text){
+  var s=String(text||''); var re=/https?:\/\/[^\s<>"')\]]+/g, m;
+  while((m=re.exec(s))!==null){
+    var u=m[0].replace(/[.,;:]+$/,'');
+    if(u.indexOf('B0GXGSLT9Z')>=0 || u.indexOf('a.co/d/04W0Xnh0')>=0 || /Build-Your-Dream-Without-Nightmare/i.test(u)) return u;
+  }
+  return null;
+}
 function giftBook(id){
   var p=_partnerFind(id); if(!p) return;
   var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
@@ -10101,7 +10161,10 @@ var BD_BOOK_TITLE_SHORT='Build Your Dream Home Without the Nightmare';
    URL; the HTML body swaps the raw URL for an anchor whose text is the book
    title (Dave, 2026-08-29). */
 function _bookFupHtml(plain){
-  var url=BD_BOOK_URL;
+  // Link and href the book URL actually present in the body (long amazon.ca,
+  // a.co short link, or any variant), not only the literal BD_BOOK_URL, so the
+  // title-as-link and title-bolding fire on every book email (Dave, 2026-08-29).
+  var url=(typeof _bookUrlInBody==='function' && _bookUrlInBody(plain))||BD_BOOK_URL;
   var escUrl=url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   // Protect the URL with a placeholder so title-bolding cannot touch it, then
   // bold+italic any plain title mention, then swap the placeholder for a
@@ -10113,10 +10176,15 @@ function _bookFupHtml(plain){
   // Full title first, then short title (only where not already wrapped).
   html=html.replace(new RegExp(BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'), bi(BD_BOOK_TITLE));
   html=html.replace(new RegExp('(?<!<i>)'+BD_BOOK_TITLE_SHORT.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?!(?:[^<]| )*</i>)','g'), bi(BD_BOOK_TITLE_SHORT));
-  // Now place the hyperlink. Drop an optional ' - <title>:' label if present.
-  var anchor='<a href="'+url+'" style="font-weight:bold;font-style:italic">'+_esc(BD_BOOK_TITLE)+'</a>';
-  html=html.replace(new RegExp('\\s*-\\s*(?:<b><i>)?'+BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:</i></b>)?[^:]*:\\s*(<br>)?\\s*'+PH,'g'), ': '+anchor);
-  html=html.replace(new RegExp(PH,'g'), anchor);
+  // Place the hyperlink. (1) When a written title (full or short) sits right
+  // before the URL - "title (url)", "title: url", "title - url", "title url" -
+  // turn that written title into the link and drop the bare URL and its wrapper,
+  // so the title is never printed twice. (2) Any remaining standalone URL (e.g.
+  // "free sample: url" with no title before it) becomes a full-title link.
+  var anchorOpen='<a href="'+url+'" style="font-weight:bold;font-style:italic">';
+  html=html.replace(new RegExp('(<b><i>[^<]*</i></b>)\\s*[\\(:\\-]?\\s*'+PH+'\\)?','g'),
+    function(_m,titleHtml){ return anchorOpen+titleHtml+'</a>'; });
+  html=html.replace(new RegExp(PH,'g'), anchorOpen+_esc(BD_BOOK_TITLE)+'</a>');
   return html;
 }
 function bookFollowUp(id){
