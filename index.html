@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-26</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-27</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-26';
+var BD_BUILD='bd-2026-08-29-27';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -3665,7 +3665,7 @@ function openBdSettings(){
     '<textarea id="bd-book-links-ta" style="width:100%;min-height:96px;padding:9px 11px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt);resize:vertical" placeholder="https://www.amazon.com/gp/redeem/... (one link per line)">'+_esc(BD_BOOK_LINKS.filter(function(x){return x.usedBy==null;}).map(function(x){return x.link;}).join(String.fromCharCode(10)))+'</textarea>'+
     '<div style="display:flex;gap:8px;align-items:center;margin:10px 0 24px 0">'+
       '<button type="button" class="btn btn-primary btn-sm" onclick="saveBookLinks()">Save book links</button>'+
-      '<label style="font-size:var(--fz-body);color:var(--txm)">Follow-up after <input type="number" min="0" id="bd-book-delay" value="'+(BOOK_FUP.delayDays||3)+'" onchange="BOOK_FUP.delayDays=parseInt(this.value,10)||0;save();" style="width:52px;padding:5px 7px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);background:var(--sur);color:var(--txt)"> days after a reply</label>'+
+      '<label style="font-size:var(--fz-body);color:var(--txm)">Follow-up after <input type="number" min="0" id="bd-book-delay" value="'+(BOOK_FUP.delayDays||3)+'" onchange="BOOK_FUP.delayDays=parseInt(this.value,10)||0;save();" style="width:52px;padding:5px 7px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);background:var(--sur);color:var(--txt)"> days after my response</label>'+
     '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
@@ -10038,17 +10038,29 @@ function _giftBookLog(id){
 function _bookLinksAvail(){ return BD_BOOK_LINKS.filter(function(x){ return x&&x.link&&x.usedBy==null; }); }
 function _bookLinkForPartner(id){ for(var i=0;i<BD_BOOK_LINKS.length;i++){ if(BD_BOOK_LINKS[i]&&BD_BOOK_LINKS[i].usedBy===id) return BD_BOOK_LINKS[i]; } return null; }
 function _bookTakeNextLink(id){ var ex=_bookLinkForPartner(id); if(ex) return ex; var a=_bookLinksAvail(); if(!a.length) return null; a[0].usedBy=id; a[0].usedAt=_today(); return a[0]; }
-/* A partner is due for the book follow-up when they have replied, the reply is
-   at least BOOK_FUP.delayDays old, and no book has been sent to them yet. */
+/* A partner is due for the book follow-up when: they replied, YOU responded
+   back after their reply, that response is at least BOOK_FUP.delayDays old,
+   and no book has been sent. Clocked from your response, not their reply, so
+   the book lands as a natural second beat after the conversation and never
+   before you have actually answered them (Dave, 2026-08-29). */
 function _bookFupDue(){
   var out=[]; var today=new Date(_today()+'T00:00:00');
   (PARTNERS||[]).forEach(function(p){
     if(!p||p.isPartner) return;
     if(!p.hasReply||!p.replyAt) return;
     if(p.bookGiftSentAt) return;
-    var rd=new Date(String(p.replyAt).slice(0,10)+'T00:00:00'); if(isNaN(rd.getTime())) return;
+    var replyD=String(p.replyAt).slice(0,10);
+    /* Your most recent outbound contact ON OR AFTER their reply date. */
+    var respD='';
+    (p.act||[]).forEach(function(a){
+      if(!a||a.inbound||a.dismissed||a.type==='Created') return;
+      var ad=String(a.d||'').slice(0,10); if(!ad) return;
+      if(ad>=replyD && ad>respD) respD=ad;
+    });
+    if(!respD) return; /* have not responded yet - stays in Replies to Answer */
+    var rd=new Date(respD+'T00:00:00'); if(isNaN(rd.getTime())) return;
     var days=Math.round((today-rd)/86400000);
-    if(days>=(BOOK_FUP.delayDays||3)) out.push({p:p,repliedDays:days});
+    if(days>=(BOOK_FUP.delayDays||3)) out.push({p:p,repliedDays:days,respondedAt:respD});
   });
   out.sort(function(a,b){ return b.repliedDays-a.repliedDays; });
   return out;
@@ -11854,7 +11866,7 @@ function renderDash(){
     html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Book follow-up</span>'+
       '<span class="card-hd-meta">'+_bookDue.length+' ready \u00b7 '+_bookAvail+' free links left</span></div>';
     if(!_bookAvail){ html+='<div class="card-bd"><div class="muted">These partners replied and are ready for a free book, but you have no prepaid links left. Add links in Settings - Data - Free book links.</div></div>'; }
-    html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">Replied</th><th scope="col"></th></tr></thead><tbody>';
+    html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">You replied</th><th scope="col"></th></tr></thead><tbody>';
     _bookDue.slice(0,12).forEach(function(x){
       var p=x.p; var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
       var subFirm=(p.firm&&nm!==p.firm)?p.firm:'';
