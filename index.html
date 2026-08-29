@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-23</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-24</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-23';
+var BD_BUILD='bd-2026-08-28-24';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -8012,6 +8012,31 @@ function _bdCellTipItems(key,s,e){
   else if(key==='bd.booksDelivered'){ _bdCountGroups().forEach(function(g){ g.acts.forEach(function(a){ if(_bdActReal(a)&&/book|gift/i.test(a.type||'')&&_inWk(a.d,s,e)) push(g.label,a.d); }); }); }
   return out;
 }
+/* Click-to-open week detail for auto-fed scorecard cells (Dave, 2026-08-28).
+   Replaces the hover tooltip, which was unusable: hover cannot host a
+   scrollable list reliably. The modal stays open, scrolls, and closes on X
+   or outside-click. */
+function scOpenCellDetail(ownerId,mId,weekIdx,isWeekly){
+  var m=_scFindMetric(ownerId,mId); if(!m||!m.auto){ return; }
+  var monthly=((m.cadence||'weekly')==='monthly');
+  var w=monthly?_bdScMonth(weekIdx):_bdScWk(weekIdx);
+  var label=monthly?(w.s.toLocaleString('en-US',{month:'long'})+' '+w.s.getFullYear()):(weekRanges[weekIdx]||'');
+  var items=_bdCellTipItems(m.auto,w.s,w.e);
+  var rows='';
+  if(!items.length){ rows='<div class="muted" style="font-size:var(--fz-body);padding:8px 0">Nothing logged this '+(monthly?'month':'week')+'.</div>'; }
+  else{
+    rows='<div style="max-height:min(56vh,420px);overflow-y:auto;border:1px solid var(--brd);border-radius:6px">';
+    items.forEach(function(it,i){
+      rows+='<div style="display:flex;justify-content:space-between;gap:14px;padding:8px 12px;font-size:var(--fz-body);'+(i?'border-top:1px solid var(--brd);':'')+'"><span>'+_cnpEsc(it[0])+'</span><span class="muted" style="white-space:nowrap">'+_cnpEsc(it[1])+'</span></div>';
+    });
+    rows+='</div>';
+  }
+  var body='<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><span style="font-size:var(--fz-body);color:var(--txm)">'+_cnpEsc(label)+'</span><span style="font-size:var(--fz-body);font-weight:700">Count: '+items.length+'</span></div>'
+    + rows
+    + '<div class="muted" style="font-size:var(--fz-body);margin-top:10px">Auto-fed from '+_cnpEsc(String(m.autoSrc||'BD activity'))+' \u00b7 read-only. Edit the metric from its row title.</div>';
+  openModal({title:_cnpEsc(m.title), body:body, saveLabel:'Close', onSave:closeModal});
+}
+function _scFindMetric(ownerId,mId){ try{ var f=null; (typeof scorecard!=='undefined'?scorecard:[]).forEach(function(sec){ if(f) return; if(ownerId&&sec.ownerId!==ownerId) return; (sec.metrics||[]).forEach(function(m){ if(!f&&m&&String(m.id)===String(mId)) f=m; }); }); if(!f&&typeof _calcFindMetric==='function') f=_calcFindMetric(mId); return f; }catch(e){ return null; } }
 function _bdCellTip(m,weekIdx,isWeekly){
   try{
     if(!m||!m.auto||m.manualOverride||!BD_AUTO_FEED[m.auto]) return '';
@@ -8048,17 +8073,15 @@ function _renderWeekCell(m, val, weekIdx, ownerId, bgRow, isWeekly, goalOverride
   var hasNote = m.notes && m.notes[weekIdx];
   var noteDot = hasNote ? '<span title="Has note" style="position:absolute;top:2px;right:3px;width:5px;height:5px;background:var(--blu);border-radius:50%"></span>' : '';
   var isAuto = !!m.auto && !m.manualOverride;
-  var clickHandler = (isWeekly && !isAuto)
-    ? "openCellEdit('"+ownerId+"',"+m.id+","+weekIdx+")"
-    : "openEditMeasurable('"+ownerId+"',"+m.id+")";
+  var clickHandler = isAuto
+    ? "scOpenCellDetail('"+ownerId+"',"+m.id+","+weekIdx+","+(isWeekly?1:0)+")"
+    : (isWeekly ? ("openCellEdit('"+ownerId+"',"+m.id+","+weekIdx+")") : ("openEditMeasurable('"+ownerId+"',"+m.id+")"));
   var autoBadge = isAuto ? '<span title="Auto-fed, read-only" style="position:absolute;top:2px;left:3px;font-size:var(--fz-xs);font-weight:700;color:var(--txm);line-height:1">A</span>' : '';
-  var cellTitle = isAuto ? ('Auto-fed from '+_scEsc(String(m.autoSrc||m._autoSrc||'a connected module'))+' \u00b7 read-only (click to manage)') : ('Click to edit'+(isWeekly?' \u00b7 Right-click for note':''));
-  var cellTip = isAuto ? _bdCellTip(m, weekIdx, isWeekly) : '';
+  var cellTitle = isAuto ? ('Click to see who is counted \u00b7 auto-fed from '+_scEsc(String(m.autoSrc||m._autoSrc||'BD activity'))) : ('Click to edit'+(isWeekly?' \u00b7 Right-click for note':''));
   return '<td onclick="'+clickHandler+'" oncontextmenu="event.preventDefault();scOpenNote('+m.id+','+weekIdx+');return false" '
-    + (cellTip ? 'class="pnd-cell" tabindex="0" ' : '')
-    + (cellTip ? '' : ('title="'+cellTitle+'" '))
+    + 'title="'+cellTitle+'" '
     + 'style="position:relative;text-align:center;background:'+bg+';color:'+color+';font-size:var(--fz-body);padding:8px 4px;cursor:pointer;border-right:0.5px solid var(--brd);font-variant-numeric:tabular-nums">'
-    + display + noteDot + autoBadge + cellTip
+    + display + noteDot + autoBadge
     + '</td>';
 }
 
