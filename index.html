@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-27</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-29</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-27';
+var BD_BUILD='bd-2026-08-29-29';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -1765,7 +1765,7 @@ function _ensureOutreachAssets(){
   var V=5;
   var DEFS=[
     {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on {{lot_address}}',body:'Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
-    {name:'Book Follow-Up',subject:'A free copy of my homeowner guide, {{first_name}}',category:'Partner',channel:'email',body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): {{book_link}}\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at https://a.co/d/04W0Xnh0, or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'},
+    {name:'Book Follow-Up',subject:'A book that might help your buyers, {{first_name}}',category:'Partner',channel:'email',body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'},
     {name:'Lot Agent Nudge',subject:'Following up, {{first_name}}',body:'Hi {{first_name}},\n\nFollowing up on my note about helping your clients with feasibility, build, and renovation questions. The offer stands: free renderings, ballpark estimates, or a quick call, plus the $10,000 referral fee on a new-build contract.\n\nOne thing that may be useful to you: I wrote a homeowner guide, Build Your Dream Home Without the Nightmare, that walks buyers through the build process so they go in with realistic expectations. It is on Amazon here: https://a.co/d/04W0Xnh0. I am glad to drop off a few signed copies for clients who are weighing a build, a handy thing to put in the hands of someone on the fence.\n\nWant me to bring some by, or put together a quick feasibility sketch on one of your listings?\n\nBest,'},
     {name:'Lot Agent Check-in',subject:'Still happy to help your buyers, {{first_name}}',body:'Hi {{first_name}},\n\nJust keeping the door open. If you have a client who is unsure whether or what they can build or renovate, send them our way and we\'ll help at no charge. And the $10,000 referral fee applies whenever a new-build contract comes from an introduction.\n\nMy offer to drop off signed copies of my homeowner guide, Build Your Dream Home Without the Nightmare, still stands too. It is on Amazon here: https://a.co/d/04W0Xnh0, and it makes a nice gift for buyers starting a project.\n\nNo rush, just let me know when something fits.\n\nBest,'},
     {name:'Multi-Family Lot Outreach',subject:'Building on your multi-family lots, {{first_name}}',body:'Hi {{first_name}},\n\nI was going through your listings in {{area}} and noticed several are multi-family lots, duplex, townhouse, or small multiplex sites.\n\nA lot of the buyers for these aren\'t builders. They see the upside in the land but don\'t have a way to actually design, permit, and build the project, and that gap can make them hesitate or walk. I\'m the owner of LIDA Homes. We build multi-family and custom homes across Vancouver Island, and we can be the build partner that makes one of these lots pencil out for a buyer who doesn\'t build.\n\nWe\'re glad to help your clients at no charge: a feasibility review, a rough pro forma, or concept renderings so they can see what the site can become before they commit.\n\nWe also pay a $10,000 referral fee for any new-build contract that comes from an introduction. And if we buy the lot ourselves, we honour list-backs, so you\'d have the listing on the finished project.\n\nWorth a quick coffee or a 15-minute call? Reply here or call me anytime.\n\nBest,'},
@@ -3658,13 +3658,11 @@ function openBdSettings(){
       '<button type="button" class="btn btn-sm" onclick="openPartnerDupes()">Merge duplicate partners</button>'+
       '<input id="mk-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)">'+
     '</div>'+
-    '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Free book links (prepaid Kindle)</div>'+
+    '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Book follow-up</div>'+
     '<p style="color:var(--txm);font-size:var(--fz-body);margin:0 0 12px 0;line-height:1.55">'+
-      'Buy copies of your book on Amazon (Buy for others - Prepaid eBooks) and paste the redemption links below, one per line. When a partner replies to your outreach, the Book follow-up queue on the Dashboard offers a one-click email that drops in the next unused link. Unredeemed copies are refundable within 60 days. Currently '+_bookLinksAvail().length+' available, '+BD_BOOK_LINKS.filter(function(x){return x.usedBy!=null;}).length+' used.'+
+      'When a partner replies and you respond, they appear in the Book follow-up queue on the Dashboard after the delay below. One click emails them a free sample link and offers to drop off a copy. Edit the wording in the Book Follow-Up template on the Templates page.'+
     '</p>'+
-    '<textarea id="bd-book-links-ta" style="width:100%;min-height:96px;padding:9px 11px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt);resize:vertical" placeholder="https://www.amazon.com/gp/redeem/... (one link per line)">'+_esc(BD_BOOK_LINKS.filter(function(x){return x.usedBy==null;}).map(function(x){return x.link;}).join(String.fromCharCode(10)))+'</textarea>'+
     '<div style="display:flex;gap:8px;align-items:center;margin:10px 0 24px 0">'+
-      '<button type="button" class="btn btn-primary btn-sm" onclick="saveBookLinks()">Save book links</button>'+
       '<label style="font-size:var(--fz-body);color:var(--txm)">Follow-up after <input type="number" min="0" id="bd-book-delay" value="'+(BOOK_FUP.delayDays||3)+'" onchange="BOOK_FUP.delayDays=parseInt(this.value,10)||0;save();" style="width:52px;padding:5px 7px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);background:var(--sur);color:var(--txt)"> days after my response</label>'+
     '</div>'+
     '<div style="font-size:var(--fz-lg);font-weight:700;color:var(--txt);margin:4px 0 12px 0">Recovery &amp; Data Health</div>'+
@@ -10013,7 +10011,7 @@ function _reachSnoozeSet(id,date){
   if(typeof toastUndo==='function') toastUndo('Snoozed', nm+' returns '+(typeof fmtDateShort==='function'?fmtDateShort(date):date)+'.', function(){ delete p.reachSnoozeUntil; try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}; save(); _reachRerenderAfterSnooze(id); });
   _reachRerenderAfterSnooze(id);
 }
-var BD_BOOK_URL='https://a.co/d/04W0Xnh0';
+var BD_BOOK_URL='https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/';
 function giftBook(id){
   var p=_partnerFind(id); if(!p) return;
   var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
@@ -10044,44 +10042,51 @@ function _bookTakeNextLink(id){ var ex=_bookLinkForPartner(id); if(ex) return ex
    the book lands as a natural second beat after the conversation and never
    before you have actually answered them (Dave, 2026-08-29). */
 function _bookFupDue(){
-  var out=[]; var today=new Date(_today()+'T00:00:00');
+  var out=[]; var now=Date.now();
   (PARTNERS||[]).forEach(function(p){
-    if(!p||p.isPartner) return;
-    if(!p.hasReply||!p.replyAt) return;
+    if(!p||p.isPartner) return;         /* earned Referral Partners are past this stage */
     if(p.bookGiftSentAt) return;
-    var replyD=String(p.replyAt).slice(0,10);
-    /* Your most recent outbound contact ON OR AFTER their reply date. */
-    var respD='';
-    (p.act||[]).forEach(function(a){
-      if(!a||a.inbound||a.dismissed||a.type==='Created') return;
-      var ad=String(a.d||'').slice(0,10); if(!ad) return;
-      if(ad>=replyD && ad>respD) respD=ad;
+    /* Detect the reply the same way Replies to Answer does: the newest inbound
+       email in the activity log, and your newest outbound AFTER it. Clock the
+       follow-up from your response (Dave, 2026-08-29). Uses the real activity
+       log, not the hasReply flag, which is not reliably set. */
+    var acts=(typeof _combinedActsForPartner==='function')?(_combinedActsForPartner(p)||[]):(p.act||[]);
+    var lastIn=null, lastOutAfter=null;
+    acts.forEach(function(a){
+      if(!a||!a.d) return;
+      var stamp=a.receivedAt||a.loggedAt||null; var t=stamp?new Date(stamp).getTime():NaN;
+      if(isNaN(t)) t=new Date(a.d).getTime(); if(isNaN(t)) return;
+      if(a.inbound){ if(a.type==='Email' && (lastIn===null||t>lastIn.t)) lastIn={t:t,a:a}; }
     });
-    if(!respD) return; /* have not responded yet - stays in Replies to Answer */
-    var rd=new Date(respD+'T00:00:00'); if(isNaN(rd.getTime())) return;
-    var days=Math.round((today-rd)/86400000);
-    if(days>=(BOOK_FUP.delayDays||3)) out.push({p:p,repliedDays:days,respondedAt:respD});
+    if(!lastIn) return;                 /* no reply -> not a candidate */
+    acts.forEach(function(a){
+      if(!a||a.inbound||a.dismissed||a.type==='Created') return;
+      var stamp=a.loggedAt||null; var t=stamp?new Date(stamp).getTime():NaN;
+      if(isNaN(t)) t=new Date(a.d).getTime(); if(isNaN(t)) return;
+      if(t>=lastIn.t){ if(lastOutAfter===null||t>lastOutAfter) lastOutAfter=t; }
+    });
+    if(lastOutAfter===null) return;     /* you have not responded yet */
+    var days=Math.round((now-lastOutAfter)/86400000);
+    if(days>=(BOOK_FUP.delayDays||3)){
+      var respD=new Date(lastOutAfter); var rm=('0'+(respD.getMonth()+1)).slice(-2),rd2=('0'+respD.getDate()).slice(-2);
+      out.push({p:p,repliedDays:days,respondedAt:respD.getFullYear()+'-'+rm+'-'+rd2});
+    }
   });
   out.sort(function(a,b){ return b.repliedDays-a.repliedDays; });
   return out;
 }
 function _bookFupBody(p,link){
   var fn=(p.cf||'there');
-  return 'Hi '+fn+',\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): '+link+'\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at '+BD_BOOK_URL+', or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
+  return 'Hi '+fn+',\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: '+BD_BOOK_URL+'\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
 }
 function bookFollowUp(id){
   var p=_partnerFind(id); if(!p) return;
   var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
-  if(!_bookLinksAvail().length && !_bookLinkForPartner(id)){
-    openModal({title:'No prepaid book links left', body:'<div style="font-size:var(--fz-body);line-height:1.55">You have no unused prepaid Kindle links. Buy a batch on Amazon (Buy for others - Prepaid eBooks), then paste the redemption links in <strong>Settings - Data - Book links</strong>. Unredeemed copies are refundable within 60 days.</div>', saveLabel:'Close', onSave:closeModal});
-    return;
-  }
-  var link=_bookTakeNextLink(id); if(!link){ return; }
   var to=(p.email||'').trim();
   var _tpl=TEMPLATES.filter(function(t){ return t&&t.name==='Book Follow-Up'&&!t.archived; })[0];
-  var _tk={first_name:(p.cf||'there'),book_link:link.link};
-  var subj=_tpl?_cmpTokens(_tpl.subject,_tk):('A free copy of my homeowner guide, '+(p.cf||''));
-  var bodyText=_tpl?_cmpTokens(_tpl.body,_tk):_bookFupBody(p,link.link);
+  var _tk={first_name:(p.cf||'there'),book_link:BD_BOOK_URL};
+  var subj=_tpl?_cmpTokens(_tpl.subject,_tk):('A book that might help your buyers, '+(p.cf||''));
+  var bodyText=_tpl?_cmpTokens(_tpl.body,_tk):_bookFupBody(p,BD_BOOK_URL);
   // Send via the standard mail contract (mailto/compose stub until backend).
   try{
     if(typeof _bdMailto==='function'){ _bdMailto(to,subj,bodyText); }
@@ -10089,14 +10094,14 @@ function bookFollowUp(id){
   }catch(e){}
   // Log the touch + mark the book sent + advance the pipeline.
   if(!p.act) p.act=[];
-  p.act.unshift({d:_today(),type:'Gift / Book Drop-Off',subj:'Sent free Kindle copy',notes:'Prepaid redemption link: '+link.link,na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+  p.act.unshift({d:_today(),type:'Gift / Book Drop-Off',subj:'Sent book sample + drop-off offer',notes:'Emailed a free sample link and offered to drop off a copy.',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
   p.bookGiftSentAt=_today();
   if(_today()>(p.lastContact||'')) p.lastContact=_today();
   try{ if(typeof _advanceStageOnTouch==='function') _advanceStageOnTouch(p); }catch(e){}
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   try{ _bdGrpCache=null; }catch(e){}
   save();
-  if(typeof toastSuccess==='function') toastSuccess('Book follow-up sent', nm+' - free copy link inserted. '+_bookLinksAvail().length+' links left.');
+  if(typeof toastSuccess==='function') toastSuccess('Book follow-up sent', nm+' - sample link and drop-off offer emailed.');
   if(typeof renderDash==='function') renderDash();
 }
 function bookFupSkip(id){
@@ -11861,11 +11866,9 @@ function renderDash(){
      been sent the free book yet. One click drops the next prepaid link into an
      email (Dave, 2026-08-28). */
   var _bookDue=_bookFupDue().filter(function(x){ return _own(x.p); });
-  var _bookAvail=_bookLinksAvail().length;
   if(_bookDue.length){
     html+='<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Book follow-up</span>'+
-      '<span class="card-hd-meta">'+_bookDue.length+' ready \u00b7 '+_bookAvail+' free links left</span></div>';
-    if(!_bookAvail){ html+='<div class="card-bd"><div class="muted">These partners replied and are ready for a free book, but you have no prepaid links left. Add links in Settings - Data - Free book links.</div></div>'; }
+      '<span class="card-hd-meta">'+_bookDue.length+' ready</span></div>';
     html+='<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="width:100%">Contact</th><th scope="col">Tier</th><th scope="col">Category</th><th scope="col">You replied</th><th scope="col"></th></tr></thead><tbody>';
     _bookDue.slice(0,12).forEach(function(x){
       var p=x.p; var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'Contact';
@@ -11874,7 +11877,7 @@ function renderDash(){
         '<td class="nowrap" style="padding-right:18px">'+(_tierBadge(p)||'<span class="muted">-</span>')+'</td>'+
         '<td class="nowrap" style="padding-right:18px">'+(catPill(p.cat)||'<span class="muted">-</span>')+'</td>'+
         '<td class="nowrap" style="padding-right:18px">'+x.repliedDays+'d ago</td>'+
-        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary btn-sm" onclick="bookFollowUp('+p.id+')"'+(_bookAvail?'':' disabled')+'>Send free book</button><button type="button" class="btn btn-sm" onclick="bookFupSkip('+p.id+')" title="Remove from this queue without sending">Skip</button></div></td></tr>';
+        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary btn-sm" onclick="bookFollowUp('+p.id+')">Send book</button><button type="button" class="btn btn-sm" onclick="bookFupSkip('+p.id+')" title="Remove from this queue without sending">Skip</button></div></td></tr>';
     });
     html+='</tbody></table></div></div>';
   }
@@ -12602,8 +12605,10 @@ function bdRemoveEmailAt(i){
    once upgraded, the old marker is gone so it never fires again. */
 function _ensureBookFupTemplate(){
   try{
-    var has=TEMPLATES.some(function(t){ return t&&t.name==='Book Follow-Up'; });
-    if(!has){ TEMPLATES.push({name:'Book Follow-Up',subject:'A free copy of my homeowner guide, {{first_name}}',category:'Partner',channel:'email',updated:_today(),sends:0,body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. As promised, here is a free copy of my homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYour personal Kindle copy is here (one-time link, just for you): {{book_link}}\n\nFor clients who are weighing a build or a renovation, the book is on Amazon at https://a.co/d/04W0Xnh0, or I am glad to drop off a few signed print copies for you to hand out.\n\nAnd the offer stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'}); save(); }
+    var ex=TEMPLATES.filter(function(t){ return t&&t.name==='Book Follow-Up'; })[0];
+    var NB='Hi {{first_name}},\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
+    if(!ex){ TEMPLATES.push({name:'Book Follow-Up',subject:'A book that might help your buyers, {{first_name}}',category:'Partner',channel:'email',updated:_today(),sends:0,body:NB}); save(); }
+    else if(!ex._userEdited && (ex.body||'').indexOf('{{book_link}}')>=0){ ex.subject='A book that might help your buyers, {{first_name}}'; ex.body=NB; ex.updated=_today(); save(); }
   }catch(e){}
 }
 function _migrateLotAgentOutreach(){
