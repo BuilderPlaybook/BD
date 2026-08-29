@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-30</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-33</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-30';
+var BD_BUILD='bd-2026-08-29-33';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -2220,8 +2220,8 @@ function openModal(opts){
       '<div class="smb-modal-body"><div class="smb-modal-err" id="smb-modal-err" role="alert"></div>'+opts.body+'</div>'+
       '<div class="smb-modal-ft">'+
         (opts.extra||'')+
-        '<button type="button" class="btn btn-sm" onclick="closeModal()">Cancel</button>'+
-        '<button type="button" class="btn btn-primary btn-sm" id="smb-modal-save">'+_esc(opts.saveLabel||'Save')+'</button>'+
+        '<button type="button" class="btn btn-sm" onclick="closeModal()">'+_esc(opts.cancelLabel||'Cancel')+'</button>'+
+        (opts.hideSave?'':('<button type="button" class="btn btn-primary btn-sm" id="smb-modal-save">'+_esc(opts.saveLabel||'Save')+'</button>'))+
       '</div>'+
     '</div>';
   h.classList.add('open');
@@ -10012,7 +10012,7 @@ function reachSnooze(id){
     '<button type="button" class="btn btn-sm" onclick="_reachSnoozeSet('+id+',\''+_addDays(30)+'\')">In 1 month</button>'+
     '<div style="display:flex;gap:8px;align-items:center;margin-top:4px"><input type="date" id="reach-snz-date" min="'+_addDays(1)+'" style="padding:7px 10px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)"><button type="button" class="btn btn-primary btn-sm" onclick="var v=document.getElementById(\'reach-snz-date\').value; if(v)_reachSnoozeSet('+id+',v);">Set date</button></div>'+
     '</div>';
-  openModal({title:'Snooze reminder',body:body,saveLabel:'Cancel',onSave:closeModal});
+  openModal({title:'Snooze reminder',body:body,hideSave:true});
 }
 function _reachRerenderAfterSnooze(id){ try{ if(document.getElementById('ptn-rec')&&_activePageId()==='partner-record'){ openPartner(id); return; } }catch(e){} try{ if(typeof renderDash==='function') renderDash(); }catch(e){} }
 function _reachSnoozeSet(id,date){
@@ -10093,6 +10093,22 @@ function _bookFupBody(p,link){
   var fn=(p.cf||'there');
   return 'Hi '+fn+',\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: '+BD_BOOK_URL+'\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
 }
+var BD_BOOK_TITLE='Build Your Dream Home Without the Nightmare';
+/* Turn the book email into HTML with the book title as a real clickable link.
+   The plain-text body (for logging / mailto fallback) still carries the raw
+   URL; the HTML body swaps the raw URL for an anchor whose text is the book
+   title (Dave, 2026-08-29). */
+function _bookFupHtml(plain){
+  var html=_bdPlainToHtml(plain);
+  var url=BD_BOOK_URL;
+  var anchor='<a href="'+url+'">'+_esc(BD_BOOK_TITLE)+'</a>';
+  // Replace the raw URL (and an optional preceding ' - <title>:' label) with the anchor.
+  var escUrl=url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  var reLabeled=new RegExp('\\s*-\\s*'+BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^:]*:\\s*(<br>)?\\s*'+escUrl,'g');
+  if(reLabeled.test(html)){ html=html.replace(reLabeled,': '+anchor); }
+  else { html=html.replace(new RegExp(escUrl,'g'), anchor); }
+  return html;
+}
 function bookFollowUp(id){
   var p=_partnerFind(id); if(!p) return;
   var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
@@ -10101,12 +10117,32 @@ function bookFollowUp(id){
   var _tk={first_name:(p.cf||'there'),book_link:BD_BOOK_URL};
   var subj=_tpl?_cmpTokens(_tpl.subject,_tk):('A book that might help your buyers, '+(p.cf||''));
   var bodyText=_tpl?_cmpTokens(_tpl.body,_tk):_bookFupBody(p,BD_BOOK_URL);
-  // Send via the standard mail contract (mailto/compose stub until backend).
-  try{
-    if(typeof _bdMailto==='function'){ _bdMailto(to,subj,bodyText); }
-    else { window.open('mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(bodyText),'_blank'); }
-  }catch(e){}
-  // Log the touch + mark the book sent + advance the pipeline.
+  // Direct HTML send through Outlook when connected + signature ready: the
+  // book link renders as a real hyperlink and the signature (with book image)
+  // is included. Falls back to the mailto handoff + confirm gate otherwise.
+  if(typeof _bdSigReady==='function' && _bdSigReady() && typeof _bdMsConnected==='function' && _bdMsConnected() && to){
+    var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
+    var htmlBody=_bookFupHtml(bodyText)+_bdSignatureHtmlBlock();
+    if(typeof toastInfo==='function') toastInfo('Sending...', nm);
+    _bdMsSendMail(to,'',subj,htmlBody,BD_SIGNATURE_ATTS).then(function(){
+      _bookFupMarkSent(id);
+    }).catch(function(e){
+      var m=String((e&&e.message)||e);
+      if(typeof toastInfo==='function') toastInfo('Direct send failed - opening Outlook', m);
+      _bookFupHandoff(id,to,subj,bodyText,nm);
+    });
+    return;
+  }
+  _bookFupHandoff(id,to,subj,bodyText,nm);
+}
+function _bookFupHandoff(id,to,subj,bodyText,nm){
+  try{ window.open('mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(bodyText),'_blank'); }catch(e){}
+  var cbody='<div style="font-size:var(--fz-body);line-height:1.55">The book email to <strong>'+_esc(nm)+'</strong> opened in Outlook. Once you have sent it there, confirm below and BD logs the touch and clears them from this queue. If you did not send it, choose Not sent.</div>';
+  openModal({title:'Did you send it?', body:cbody, saveLabel:'Yes, I sent it', cancelLabel:'Not sent', onSave:function(){ _bookFupMarkSent(id); closeModal(); }});
+}
+function _bookFupMarkSent(id){
+  var p=_partnerFind(id); if(!p) return;
+  var nm=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||'this partner';
   if(!p.act) p.act=[];
   p.act.unshift({d:_today(),type:'Gift / Book Drop-Off',subj:'Sent book sample + drop-off offer',notes:'Emailed a free sample link and offered to drop off a copy.',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
   p.bookGiftSentAt=_today();
@@ -10115,7 +10151,7 @@ function bookFollowUp(id){
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   try{ _bdGrpCache=null; }catch(e){}
   save();
-  if(typeof toastSuccess==='function') toastSuccess('Book follow-up sent', nm+' - sample link and drop-off offer emailed.');
+  if(typeof toastSuccess==='function') toastSuccess('Book follow-up logged', nm+' - touch logged and cleared from the queue.');
   if(typeof renderDash==='function') renderDash();
 }
 function bookFupSkip(id){
@@ -11545,6 +11581,20 @@ function _bdDashCard(k,label,val,desc,onclick,sub){
    decision was made on purpose, and because that note is a fresh outbound
    activity it becomes the newest touch - so the row drops off Replies to
    Answer automatically. Works for both partner and lot-prospect rows. */
+function bdRepliedSnooze(id){
+  var p=_partnerFind(id); if(!p) return;
+  /* You have replied and want a reminder to reach back out. Log a real
+     outbound touch (no confirm popup) so the reply clears from Replies to
+     Answer, then open the snooze picker for the reach-back date (Dave,
+     2026-08-29). */
+  if(!p.act) p.act=[];
+  p.act.unshift({ d:_today(), type:'Email', subj:'Replied', notes:'Replied to their message; reaching back out later.', na:'', nc:'', by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'), owner:'', inbound:false, loggedAt:new Date().toISOString() });
+  if(_today()>(p.lastContact||'')) p.lastContact=_today();
+  try{ _bdGrpCache=null; }catch(e){}
+  try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+  try{ save(); }catch(e){}
+  reachSnooze(id);
+}
 function bdDismissReply(kind, id){
   var rec=null;
   if(kind==='lot'){ rec=(typeof _prospFind==='function')?_prospFind(id):null; if(!rec){ (PROSPECTS||[]).forEach(function(p){ if(p.id===id) rec=p; }); } }
@@ -11870,7 +11920,7 @@ function renderDash(){
         '<td class="nowrap" style="padding-right:18px">'+fmtDateShort(r.when)+'</td>'+
         '<td class="nowrap" style="padding-right:18px"><span class="chip '+waitCls+'" style="display:inline-block;min-width:48px;text-align:center">'+waitTxt+'</span></td>'+
         '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(r.subj||'')+'">'+_esc(r.subj||'-')+'</div></td>'+
-        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button><button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
+        '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-sm" onclick="'+replyFn+'">Reply</button>'+(isLot?'':'<button type="button" class="btn btn-sm" onclick="bdRepliedSnooze('+p.id+')" title="I replied - remind me to reach back out on a date I pick">Replied, remind me</button>')+'<button type="button" class="btn btn-sm" onclick="bdDismissReply(\''+r.kind+'\','+p.id+')" title="Mark no reply needed and remove from this list">Dismiss</button></div></td></tr>';
     });
     html+='</tbody></table></div>';
   }
