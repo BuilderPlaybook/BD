@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-33</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-34</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-33';
+var BD_BUILD='bd-2026-08-29-34';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -1765,6 +1765,7 @@ function _ensureOutreachAssets(){
   var V=5;
   var DEFS=[
     {name:'Lot Agent Outreach',subject:'LIDA Homes: your lot listing on {{lot_address}}',body:'Hi {{first_name}},\n\nI saw your lot listing on {{lot_address}}. You may not know, but LIDA does land and lot developments as well as custom homes and renovations.\n\nI\'m happy to answer any questions your buyers may have about building, including a ballpark cost on a custom home. No charge.\n\nIf one of your introductions turns into a build contract, we pay a $10,000 referral fee.\n\nIt would be great to grab a coffee sometime. Either way, keep my number and use it the next time a buyer starts asking about building.\n\nRegards,'},
+    {name:'Book Intro',subject:'I wrote a book',category:'Partner',channel:'email',body:'Hi {{first_name}},\n\nI wrote a book, Build Your Dream Home Without the Nightmare: How to Hire the Right Builder and Protect Your Investment. It walks buyers through the build and renovation process so they know what to expect, which makes for a smoother project for everyone.\n\nHere is a free sample: https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/\n\nI would be glad to drop off a copy for you, and a few for your clients if that is useful. Just let me know.\n\nAnd as always, happy to help your clients with feasibility or a ballpark on any project. The $10,000 referral fee still stands on a new-build contract. tnx\n\nBest,'},
     {name:'Book Follow-Up',subject:'A book that might help your buyers, {{first_name}}',category:'Partner',channel:'email',body:'Hi {{first_name}},\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,'},
     {name:'Lot Agent Nudge',subject:'Following up, {{first_name}}',body:'Hi {{first_name}},\n\nFollowing up on my note about helping your clients with feasibility, build, and renovation questions. The offer stands: free renderings, ballpark estimates, or a quick call, plus the $10,000 referral fee on a new-build contract.\n\nOne thing that may be useful to you: I wrote a homeowner guide, Build Your Dream Home Without the Nightmare, that walks buyers through the build process so they go in with realistic expectations. It is on Amazon here: https://a.co/d/04W0Xnh0. I am glad to drop off a few signed copies for clients who are weighing a build, a handy thing to put in the hands of someone on the fence.\n\nWant me to bring some by, or put together a quick feasibility sketch on one of your listings?\n\nBest,'},
     {name:'Lot Agent Check-in',subject:'Still happy to help your buyers, {{first_name}}',body:'Hi {{first_name}},\n\nJust keeping the door open. If you have a client who is unsure whether or what they can build or renovate, send them our way and we\'ll help at no charge. And the $10,000 referral fee applies whenever a new-build contract comes from an introduction.\n\nMy offer to drop off signed copies of my homeowner guide, Build Your Dream Home Without the Nightmare, still stands too. It is on Amazon here: https://a.co/d/04W0Xnh0, and it makes a nice gift for buyers starting a project.\n\nNo rush, just let me know when something fits.\n\nBest,'},
@@ -5574,7 +5575,7 @@ function _cmpDoSend(){
   if(_bdSigReady() && typeof _bdMsConnected==='function' && _bdMsConnected()){
     var sigText=((typeof BD_SIGNATURE==='string'&&BD_SIGNATURE.trim())?('\n\n'+BD_SIGNATURE.trim()):'');
     var logBody=body.replace(/\s+$/,'')+sigText;
-    var htmlBody=_bdPlainToHtml(body)+_bdSignatureHtmlBlock();
+    var htmlBody=((typeof BD_BOOK_URL==='string'&&body.indexOf(BD_BOOK_URL)>=0&&typeof _bookFupHtml==='function')?_bookFupHtml(body):_bdPlainToHtml(body))+_bdSignatureHtmlBlock();
     if(typeof toastInfo==='function') toastInfo('Sending...', _who);
     _bdMsSendMail(c.to, c.cc, subj, htmlBody, BD_SIGNATURE_ATTS).then(function(){
       try{ if(typeof c.onSend==='function') c.onSend(subj, logBody); }catch(e){}
@@ -10093,20 +10094,29 @@ function _bookFupBody(p,link){
   var fn=(p.cf||'there');
   return 'Hi '+fn+',\n\nThanks for the reply - great to connect. I wrote a homeowner guide, Build Your Dream Home Without the Nightmare. It walks buyers through the build and renovation process so they go in with realistic expectations, which makes them far easier clients to work with.\n\nYou can read a free sample here: '+BD_BOOK_URL+'\n\nAnd I would be glad to drop off a copy for you - just let me know.\n\nThe offer also stands - free renderings, ballpark estimates, or a quick feasibility call on any of your listings, plus the referral fee on a new-build contract.\n\nBest,';
 }
-var BD_BOOK_TITLE='Build Your Dream Home Without the Nightmare';
+var BD_BOOK_TITLE='Build Your Dream Home Without the Nightmare: How to Hire the Right Builder and Protect Your Investment';
+var BD_BOOK_TITLE_SHORT='Build Your Dream Home Without the Nightmare';
 /* Turn the book email into HTML with the book title as a real clickable link.
    The plain-text body (for logging / mailto fallback) still carries the raw
    URL; the HTML body swaps the raw URL for an anchor whose text is the book
    title (Dave, 2026-08-29). */
 function _bookFupHtml(plain){
-  var html=_bdPlainToHtml(plain);
   var url=BD_BOOK_URL;
-  var anchor='<a href="'+url+'">'+_esc(BD_BOOK_TITLE)+'</a>';
-  // Replace the raw URL (and an optional preceding ' - <title>:' label) with the anchor.
   var escUrl=url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  var reLabeled=new RegExp('\\s*-\\s*'+BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[^:]*:\\s*(<br>)?\\s*'+escUrl,'g');
-  if(reLabeled.test(html)){ html=html.replace(reLabeled,': '+anchor); }
-  else { html=html.replace(new RegExp(escUrl,'g'), anchor); }
+  // Protect the URL with a placeholder so title-bolding cannot touch it, then
+  // bold+italic any plain title mention, then swap the placeholder for a
+  // bold+italic hyperlink (Dave, 2026-08-29).
+  var PH='@@BOOKURL@@';
+  var plainProtected=String(plain||'').replace(new RegExp(escUrl,'g'), PH);
+  var html=_bdPlainToHtml(plainProtected);
+  var bi=function(t){ return '<b><i>'+_esc(t)+'</i></b>'; };
+  // Full title first, then short title (only where not already wrapped).
+  html=html.replace(new RegExp(BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'), bi(BD_BOOK_TITLE));
+  html=html.replace(new RegExp('(?<!<i>)'+BD_BOOK_TITLE_SHORT.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?!(?:[^<]| )*</i>)','g'), bi(BD_BOOK_TITLE_SHORT));
+  // Now place the hyperlink. Drop an optional ' - <title>:' label if present.
+  var anchor='<a href="'+url+'" style="font-weight:bold;font-style:italic">'+_esc(BD_BOOK_TITLE)+'</a>';
+  html=html.replace(new RegExp('\\s*-\\s*(?:<b><i>)?'+BD_BOOK_TITLE.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:</i></b>)?[^:]*:\\s*(<br>)?\\s*'+PH,'g'), ': '+anchor);
+  html=html.replace(new RegExp(PH,'g'), anchor);
   return html;
 }
 function bookFollowUp(id){
@@ -10646,6 +10656,7 @@ function loadState(){
   try{ _ensureOutreachAssets(); }catch(e){}
   try{ _migrateLotAgentOutreach(); }catch(e){}
   try{ _ensureBookFupTemplate(); }catch(e){}
+  try{ _ensureBookIntroTemplate(); }catch(e){}
   /* Tier normalisation runs LAST. The enrichment importers above
      (_bdImportV2, _bdImportDesigners, _bdSeedRealtors, _ensurePartnersSeed)
      carry their own priorityTier values in the legacy 'Tier 1/2/3' form, so
@@ -12667,6 +12678,12 @@ function bdRemoveEmailAt(i){
    is still the old seed. Only touches that one template, only when it still
    holds the old seed body, and never when the user has edited it. Idempotent:
    once upgraded, the old marker is gone so it never fires again. */
+function _ensureBookIntroTemplate(){
+  try{
+    var ex=TEMPLATES.filter(function(t){ return t&&t.name==='Book Intro'; })[0];
+    if(!ex){ TEMPLATES.push({name:'Book Intro',subject:'I wrote a book',category:'Partner',channel:'email',updated:_today(),sends:0,body:'Hi {{first_name}},\n\nI wrote a book, Build Your Dream Home Without the Nightmare: How to Hire the Right Builder and Protect Your Investment. It walks buyers through the build and renovation process so they know what to expect, which makes for a smoother project for everyone.\n\nHere is a free sample: https://www.amazon.ca/Build-Your-Dream-Without-Nightmare-ebook/dp/B0GXGSLT9Z/\n\nI would be glad to drop off a copy for you, and a few for your clients if that is useful. Just let me know.\n\nAnd as always, happy to help your clients with feasibility or a ballpark on any project. The $10,000 referral fee still stands on a new-build contract. tnx\n\nBest,'}); save(); }
+  }catch(e){}
+}
 function _ensureBookFupTemplate(){
   try{
     var ex=TEMPLATES.filter(function(t){ return t&&t.name==='Book Follow-Up'; })[0];
