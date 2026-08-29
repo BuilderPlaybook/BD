@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-29</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-30</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-29';
+var BD_BUILD='bd-2026-08-29-30';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -5850,6 +5850,15 @@ function _mktgActsCard(arr,kind,id){
 function mleadLogActivity(kind,id){ mktgLogActivity(kind,id); }
 
 function _emailThreadWrite(kind,id){ if(kind==='partner') partnerComposeEmail(id); else mleadComposeEmail(kind,id); }
+function _bdReplyInThread(kind,id){
+  var rec=(kind==='partner')?_partnerFind(id):_prospFind(id); if(!rec) return;
+  var acts=(typeof _combinedActsForPartner==='function'&&kind==='partner')?(_combinedActsForPartner(rec)||[]):(rec.act||[]);
+  var ins=acts.filter(function(a){ return a&&a.inbound&&a.type==='Email'&&a.webLink; })
+    .sort(function(a,b){ return new Date(b.receivedAt||b.loggedAt||b.d)-new Date(a.receivedAt||a.loggedAt||a.d); });
+  var msg=ins[0];
+  if(!msg||!msg.webLink){ if(typeof toast==='function') toast('No threaded message','Open in Outlook to start a new email instead.'); return; }
+  try{ window.open(msg.webLink,'_blank','noopener'); }catch(e){}
+}
 function _logEmailReply(kind,id){
   var ctx=_mktgActResolve(kind,id); if(!ctx) return;
   var body=_section('Logged reply',
@@ -5866,7 +5875,12 @@ function _logEmailReply(kind,id){
 function _emailThreadCard(kind,id,acts,name,email){
   var emails=(acts||[]).filter(function(a){ return a.type==='Email'; }).slice().sort(function(a,b){ return new Date(b.loggedAt||b.d)-new Date(a.loggedAt||a.d); });
   var btns='';
-  if(email) btns+='<button class="btn btn-sm" onclick="_emailThreadWrite(\''+kind+'\','+id+')" title="Compose, log, and open your mail app (Outlook if it is your default)">Open in Outlook</button>';
+  /* Reply in-thread: open the newest received message in Outlook by its
+     webLink. Replying from there keeps the conversation threaded, instead of
+     Open in Outlook, which starts a fresh email (Dave, 2026-08-29). */
+  var _newestIn=(emails||[]).filter(function(a){ return a.inbound && a.webLink; })[0];
+  if(_newestIn && _newestIn.webLink){ btns+='<button class="btn btn-primary btn-sm" onclick="_bdReplyInThread(\''+kind+'\','+id+')" title="Open this conversation in Outlook so your reply stays in the same thread">Reply in thread</button>'; }
+  if(email) btns+='<button class="btn btn-sm" onclick="_emailThreadWrite(\''+kind+'\','+id+')" title="Compose a new email and open your mail app">Open in Outlook</button>';
   if(email && typeof _bdMsConnected==='function' && _bdMsConnected()) btns+='<button class="btn btn-sm" onclick="bdLoadFullHistory(\''+kind+'\','+id+')" title="Search your whole mailbox for every email to and from this contact">Load full history</button>';
   btns+='<button class="btn btn-sm" onclick="_logEmailReply(\''+kind+'\','+id+')" title="Record a reply you received">Log reply</button>';
   var head='<div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span class="card-title">Email Thread</span><span style="display:flex;gap:6px">'+btns+'</span></div>';
