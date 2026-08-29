@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-18</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-28-20</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-28-18';
+var BD_BUILD='bd-2026-08-28-20';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -5620,7 +5620,7 @@ function mleadComposeEmail(kind,id,tplName,coIds){
     co.forEach(function(cp){ var f=String(cp.contactName||'').trim().split(/\s+/)[0]; if(f&&fns.indexOf(f)<0) fns.push(f); });
     var fn=(fns.length>1)?(fns.slice(0,-1).join(', ')+' and '+fns[fns.length-1]):fns[0];
     var area=(typeof lotAgentAreas==='function'?String(lotAgentAreas(p)||'').split(',')[0].trim():'')||'your area';
-    var _lotAddr=(function(){ var pf=(p.portfolio&&p.portfolio.length)?p.portfolio[0].address:''; return String(pf||p.address||'').trim(); })();
+    var _lotAddr=(function(){ var pf=(p.portfolio&&p.portfolio.length)?p.portfolio[0].address:''; var full=String(pf||p.address||'').trim(); return full.split('|')[0].trim(); })();
     _composeEmail(tos.join(','), p.contactName||'', function(s,m){ co.forEach(function(cp){ mleadLogEmail('lot',cp.id,s,m,true); _mleadSetFollowup(cp.id,tplName); }); mleadLogEmail('lot',id,s,m); _mleadSetFollowup(id,tplName); }, {tokens:{first_name:fn,area:area,lot_address:_lotAddr}, audience:'Lot Agent', defaultTemplate:(tplName||'Lot Agent Outreach'), cc:(p.contactEmail?(p.altEmail||''):''), undo:function(){ return _mktgActResolve('lot',id); }}); }
   else { var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){ pu=PERMIT_PULLS[i]; break; } } if(!pu) return; var k=pu.applicantKey||_pullKey(pu.applicant,''); var em=''; PERMIT_PULLS.forEach(function(x){ if(!em && (x.applicantKey||_pullKey(x.applicant,''))===k && x.email) em=x.email; }); var disp=_pullDisplay(pu.applicant,'')||''; var nm=(typeof _splitName==='function')?_splitName(disp):{fn:''}; _composeEmail(em, disp, function(s,m){ mleadLogEmail('pull',id,s,m); }, {tokens:{first_name:(nm.fn||'there'),area:(pu.neighbourhood||'your area')}, audience:'Outreach', undo:function(){ return _mktgActResolve('pull',id); }}); }
 }
@@ -5689,6 +5689,7 @@ function _mktgActResolve(kind,id){
       applyNext:function(nc){ if(nc)p.nextContact=nc; },
       applyFollow:function(na,owner){ p.nextAction=na||''; p.nextOwner=owner||''; },
       setReply:function(on,date){ p.hasReply=!!on; if(on){ p.replyAt=date||_today(); if(p.linkedPartnerId!=null){ var _lp2=_partnerFind(p.linkedPartnerId); if(_lp2) _advanceOnReply(_lp2); } } },
+      advanceForType:function(t,inbound){ var tgt=(p.linkedPartnerId!=null)?_partnerFind(p.linkedPartnerId):null; if(!tgt) return; if(inbound){ _advanceOnReply(tgt); } else if(t==='Meeting'||t==='Site Visit'||t==='Jobsite Tour'||t==='Coffee'||t==='Lunch'){ _advanceStageTo(tgt,'Meeting'); } else if(t==='Referral Discussion'){ _advanceStageTo(tgt,'Responded'); } else { _advanceStageOnTouch(tgt); } },
       persist:function(){ save(); }, rerender:function(){ renderProspecting(); }}; }
   if(kind==='pull'){ var pu=null; for(var i=0;i<PERMIT_PULLS.length;i++){ if(PERMIT_PULLS[i].id===id){pu=PERMIT_PULLS[i];break;} } if(!pu) return null;
     var k=pu.applicantKey||_pullKey(pu.applicant,''); if(!k) return null; if(!PULL_ACTIVITY[k])PULL_ACTIVITY[k]=[];
@@ -5701,6 +5702,7 @@ function _mktgActResolve(kind,id){
       applyNext:function(nc){ if(nc)pp.nextContact=nc; },
       applyFollow:function(na,owner){ pp.nextAction=na||''; pp.nextOwner=owner||''; },
       setReply:function(on,date){ pp.hasReply=!!on; if(on){ pp.replyAt=date||_today(); _replyKeepFor=pp.id; _advanceOnReply(pp); } },
+      advanceForType:function(t,inbound){ if(inbound){ _advanceOnReply(pp); } else if(t==='Meeting'||t==='Site Visit'||t==='Jobsite Tour'||t==='Coffee'||t==='Lunch'){ _advanceStageTo(pp,'Meeting'); } else if(t==='Referral Discussion'){ _advanceStageTo(pp,'Responded'); } else { _advanceStageOnTouch(pp); } },
       persist:function(){ try{ if(typeof publishPartnersSteward==='function')publishPartnersSteward(); }catch(e){} save(); },
       rerender:function(){ openPartner(id); }}; }
   return null;
@@ -5784,6 +5786,11 @@ function mktgLogActivity(kind,id,editIdx){
       ctx.applyLast(a.d);
       if(a.inbound && ctx.setReply) ctx.setReply(true,a.d);
       if(a.nc){ ctx.applyNext(a.nc); if(ctx.applyFollow) ctx.applyFollow(a.na,a.owner); }
+      /* Auto-advance the pipeline from the activity type, so logging a
+         meeting or a referral ticks the stage circle and stamps the date with
+         no separate click (Dave, 2026-08-28). applyLast/setReply already
+         handle Contacted and Responded; this adds Meeting. */
+      if(ctx.advanceForType) ctx.advanceForType(a.type, a.inbound);
       ctx.persist(); closeModal();
       try{ _bdGrpCache=null; }catch(_){}
       if(typeof toastSuccess==='function') toastSuccess(isEdit?'Activity updated':'Activity logged',a.type+(a.subj?' - '+a.subj:''));
@@ -11461,6 +11468,8 @@ function _bdBookMeetingSave(kind, id){
       na:'', nc:'', by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'), owner:'', inbound:false,
       meetingAt:date+'T'+time, durationMin:durationMin, outlookEventId:(outlookId||''), loggedAt:new Date().toISOString() });
     if(date>(rec.lastContact||'')) rec.lastContact=date;
+    /* Booking a meeting advances the pipeline to Meeting and stamps the date. */
+    try{ var _mt=(kind==='lot' && rec.linkedPartnerId!=null)?_partnerFind(rec.linkedPartnerId):rec; if(_mt && typeof _advanceStageTo==='function') _advanceStageTo(_mt,'Meeting'); }catch(_e){}
     try{ _bdGrpCache=null; }catch(e){}
     try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
     try{ save(); }catch(e){}
