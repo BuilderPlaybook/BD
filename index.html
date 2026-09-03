@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-37</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-38</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-37';
+var BD_BUILD='bd-2026-08-29-38';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -5903,6 +5903,27 @@ function _bdReplyInThread(kind,id){
   var msg=ins[0];
   if(!msg||!msg.webLink){ if(typeof toast==='function') toast('No threaded message','Open in Outlook to start a new email instead.'); return; }
   try{ window.open(msg.webLink,'_blank','noopener'); }catch(e){}
+  /* Opening the Outlook thread does not log anything on its own, so a reply
+     sent from there never got recorded and the row stayed in Replies to
+     Answer (Dave, 2026-08-30). After opening, confirm the send and log the
+     outbound reply on the record so the row clears. */
+  var _subj=(msg&&msg.subj)||'';
+  var _reSubj=/^re:/i.test(_subj)?_subj:('Re: '+(_subj||'your email'));
+  setTimeout(function(){
+    var _yes=false;
+    try{ _yes=confirm('Did you send your reply to '+((kind==='partner'?(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm):(rec.contactName||rec.contactFirm))||'this contact')+' in Outlook?\n\nClick OK to log it so it clears from Replies to Answer.'); }catch(e){}
+    if(!_yes) return;
+    if(!rec.act) rec.act=[];
+    rec.act.unshift({d:_today(),type:'Email',subj:_reSubj,notes:'',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
+    if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
+    try{ _bdGrpCache=null; }catch(e){}
+    try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    try{ if(kind==='lot' && typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+    try{ save(); }catch(e){}
+    if(typeof toastSuccess==='function') toastSuccess('Reply logged','Cleared from Replies to Answer.');
+    try{ if(typeof _curPage!=='undefined' && _curPage==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
+    try{ if(kind==='partner' && typeof openPartner==='function' && _curPage!=='dashboard') openPartner(id); }catch(e){}
+  }, 400);
 }
 function _logEmailReply(kind,id){
   var ctx=_mktgActResolve(kind,id); if(!ctx) return;
@@ -11680,21 +11701,32 @@ function bdDismissReply(kind, id){
   else { rec=(typeof _partnerFind==='function')?_partnerFind(id):null; }
   if(!rec) return;
   var nm=(kind==='lot')?(rec.contactName||rec.contactFirm||'this contact'):(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm||'this contact');
-  if(!confirm('Mark the reply from '+nm+' as no reply needed? It will be logged on their history and removed from this list.')) return;
+  /* Log immediately with a 5s undo instead of a blocking confirm() popup: a
+     confirm that is closed without OK left nothing logged, so the row came
+     back on the next inbox scan (Dave, 2026-08-30). The "No reply needed"
+     outbound act is the newest touch, so the row clears and stays cleared. */
   if(!rec.act) rec.act=[];
-  rec.act.unshift({
+  var _dact={
     d:_today(), type:'Email', subj:'No reply needed',
     notes:'Reply reviewed; no response required.',
     na:'', nc:'', by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),
     owner:'', inbound:false, dismissed:true, loggedAt:new Date().toISOString()
-  });
+  };
+  rec.act.unshift(_dact);
   if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
-  try{ _bdGrpCache=null; }catch(e){}
-  try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
-  try{ if(kind==='lot' && typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
-  try{ save(); }catch(e){}
-  if(typeof toastSuccess==='function') toastSuccess('Marked no reply needed', nm+'. Removed from Replies to Answer.');
-  try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+  var _persist=function(){
+    try{ _bdGrpCache=null; }catch(e){}
+    try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    try{ if(kind==='lot' && typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
+    try{ save(); }catch(e){}
+    try{ if(typeof renderDash==='function' && document.getElementById('dash-content')) renderDash(); }catch(e){}
+  };
+  _persist();
+  if(typeof toastUndo==='function'){
+    toastUndo('Marked no reply needed', nm+' removed from Replies to Answer.', function(){
+      var i=rec.act.indexOf(_dact); if(i>-1) rec.act.splice(i,1); _persist();
+    });
+  } else if(typeof toastSuccess==='function'){ toastSuccess('Marked no reply needed', nm+'. Removed from Replies to Answer.'); }
 }
 /* Open a contact from the Replies list. Partners open in their modal from
    anywhere; lot prospects need the Prospecting page active first, so route
