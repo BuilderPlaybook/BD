@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-41</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-42</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-09-04-41';
+var BD_BUILD='bd-2026-09-04-42';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -3835,7 +3835,7 @@ function saveBookMeeting(partnerId, meetingIdx){
   if(meetingIdx!=null){ l.meetings[meetingIdx]=rec; } else { l.meetings.unshift(rec); }
   if(meetingIdx==null){
     if(_today()>(l.lastContact||'')) l.lastContact=_today();
-    l.act=l.act||[]; _bookedAct={d:_today(),type:'Meeting booked',subj:(rec.type||'Meeting')+(rec.start?(' '+new Date(rec.start).toLocaleDateString()):''),notes:'',by:_curName().split(' ')[0],loggedAt:new Date().toISOString()}; l.act.unshift(_bookedAct);
+    l.act=l.act||[]; _bookedAct={d:(startRaw?startRaw.slice(0,10):_today()),type:'Meeting',subj:(rec.type||'Meeting'),notes:'Booked via BD.',by:_curName().split(' ')[0],inbound:false,loggedAt:new Date().toISOString()}; l.act.unshift(_bookedAct);
     try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   }
   closeModal();
