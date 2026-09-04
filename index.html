@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-42</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-43</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-09-04-42';
+var BD_BUILD='bd-2026-09-04-43';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -13173,6 +13173,10 @@ function _bdMsSweepUnmatched(ix){
 function _bdMsUnmatchedBlock(){
   var list=_bdMsUnmatched();
   if(!list.length) return '';
+  var _thr=_bdBdThreadSubjSet();
+  var _f=list.filter(function(u){ return _thr[_bdSubjBase(u.subject||'')]; });
+  if(_f.length!==list.length){ _bdMsSaveUnmatched(_f); list=_f; }
+  if(!list.length) return '';
   var rows=list.slice(0,8).map(function(u){
     var when=u.receivedAt?_bdMsLocalDate(u.receivedAt):'';
     return '<tr><td class="cell-firm" style="width:100%;min-width:180px"><span style="font-weight:600">'+_esc(u.name||u.from||'-')+'</span>'+
@@ -13276,6 +13280,7 @@ function _bdMsLocalDate(iso){
 }
 function _bdMsProcessMessages(msgs, ix, seen){
   var _re=_bdMsSweepUnmatched(ix);
+  var _thr=_bdBdThreadSubjSet();
   // Log any inbound message from a known partner/lot address that is not already
   // on that record. Dedupe is by msgId ON THE RECORD (the source of truth), not
   // by the seen-list: a message the seen-list marked but that never actually got
@@ -13292,6 +13297,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
          be attached to a contact later or picked up automatically once the
          address is added. Marking it seen alone lost real replies. */
       seen[mid]=1;
+      if(!_thr[_bdSubjBase(m.subject||'')]) return; // not a reply to a BD outreach thread -> ignore, do not clutter the queue
       if(_bdMsDismissed()[String(mid)]) return;
       var _um=_bdMsUnmatched(), _have=false;
       for(var _i=0;_i<_um.length;_i++){ if(_um[_i]&&_um[_i].msgId===mid){ _have=true; break; } }
@@ -13325,6 +13331,18 @@ function _bdMsProcessMessages(msgs, ix, seen){
   return logged+_re;
 }
 function _bdSubjBase(s){ return String(s||'').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i,'').trim().toLowerCase(); }
+/* Set of base subjects for threads BD actually started (real outbound sends,
+   not passive synced mailbox history). Used to keep the Unmatched replies queue
+   to genuine replies-to-our-outreach from an unrecognised address, instead of
+   the entire inbox - newsletters, event invites, internal staff (Dave,
+   2026-09-04, after 200 unrelated emails surfaced). */
+function _bdBdThreadSubjSet(){
+  var set={};
+  function scan(list){ (list||[]).forEach(function(r){ (r&&r.act||[]).forEach(function(a){ if(a && !a.inbound && a.type==='Email' && !(a.synced && !a.bdTouch)){ var b=_bdSubjBase(a.subj); if(b) set[b]=1; } }); }); }
+  try{ scan(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
+  try{ scan(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
+  return set;
+}
 /* A thread 'originated in BDM' when the record carries an earlier deliberate
    BD send (non-synced or bdTouch) with the same base subject. Replies the user
    sends from Outlook inside such a thread score on the scorecard exactly like
