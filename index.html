@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-08-29-38</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-41</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-08-29-38';
+var BD_BUILD='bd-2026-09-04-41';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -3775,11 +3775,16 @@ function openBookMeetingModal(partnerId, meetingIdx){
   var users=BD_TEAM.slice();
   var addlEmails=(m.attendeeEmails||[]).filter(function(e){return e && e!==l.email;}).join(', ');
   var nm=((l.cf||'')+' '+(l.cl||'')).trim()||l.firm||'partner';
+  var _msOn=(typeof _bdMsConnected==='function'&&_bdMsConnected());
+  var _banner=_msOn
+    ? ('<div style="background:var(--gpb);border:1px solid var(--gpd);border-radius:6px;padding:10px 12px;margin-bottom:14px;color:var(--gpd);font-size:var(--fz-body);line-height:1.5">'+
+        '<strong>Connected to Outlook.</strong> Booking this meeting adds a real event to your Outlook calendar and invites '+_esc(nm)+' plus the assigned user.'+
+       '</div>')
+    : ('<div style="background:var(--gpb);border:1px solid var(--gpd);border-radius:6px;padding:10px 12px;margin-bottom:14px;color:var(--gpd);font-size:var(--fz-body);line-height:1.5">'+
+        '<strong>Outlook not connected.</strong> The meeting is saved to this partner only. Connect Outlook in Settings to send real calendar invites.'+
+       '</div>');
   var body=''+
-    '<div style="background:var(--gpb);border:1px solid var(--gpd);border-radius:6px;padding:10px 12px;margin-bottom:14px;color:var(--gpd);font-size:var(--fz-body);line-height:1.5">'+
-      '<strong>Calendar integration is pending.</strong> The meeting will be saved to this partner. '+
-      'Once the backend ships, real calendar invites will be sent automatically to the partner and to the assigned user.'+
-    '</div>'+
+    _banner+
     '<div class="smb-fld"><label for="mtg-type">Meeting type</label>'+
       '<select id="mtg-type">'+types.map(function(t){return '<option value="'+_esc(t)+'"'+(m.type===t?' selected':'')+'>'+_esc(t)+'</option>';}).join('')+'</select></div>'+
     '<div class="smb-fld"><label for="mtg-start">Start date and time</label>'+
@@ -3826,18 +3831,51 @@ function saveBookMeeting(partnerId, meetingIdx){
     createdAt:(meetingIdx!=null && l.meetings[meetingIdx])?l.meetings[meetingIdx].createdAt:new Date().toISOString(),
     createdBy:(typeof _curInit==='function'?_curInit():'')
   };
+  var _bookedAct=null;
   if(meetingIdx!=null){ l.meetings[meetingIdx]=rec; } else { l.meetings.unshift(rec); }
   if(meetingIdx==null){
     if(_today()>(l.lastContact||'')) l.lastContact=_today();
-    l.act=l.act||[]; l.act.unshift({d:_today(),type:'Meeting booked',subj:(rec.type||'Meeting')+(rec.start?(' '+new Date(rec.start).toLocaleDateString()):''),notes:'',by:_curName().split(' ')[0],loggedAt:new Date().toISOString()});
+    l.act=l.act||[]; _bookedAct={d:_today(),type:'Meeting booked',subj:(rec.type||'Meeting')+(rec.start?(' '+new Date(rec.start).toLocaleDateString()):''),notes:'',by:_curName().split(' ')[0],loggedAt:new Date().toISOString()}; l.act.unshift(_bookedAct);
     try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
   }
   closeModal();
   try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(_){}
   try{ save(); }catch(_){}
-  if(typeof showToast==='function')showToast('Meeting saved. Calendar invites will be sent once integration is connected.');
+  /* Create the real Outlook calendar event via the same Graph token VSP uses,
+     when connected and this is a NEW booking. Store the returned event id on
+     both the meeting and its "Meeting booked" activity so the inbound calendar
+     scan (_bdMsProcessEvents dedupes by outlookEventId) never re-logs it as a
+     second Meeting. On failure the meeting stays saved locally. Editing an
+     existing event does not re-create (avoids duplicates) - that PATCH is a
+     follow-up. (Dave, 2026-08-30) */
+  var _msOn=(typeof _bdMsConnected==='function'&&_bdMsConnected());
+  if(meetingIdx==null && _msOn && typeof _bdMsCreateEvent==='function' && startRaw && l.email){
+    if(typeof toastInfo==='function') toastInfo('Adding to Outlook','Creating the calendar event and sending the invite...');
+    _bdMsCreateEvent({
+      date:startRaw.slice(0,10), time:startRaw.slice(11,16),
+      durationMin:rec.durationMin, title:rec.type, notes:rec.notes,
+      location:rec.location, email:l.email, name:nmForEvent(l)
+    }).then(function(res){
+      if(res && res.id){
+        rec.outlookEventId=res.id; rec.integrationStatus='synced'; rec.status='booked';
+        if(_bookedAct) _bookedAct.outlookEventId=res.id;
+        try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+        try{ save(); }catch(e){}
+        if(typeof toastSuccess==='function') toastSuccess('Added to Outlook','Invite sent to '+nmForEvent(l)+' and added to your calendar.');
+        try{ if(typeof openPartner==='function' && _curPage!=='dashboard') openPartner(partnerId); }catch(e){}
+      } else {
+        if(typeof toastInfo==='function') toastInfo('Saved to BD','Meeting saved, but Outlook did not confirm the event. Try Check now, or re-book.');
+      }
+    }).catch(function(){
+      if(typeof toastInfo==='function') toastInfo('Saved to BD','Meeting saved, but the Outlook event could not be created. Reconnect Outlook in Settings and re-book.');
+    });
+  } else {
+    if(typeof showToast==='function') showToast(_msOn?'Meeting saved.':'Meeting saved to this partner. Connect Outlook to send a real invite.');
+  }
   if(typeof openPartner==='function')openPartner(partnerId);
 }
+/* Best display name for a partner on a calendar invite. */
+function nmForEvent(l){ return (((l&&l.cf)||'')+' '+((l&&l.cl)||'')).trim()||(l&&l.firm)||(l&&l.email)||'Partner'; }
 
 /* ============================================================
    SENDING INFRASTRUCTURE
@@ -5903,27 +5941,40 @@ function _bdReplyInThread(kind,id){
   var msg=ins[0];
   if(!msg||!msg.webLink){ if(typeof toast==='function') toast('No threaded message','Open in Outlook to start a new email instead.'); return; }
   try{ window.open(msg.webLink,'_blank','noopener'); }catch(e){}
-  /* Opening the Outlook thread does not log anything on its own, so a reply
-     sent from there never got recorded and the row stayed in Replies to
-     Answer (Dave, 2026-08-30). After opening, confirm the send and log the
-     outbound reply on the record so the row clears. */
-  var _subj=(msg&&msg.subj)||'';
-  var _reSubj=/^re:/i.test(_subj)?_subj:('Re: '+(_subj||'your email'));
-  setTimeout(function(){
-    var _yes=false;
-    try{ _yes=confirm('Did you send your reply to '+((kind==='partner'?(((rec.cf||'')+' '+(rec.cl||'')).trim()||rec.firm):(rec.contactName||rec.contactFirm))||'this contact')+' in Outlook?\n\nClick OK to log it so it clears from Replies to Answer.'); }catch(e){}
-    if(!_yes) return;
-    if(!rec.act) rec.act=[];
-    rec.act.unshift({d:_today(),type:'Email',subj:_reSubj,notes:'',na:'',nc:'',by:(typeof _curName==='function'?_curName().split(' ')[0]:'DS'),owner:'',inbound:false,loggedAt:new Date().toISOString()});
-    if(_today()>(rec.lastContact||'')) rec.lastContact=_today();
-    try{ _bdGrpCache=null; }catch(e){}
-    try{ if(kind!=='lot' && typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
-    try{ if(kind==='lot' && typeof publishProspectsSteward==='function') publishProspectsSteward(); }catch(e){}
-    try{ save(); }catch(e){}
-    if(typeof toastSuccess==='function') toastSuccess('Reply logged','Cleared from Replies to Answer.');
-    try{ if(typeof _curPage!=='undefined' && _curPage==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
-    try{ if(kind==='partner' && typeof openPartner==='function' && _curPage!=='dashboard') openPartner(id); }catch(e){}
-  }, 400);
+  /* The old approach popped a "Did you send it?" confirm ~0.4s after opening
+     Outlook - while you were still composing - so it was useless (Dave,
+     2026-08-30). Instead, arm a one-time scan that fires when you return to the
+     BD tab: the Sent-folder scan then finds the reply you just sent and logs it
+     as an outbound touch on this partner, clearing Replies to Answer with no
+     manual step. */
+  _bdArmReplyScan();
+}
+var _bdReplyScanArmed=false;
+function _bdArmReplyScan(){
+  if(typeof _bdMsConnected!=='function' || !_bdMsConnected()) return;
+  if(_bdReplyScanArmed) return;
+  _bdReplyScanArmed=true;
+  var ran=false;
+  var onVis, onFocus, safety;
+  var run=function(){
+    if(ran) return; ran=true;
+    try{ document.removeEventListener('visibilitychange', onVis); }catch(e){}
+    try{ window.removeEventListener('focus', onFocus); }catch(e){}
+    try{ clearTimeout(safety); }catch(e){}
+    _bdReplyScanArmed=false;
+    // Small delay so Outlook has committed the sent message to the Sent folder
+    // before we scan for it.
+    setTimeout(function(){
+      try{ if(typeof toastInfo==='function') toastInfo('Syncing your reply','Checking Sent mail...'); }catch(e){}
+      try{ bdMsCheckNow().then(function(){ try{ if(_curPage==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){} }); }catch(e){}
+    }, 5000);
+  };
+  onVis=function(){ if(document.visibilityState==='visible') run(); };
+  onFocus=function(){ run(); };
+  try{ document.addEventListener('visibilitychange', onVis); }catch(e){}
+  try{ window.addEventListener('focus', onFocus); }catch(e){}
+  // Safety net if the focus/visibility events are missed.
+  safety=setTimeout(run, 180000);
 }
 function _logEmailReply(kind,id){
   var ctx=_mktgActResolve(kind,id); if(!ctx) return;
@@ -7036,8 +7087,26 @@ var BD_MEAS=[
   {id:'acoverage', title:'A coverage this month %', unit:'#', goal:80, orient:'>=', level:true, cur:function(){ var c=_bd100CoverageA(); return c.pct==null?0:c.pct; }}
 ];
 function _inWk(ds,s,e){ if(!ds) return false; var d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(ds)?ds+'T00:00:00':ds); if(isNaN(d.getTime())) return false; return d>=s&&d<e; }
-function _scActCount(s,e,pred){ var n=0; function tally(arr){ (arr||[]).forEach(function(a){ if(pred(a)&&_inWk(a.d,s,e)) n++; }); } PARTNERS.forEach(function(p){ tally(p.act); }); PROSPECTS.forEach(function(p){ tally(p.act); }); return n; }
-function _scReachCount(s,e){ var n=0; function tally(arr){ var days={}; (arr||[]).forEach(function(a){ if(a&&_inWk(a.d,s,e)) days[a.d]=1; }); n+=Object.keys(days).length; } PARTNERS.forEach(function(p){ tally(p.act); }); PROSPECTS.forEach(function(p){ tally(p.act); }); return n; }
+/* Identity-Grouped Activity Dedupe v1 (D-165) applied to the scorecard counters.
+   The scorecard tallies PARTNERS and PROSPECTS, and 44 people exist in both
+   stores with the same email, so one touch logged on both records counted
+   twice (Aug 24 week in Dave's data: 62 raw vs 57 real). Count each
+   (person, activity) once, keyed by email; prospects already merged into a
+   partner are skipped entirely. (Dave, 2026-09-04) */
+function _scPersonKey(rec,src){ var e=String((rec&&(rec.email||rec.contactEmail))||'').trim().toLowerCase(); return e||(src+':'+(rec&&rec.id)); }
+function _scActSig(a){ return a.msgId||a.outlookEventId||((a.d||'')+'|'+(a.type||'')+'|'+String(a.subj||'').trim().toLowerCase()); }
+function _scActCount(s,e,pred){
+  var seen={}, n=0;
+  function tally(rec,src){ if(!rec||rec.mergedIntoPartnerId!=null) return; var pk=_scPersonKey(rec,src); (rec.act||[]).forEach(function(a){ if(a&&pred(a)&&_inWk(a.d,s,e)){ var k=pk+'\u0001'+_scActSig(a); if(!seen[k]){ seen[k]=1; n++; } } }); }
+  PARTNERS.forEach(function(p){ tally(p,'P'); }); PROSPECTS.forEach(function(p){ tally(p,'PR'); });
+  return n;
+}
+function _scReachCount(s,e){
+  var days={};
+  function tally(rec,src){ if(!rec||rec.mergedIntoPartnerId!=null) return; var pk=_scPersonKey(rec,src); var d=days[pk]||(days[pk]={}); (rec.act||[]).forEach(function(a){ if(a&&_inWk(a.d,s,e)) d[a.d]=1; }); }
+  PARTNERS.forEach(function(p){ tally(p,'P'); }); PROSPECTS.forEach(function(p){ tally(p,'PR'); });
+  var n=0; Object.keys(days).forEach(function(pk){ n+=Object.keys(days[pk]).length; }); return n;
+}
 function _measOvVal(key){ return (BD_MEAS_OV[key]!=null)?Number(BD_MEAS_OV[key]):null; }
 function _measCellKey(m,w){ return m.level?(m.id+'|current'):(m.id+'|'+_scWeekIso(w.s)); }
 function _measAutoCell(m,w,isLast){ return m.level?(isLast?m.cur():null):m.wk(w.s,w.e); }
@@ -11999,7 +12068,10 @@ function renderDash(){
     return da-db;
   });
   var _wqDormant=PARTNERS.filter(function(p){ return _own(p) && (p.relStage==='Dormant'||daysSince(p.lastContact)>60); }).length;
+  try{ html=_bdMsDownBanner()+html; }catch(e){}
   html+=scoreboard;
+  try{ html+=_bdMsUnmatchedBlock(); }catch(e){}
+  try{ html+=_bdMsUnmatchedCalBlock(); }catch(e){}
 
 
   // Replies to Answer - inbound replies with no outbound response logged since.
@@ -12920,6 +12992,27 @@ function _bdMsLastOkMs(){ var s=_bdMsLastOk(); if(!s) return 0; var t=new Date(s
    succeeded in over a day. This is the case that made a dead sign-in look like
    'Connected' and let the dashboard say 'All caught up' while nothing synced. */
 function _bdMsSyncUnhealthy(){ if(typeof _bdMsConnected!=='function'||!_bdMsConnected()) return false; if(_bdMsAuthExpired) return true; var t=_bdMsLastOkMs(); if(!t) return true; return (Date.now()-t)>24*60*60*1000; }
+/* Loud sync-down banner (Dave, 2026-09-04). Inbound logging silently died
+   after Sept 1 in Dave's data (token expiry) and the only warning was buried on
+   the Replies card. When connected but no successful pull in 6h, or auth has
+   expired, put an unmissable banner at the very top of the dashboard with a
+   Reconnect button, so a dead connection is never discovered by accident. */
+var BD_MS_DOWN_MS=6*60*60*1000;
+function _bdMsIsDown(){
+  if(typeof _bdMsConnected!=='function'||!_bdMsConnected()) return false;
+  if(_bdMsAuthExpired) return true;
+  var t=_bdMsLastOkMs(); if(!t) return true;
+  return (Date.now()-t)>BD_MS_DOWN_MS;
+}
+function _bdMsDownBanner(){
+  if(!_bdMsIsDown()) return '';
+  var t=_bdMsLastOkMs();
+  var ago=t?Math.round((Date.now()-t)/3600000):null;
+  var why=_bdMsAuthExpired?'Your Outlook sign-in has expired.':(ago==null?'Outlook has not been checked yet in this browser.':('Last successful pull was '+ago+' hour'+(ago===1?'':'s')+' ago.'));
+  return '<div class="card" style="margin-bottom:14px;border-color:var(--red)"><div class="card-hd"><span class="card-title"><span class="chip c-red" style="margin-right:8px">Logging down</span>Outlook is not logging email or bookings</span>'+
+    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-primary btn-sm" onclick="bdMsConnect()">Reconnect Outlook</button><button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>'+
+    '<div class="card-bd"><div class="muted">'+_esc(why)+' Replies, sent mail, and calendar bookings are not being logged until this is fixed. Reconnect, then Check now to pull everything since the last successful sync.</div></div></div>';
+}
 function _bdMsWarnStrip(){
   var lastMs=_bdMsLastOkMs();
   var when=lastMs?fmtDateShort(_bdMsLocalDate(new Date(lastMs).toISOString())):'never';
@@ -12928,7 +13021,7 @@ function _bdMsWarnStrip(){
     '<span class="chip c-amb" role="status">Sync needs attention</span>'+
     '<span class="muted" style="font-size:var(--fz-body)">'+_esc(msg)+' Last successful check: '+_esc(when)+'.</span>'+
     '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-sm" onclick="bdMsConnect()">Reconnect Outlook</button>'+
-    '<button type="button" class="btn btn-sm" onclick="bdMsCheckNow()">Check now</button></span></div>';
+    '<button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>';
 }
 /* Inbound mail from an address that is not on any record used to be marked
    seen and dropped with no trace, so a reply from a second address was lost
@@ -12937,6 +13030,110 @@ function _bdMsWarnStrip(){
    the message up), and surfaced on the dashboard. */
 function _bdMsUnmatched(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNMATCHED_KEY)||'[]'); return a&&a.length?a:[]; }catch(e){ return []; } }
 function _bdMsSaveUnmatched(list){ try{ localStorage.setItem(BD_MS_UNMATCHED_KEY, JSON.stringify((list||[]).slice(0,200))); }catch(e){} }
+/* ---- Unmatched calendar bookings (Dave, 2026-08-30) ----------------------
+   A meeting booked through your Outlook Bookings link (e.g. from your email
+   signature) lands on your calendar with the booker as an attendee. If that
+   email is not on any partner/lot record it cannot auto-log - it used to vanish
+   silently. We capture Bookings-page bookings only (not every ordinary meeting)
+   so you can link one to a partner in one click; linking logs the meeting and
+   saves the booking email on the partner so future bookings match. */
+var BD_MS_UNCAL_KEY='smb.bd.msuncal.v1';
+var BD_MS_CALDISMISS_KEY='smb.bd.mscaldismiss.v1';
+function _bdMsUnCal(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNCAL_KEY)||'[]'); return (a&&a.length)?a:[]; }catch(e){ return []; } }
+function _bdMsSaveUnCal(l){ try{ localStorage.setItem(BD_MS_UNCAL_KEY, JSON.stringify((l||[]).slice(0,100))); }catch(e){} }
+function _bdMsCalDismissed(){ try{ return JSON.parse(localStorage.getItem(BD_MS_CALDISMISS_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function _bdMsCalMarkDismissed(id){ var m=_bdMsCalDismissed(); if(id!=null) m[String(id)]=1; try{ localStorage.setItem(BD_MS_CALDISMISS_KEY, JSON.stringify(m)); }catch(e){} }
+function _bdMsCalAlreadyLogged(eventId){
+  function has(list){ for(var i=0;i<(list||[]).length;i++){ var p=list[i]; if(p&&p.act){ for(var k=0;k<p.act.length;k++){ if(p.act[k]&&p.act[k].outlookEventId===eventId) return true; } } } return false; }
+  try{ if(has(typeof PARTNERS!=='undefined'?PARTNERS:[])) return true; }catch(e){}
+  try{ if(has(typeof PROSPECTS!=='undefined'?PROSPECTS:[])) return true; }catch(e){}
+  return false;
+}
+function _bdMsCaptureUnmatchedBooking(ev){
+  if(!ev||!ev.id) return;
+  var bp=String(ev.bodyPreview||'').toLowerCase();
+  if(bp.indexOf('booking')<0) return; // only Bookings-page bookings, not ordinary meetings
+  if(_bdMsCalDismissed()[String(ev.id)]) return;
+  if(_bdMsCalAlreadyLogged(ev.id)) return;
+  var own=String(((_bdMsStore()||{}).account||'')).toLowerCase();
+  var ext=[];
+  (ev.attendees||[]).forEach(function(a){ var em=(a&&a.emailAddress&&a.emailAddress.address||'').toLowerCase(); var nm=(a&&a.emailAddress&&a.emailAddress.name)||''; if(em && em!==own) ext.push({email:em,name:nm}); });
+  if(!ext.length) return;
+  var list=_bdMsUnCal();
+  for(var i=0;i<list.length;i++){ if(list[i]&&String(list[i].eventId)===String(ev.id)) return; }
+  list.unshift({ eventId:ev.id, subject:ev.subject||'Meeting', start:(ev.start&&ev.start.dateTime)||'', attendees:ext, location:(ev.location&&ev.location.displayName)||'' });
+  _bdMsSaveUnCal(list);
+}
+function _bdMsLogBookingOn(rec, u){
+  if(!rec) return false;
+  if(!rec.act) rec.act=[];
+  for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].outlookEventId===u.eventId) return true; }
+  var dOnly=u.start?_bdMsLocalDate(u.start):_today();
+  rec.act.unshift({ d:dOnly, type:'Meeting', subj:(u.subject||'Meeting'), notes:(u.location?('Location: '+u.location+'. '):'')+'Booked via calendar.', na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:true, outlookEventId:u.eventId, meetingAt:(u.start||''), loggedAt:new Date().toISOString() });
+  if(dOnly>(rec.lastContact||'')) rec.lastContact=dOnly;
+  return true;
+}
+function _bdMsSweepUnmatchedCal(ix){
+  var list=_bdMsUnCal(); if(!list.length) return 0;
+  var keep=[], n=0;
+  list.forEach(function(u){
+    var matchRec=null;
+    (u.attendees||[]).forEach(function(a){ if(!matchRec){ var h=ix[String(a.email||'').toLowerCase()]; if(h&&h.rec) matchRec=h.rec; } });
+    if(matchRec && _bdMsLogBookingOn(matchRec, u)){ n++; return; }
+    keep.push(u);
+  });
+  if(n||keep.length!==list.length) _bdMsSaveUnCal(keep);
+  return n;
+}
+function _bdUnCalFind(eid){ var l=_bdMsUnCal(); for(var i=0;i<l.length;i++){ if(l[i]&&String(l[i].eventId)===String(eid)) return l[i]; } return null; }
+function _bdMsUnmatchedCalBlock(){
+  var list=_bdMsUnCal(); if(!list.length) return '';
+  var rows=list.slice(0,8).map(function(u){
+    var who=(u.attendees&&u.attendees[0])||{}; var when=u.start?_bdMsLocalDate(u.start):'';
+    return '<tr><td class="cell-firm" style="width:100%;min-width:180px"><span style="font-weight:600">'+_esc(who.name||who.email||'-')+'</span> <span class="muted">'+_esc(who.email||'')+'</span></td>'+
+      '<td class="nowrap muted" style="padding-right:18px">'+_esc(when||'-')+'</td>'+
+      '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(u.subject||'')+'">'+_esc(u.subject||'-')+'</div></td>'+
+      '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end">'+
+      '<button type="button" class="btn btn-sm" onclick="bdLinkBooking(\''+_esc(u.eventId)+'\')">Link to partner</button>'+
+      '<button type="button" class="btn btn-sm" onclick="bdDismissBooking(\''+_esc(u.eventId)+'\')">Dismiss</button></div></td></tr>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched bookings</span><span class="card-hd-meta">'+list.length+' booked by an address not on any record</span></div>'+
+    '<div class="card-bd"><div class="muted">Someone booked time via your Outlook link but their email is not on any partner or lot agent. Link one to a partner and it logs as a meeting; their booking email is saved so future bookings match automatically.</div></div>'+
+    '<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left;width:100%">Booked by</th><th scope="col" style="text-align:left">Date</th><th scope="col" style="text-align:left">Subject</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    (list.length>8?'<div class="card-bd" style="padding-top:0"><div class="muted">Showing 8 of '+list.length+'.</div></div>':'')+
+    '</div>';
+}
+function bdDismissBooking(eid){
+  _bdMsCalMarkDismissed(eid);
+  _bdMsSaveUnCal(_bdMsUnCal().filter(function(x){ return String(x.eventId)!==String(eid); }));
+  if(_curPage==='dashboard') renderDash();
+  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That booking will not be listed again.');
+}
+function bdLinkBooking(eid){
+  var u=_bdUnCalFind(eid); if(!u) return;
+  var who=(u.attendees&&u.attendees[0])||{};
+  var opts=(PARTNERS||[]).map(function(p){ var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id); return '<option value="'+_esc(n+' - '+(p.firm||''))+'"></option>'; }).join('');
+  var body='<div style="font-size:var(--fz-body);color:var(--txm);margin-bottom:10px">Booked by '+_esc(who.name||who.email||'')+' ('+_esc(who.email||'')+')'+(u.subject?(', '+_esc(u.subject)):'')+'.</div>'+
+    '<label for="bd-bk-pick" style="display:block;font-size:var(--fz-body);font-weight:600;margin-bottom:4px">Partner</label>'+
+    '<input id="bd-bk-pick" list="bd-bk-list" placeholder="Start typing a name" style="width:100%;padding:7px 12px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
+    '<datalist id="bd-bk-list">'+opts+'</datalist>'+
+    '<div style="font-size:var(--fz-body);color:var(--txm);margin-top:10px">The booking email is saved on that partner so future bookings from it match automatically.</div>';
+  openModal({title:'Link booking to a partner', body:body, saveLabel:'Link', onSave:function(){
+    var el=document.getElementById('bd-bk-pick'); var want=String(el&&el.value||'').trim();
+    if(!want){ modalErr('Pick a partner.'); return; }
+    var target=null;
+    (PARTNERS||[]).forEach(function(p){ var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id); if(!target && (n+' - '+(p.firm||''))===want) target=p; });
+    if(!target){ modalErr('Pick a partner from the list.'); return; }
+    var em=who.email||'';
+    if(em){ if(!String(target.email||'').trim()) target.email=em; else if(String(target.email).toLowerCase()!==em.toLowerCase() && !String(target.altEmail||'').trim()) target.altEmail=em; }
+    _bdMsLogBookingOn(target, u);
+    _bdMsSaveUnCal(_bdMsUnCal().filter(function(x){ return String(x.eventId)!==String(eid); }));
+    try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
+    save(); closeModal();
+    if(_curPage==='dashboard') renderDash();
+    if(typeof toastSuccess==='function') toastSuccess('Booking linked',(((target.cf||'')+' '+(target.cl||'')).trim()||target.firm)+' now shows this meeting.');
+  }});
+}
 var BD_MS_DISMISSED_KEY='smb.bd.msdismissed.v1';
 var BD_MS_UNDISMISS_KEY='smb.bd.msundismiss.v1';
 /* Dismissed message ids stay dismissed: without this, a rescan re-reads the
@@ -13069,6 +13266,7 @@ function _bdMsEmailIndex(){
     _add(p.email,'partner',p); _add(p.altEmail,'partner',p);
   });
   (typeof PROSPECTS!=='undefined'?PROSPECTS:[]).forEach(function(p){
+    if(p&&p.mergedIntoPartnerId!=null) return; // merged into a partner: index the partner, not the stub
     _add(p.contactEmail,'lot',p); _add(p.altEmail,'lot',p);
   });
   return ix;
@@ -13210,6 +13408,7 @@ function _bdMsProcessEvents(events, ix){
   // ignored, so the scorecard reflects real BD relationship meetings only.
   // Dedupe by the Outlook event id stored on the activity.
   var logged=0;
+  try{ _bdMsSweepUnmatchedCal(ix); }catch(e){}
   (events||[]).forEach(function(ev){
     if(!ev || !ev.id) return;
     var atts=(ev.attendees||[]);
@@ -13219,7 +13418,7 @@ function _bdMsProcessEvents(events, ix){
       var a=atts[i]; var em=(a&&a.emailAddress&&a.emailAddress.address||'').toLowerCase();
       if(em && ix[em]){ hit=ix[em]; hitEmail=em; break; }
     }
-    if(!hit) return; // no BD person on this meeting -> ignore entirely
+    if(!hit){ try{ _bdMsCaptureUnmatchedBooking(ev); }catch(e){} return; } // capture Bookings-page bookings by unknown addresses for review
     var rec=hit.rec; if(!rec.act) rec.act=[];
     // Already logged this event?
     for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].outlookEventId===ev.id){ return; } }
@@ -13265,6 +13464,21 @@ function bdMsRescan(){
         if(typeof toastError==='function') toastError('Rescan failed', e&&e.message?e.message:String(e));
       });
     }});
+}
+/* Manual Check now: always gives feedback (running + result), unlike the bare
+   bdMsCheckNow() the poll uses. Every user-facing Check now button routes here
+   so a press never looks like nothing happened (Dave, 2026-08-30). */
+function bdMsCheckNowManual(){
+  if(typeof _bdMsConnected!=='function' || !_bdMsConnected()){ if(typeof toastInfo==='function') toastInfo('Outlook not connected','Connect Outlook in Settings first.'); return; }
+  if(typeof toastInfo==='function') toastInfo('Checking Outlook','Reading your inbox, sent mail, and calendar...');
+  return bdMsCheckNow().then(function(n){
+    n=n||0;
+    if(typeof toastSuccess==='function'){
+      toastSuccess('Sync complete', n>0 ? (n+' new '+(n===1?'reply':'replies')+' logged. Sent mail and bookings synced too.') : 'Checked inbox, sent mail, and calendar. No new replies.');
+    }
+  }).catch(function(err){
+    if(typeof toastInfo==='function') toastInfo('Check failed', String((err&&err.message)||'Could not reach Outlook. Reconnect in Settings.'));
+  });
 }
 function bdMsCheckNow(){
   return _bdMsToken().then(function(tok){
@@ -13321,7 +13535,7 @@ function bdMsCheckNow(){
       +'?startDateTime='+encodeURIComponent(calStart)
       +'&endDateTime='+encodeURIComponent(calEnd)
       +'&$top=50&$orderby=start/dateTime desc'
-      +'&$select=id,subject,start,end,location,attendees,organizer,createdDateTime';
+      +'&$select=id,subject,start,end,location,attendees,organizer,createdDateTime,bodyPreview';
     var calSeen={};
     function fetchCal(url, pagesLeft){
       return fetch(url,{headers:{Authorization:'Bearer '+tok, 'Prefer':'outlook.timezone="Pacific Standard Time"'}})
@@ -13518,6 +13732,20 @@ function _bdMsStartPolling(){
   if(_bdMsPollTimer) return;
   if(!_bdMsConnected()) return;
   _bdMsPollTimer=setInterval(function(){ try{ bdMsCheckNow(); }catch(e){} }, BD_MS_POLL_MS);
+  /* Auto-pull on return: when the BD tab regains focus, run a scan (throttled to
+     once per 2 min) so mail that arrived while you were in Outlook logs itself
+     without waiting for the poll or a manual Check now (Dave, 2026-09-04). */
+  try{
+    var _bdLastFocusScan=0;
+    var _bdOnFocusScan=function(){
+      if(typeof _bdMsConnected!=='function'||!_bdMsConnected()) return;
+      if(document.visibilityState && document.visibilityState!=='visible') return;
+      var now=Date.now(); if(now-_bdLastFocusScan<120000) return; _bdLastFocusScan=now;
+      try{ bdMsCheckNow().then(function(){ try{ if(_curPage==='dashboard'&&typeof renderDash==='function') renderDash(); }catch(e){} }); }catch(e){}
+    };
+    window.addEventListener('focus', _bdOnFocusScan);
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') _bdOnFocusScan(); });
+  }catch(e){}
 }
 function _bdMsPaintStatus(errText){
   try{
@@ -13529,7 +13757,7 @@ function _bdMsPaintStatus(errText){
       if(errText && errText.indexOf('403')>-1){
         st.textContent='Permission needed'; st.className='integ-status pending';
         btns.innerHTML='<div class="muted" style="font-size:var(--fz-xs);margin-bottom:6px">Signed in as '+acct+', but the app is missing the Mail.Read permission in Azure. Add it, then click Check now.</div>'+
-          '<button class="integ-btn" onclick="bdMsCheckNow()">Check now</button> '+
+          '<button class="integ-btn" onclick="bdMsCheckNowManual()">Check now</button> '+
           '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
       } else if(_bdMsAuthExpired){
         st.textContent='Sign-in expired'; st.className='integ-status pending';
@@ -13538,7 +13766,7 @@ function _bdMsPaintStatus(errText){
           '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
       } else {
         st.textContent='Connected: '+acct; st.className='integ-status live';
-        btns.innerHTML='<button class="integ-btn" onclick="bdMsCheckNow().then(function(n){ if(!n&&typeof toastInfo!==\'undefined\') toastInfo(\'Inbox checked\',\'No new partner replies.\') })">Check now</button> '+
+        btns.innerHTML='<button class="integ-btn" onclick="bdMsCheckNowManual()">Check now</button> '+
           '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
       }
     } else {
