@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-43</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-45</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,7 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-09-04-43';
+var BD_BUILD='bd-2026-09-04-45';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -12070,8 +12070,6 @@ function renderDash(){
   var _wqDormant=PARTNERS.filter(function(p){ return _own(p) && (p.relStage==='Dormant'||daysSince(p.lastContact)>60); }).length;
   try{ html=_bdMsDownBanner()+html; }catch(e){}
   html+=scoreboard;
-  try{ html+=_bdMsUnmatchedBlock(); }catch(e){}
-  try{ html+=_bdMsUnmatchedCalBlock(); }catch(e){}
 
 
   // Replies to Answer - inbound replies with no outbound response logged since.
@@ -13030,110 +13028,6 @@ function _bdMsWarnStrip(){
    the message up), and surfaced on the dashboard. */
 function _bdMsUnmatched(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNMATCHED_KEY)||'[]'); return a&&a.length?a:[]; }catch(e){ return []; } }
 function _bdMsSaveUnmatched(list){ try{ localStorage.setItem(BD_MS_UNMATCHED_KEY, JSON.stringify((list||[]).slice(0,200))); }catch(e){} }
-/* ---- Unmatched calendar bookings (Dave, 2026-08-30) ----------------------
-   A meeting booked through your Outlook Bookings link (e.g. from your email
-   signature) lands on your calendar with the booker as an attendee. If that
-   email is not on any partner/lot record it cannot auto-log - it used to vanish
-   silently. We capture Bookings-page bookings only (not every ordinary meeting)
-   so you can link one to a partner in one click; linking logs the meeting and
-   saves the booking email on the partner so future bookings match. */
-var BD_MS_UNCAL_KEY='smb.bd.msuncal.v1';
-var BD_MS_CALDISMISS_KEY='smb.bd.mscaldismiss.v1';
-function _bdMsUnCal(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNCAL_KEY)||'[]'); return (a&&a.length)?a:[]; }catch(e){ return []; } }
-function _bdMsSaveUnCal(l){ try{ localStorage.setItem(BD_MS_UNCAL_KEY, JSON.stringify((l||[]).slice(0,100))); }catch(e){} }
-function _bdMsCalDismissed(){ try{ return JSON.parse(localStorage.getItem(BD_MS_CALDISMISS_KEY)||'{}')||{}; }catch(e){ return {}; } }
-function _bdMsCalMarkDismissed(id){ var m=_bdMsCalDismissed(); if(id!=null) m[String(id)]=1; try{ localStorage.setItem(BD_MS_CALDISMISS_KEY, JSON.stringify(m)); }catch(e){} }
-function _bdMsCalAlreadyLogged(eventId){
-  function has(list){ for(var i=0;i<(list||[]).length;i++){ var p=list[i]; if(p&&p.act){ for(var k=0;k<p.act.length;k++){ if(p.act[k]&&p.act[k].outlookEventId===eventId) return true; } } } return false; }
-  try{ if(has(typeof PARTNERS!=='undefined'?PARTNERS:[])) return true; }catch(e){}
-  try{ if(has(typeof PROSPECTS!=='undefined'?PROSPECTS:[])) return true; }catch(e){}
-  return false;
-}
-function _bdMsCaptureUnmatchedBooking(ev){
-  if(!ev||!ev.id) return;
-  var bp=String(ev.bodyPreview||'').toLowerCase();
-  if(bp.indexOf('booking')<0) return; // only Bookings-page bookings, not ordinary meetings
-  if(_bdMsCalDismissed()[String(ev.id)]) return;
-  if(_bdMsCalAlreadyLogged(ev.id)) return;
-  var own=String(((_bdMsStore()||{}).account||'')).toLowerCase();
-  var ext=[];
-  (ev.attendees||[]).forEach(function(a){ var em=(a&&a.emailAddress&&a.emailAddress.address||'').toLowerCase(); var nm=(a&&a.emailAddress&&a.emailAddress.name)||''; if(em && em!==own) ext.push({email:em,name:nm}); });
-  if(!ext.length) return;
-  var list=_bdMsUnCal();
-  for(var i=0;i<list.length;i++){ if(list[i]&&String(list[i].eventId)===String(ev.id)) return; }
-  list.unshift({ eventId:ev.id, subject:ev.subject||'Meeting', start:(ev.start&&ev.start.dateTime)||'', attendees:ext, location:(ev.location&&ev.location.displayName)||'' });
-  _bdMsSaveUnCal(list);
-}
-function _bdMsLogBookingOn(rec, u){
-  if(!rec) return false;
-  if(!rec.act) rec.act=[];
-  for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].outlookEventId===u.eventId) return true; }
-  var dOnly=u.start?_bdMsLocalDate(u.start):_today();
-  rec.act.unshift({ d:dOnly, type:'Meeting', subj:(u.subject||'Meeting'), notes:(u.location?('Location: '+u.location+'. '):'')+'Booked via calendar.', na:'', nc:'', by:'Outlook', owner:'', inbound:false, synced:true, outlookEventId:u.eventId, meetingAt:(u.start||''), loggedAt:new Date().toISOString() });
-  if(dOnly>(rec.lastContact||'')) rec.lastContact=dOnly;
-  return true;
-}
-function _bdMsSweepUnmatchedCal(ix){
-  var list=_bdMsUnCal(); if(!list.length) return 0;
-  var keep=[], n=0;
-  list.forEach(function(u){
-    var matchRec=null;
-    (u.attendees||[]).forEach(function(a){ if(!matchRec){ var h=ix[String(a.email||'').toLowerCase()]; if(h&&h.rec) matchRec=h.rec; } });
-    if(matchRec && _bdMsLogBookingOn(matchRec, u)){ n++; return; }
-    keep.push(u);
-  });
-  if(n||keep.length!==list.length) _bdMsSaveUnCal(keep);
-  return n;
-}
-function _bdUnCalFind(eid){ var l=_bdMsUnCal(); for(var i=0;i<l.length;i++){ if(l[i]&&String(l[i].eventId)===String(eid)) return l[i]; } return null; }
-function _bdMsUnmatchedCalBlock(){
-  var list=_bdMsUnCal(); if(!list.length) return '';
-  var rows=list.slice(0,8).map(function(u){
-    var who=(u.attendees&&u.attendees[0])||{}; var when=u.start?_bdMsLocalDate(u.start):'';
-    return '<tr><td class="cell-firm" style="width:100%;min-width:180px"><span style="font-weight:600">'+_esc(who.name||who.email||'-')+'</span> <span class="muted">'+_esc(who.email||'')+'</span></td>'+
-      '<td class="nowrap muted" style="padding-right:18px">'+_esc(when||'-')+'</td>'+
-      '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(u.subject||'')+'">'+_esc(u.subject||'-')+'</div></td>'+
-      '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end">'+
-      '<button type="button" class="btn btn-sm" onclick="bdLinkBooking(\''+_esc(u.eventId)+'\')">Link to partner</button>'+
-      '<button type="button" class="btn btn-sm" onclick="bdDismissBooking(\''+_esc(u.eventId)+'\')">Dismiss</button></div></td></tr>';
-  }).join('');
-  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched bookings</span><span class="card-hd-meta">'+list.length+' booked by an address not on any record</span></div>'+
-    '<div class="card-bd"><div class="muted">Someone booked time via your Outlook link but their email is not on any partner or lot agent. Link one to a partner and it logs as a meeting; their booking email is saved so future bookings match automatically.</div></div>'+
-    '<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left;width:100%">Booked by</th><th scope="col" style="text-align:left">Date</th><th scope="col" style="text-align:left">Subject</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    (list.length>8?'<div class="card-bd" style="padding-top:0"><div class="muted">Showing 8 of '+list.length+'.</div></div>':'')+
-    '</div>';
-}
-function bdDismissBooking(eid){
-  _bdMsCalMarkDismissed(eid);
-  _bdMsSaveUnCal(_bdMsUnCal().filter(function(x){ return String(x.eventId)!==String(eid); }));
-  if(_curPage==='dashboard') renderDash();
-  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That booking will not be listed again.');
-}
-function bdLinkBooking(eid){
-  var u=_bdUnCalFind(eid); if(!u) return;
-  var who=(u.attendees&&u.attendees[0])||{};
-  var opts=(PARTNERS||[]).map(function(p){ var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id); return '<option value="'+_esc(n+' - '+(p.firm||''))+'"></option>'; }).join('');
-  var body='<div style="font-size:var(--fz-body);color:var(--txm);margin-bottom:10px">Booked by '+_esc(who.name||who.email||'')+' ('+_esc(who.email||'')+')'+(u.subject?(', '+_esc(u.subject)):'')+'.</div>'+
-    '<label for="bd-bk-pick" style="display:block;font-size:var(--fz-body);font-weight:600;margin-bottom:4px">Partner</label>'+
-    '<input id="bd-bk-pick" list="bd-bk-list" placeholder="Start typing a name" style="width:100%;padding:7px 12px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
-    '<datalist id="bd-bk-list">'+opts+'</datalist>'+
-    '<div style="font-size:var(--fz-body);color:var(--txm);margin-top:10px">The booking email is saved on that partner so future bookings from it match automatically.</div>';
-  openModal({title:'Link booking to a partner', body:body, saveLabel:'Link', onSave:function(){
-    var el=document.getElementById('bd-bk-pick'); var want=String(el&&el.value||'').trim();
-    if(!want){ modalErr('Pick a partner.'); return; }
-    var target=null;
-    (PARTNERS||[]).forEach(function(p){ var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id); if(!target && (n+' - '+(p.firm||''))===want) target=p; });
-    if(!target){ modalErr('Pick a partner from the list.'); return; }
-    var em=who.email||'';
-    if(em){ if(!String(target.email||'').trim()) target.email=em; else if(String(target.email).toLowerCase()!==em.toLowerCase() && !String(target.altEmail||'').trim()) target.altEmail=em; }
-    _bdMsLogBookingOn(target, u);
-    _bdMsSaveUnCal(_bdMsUnCal().filter(function(x){ return String(x.eventId)!==String(eid); }));
-    try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
-    save(); closeModal();
-    if(_curPage==='dashboard') renderDash();
-    if(typeof toastSuccess==='function') toastSuccess('Booking linked',(((target.cf||'')+' '+(target.cl||'')).trim()||target.firm)+' now shows this meeting.');
-  }});
-}
 var BD_MS_DISMISSED_KEY='smb.bd.msdismissed.v1';
 var BD_MS_UNDISMISS_KEY='smb.bd.msundismiss.v1';
 /* Dismissed message ids stay dismissed: without this, a rescan re-reads the
@@ -13426,7 +13320,6 @@ function _bdMsProcessEvents(events, ix){
   // ignored, so the scorecard reflects real BD relationship meetings only.
   // Dedupe by the Outlook event id stored on the activity.
   var logged=0;
-  try{ _bdMsSweepUnmatchedCal(ix); }catch(e){}
   (events||[]).forEach(function(ev){
     if(!ev || !ev.id) return;
     var atts=(ev.attendees||[]);
@@ -13436,7 +13329,7 @@ function _bdMsProcessEvents(events, ix){
       var a=atts[i]; var em=(a&&a.emailAddress&&a.emailAddress.address||'').toLowerCase();
       if(em && ix[em]){ hit=ix[em]; hitEmail=em; break; }
     }
-    if(!hit){ try{ _bdMsCaptureUnmatchedBooking(ev); }catch(e){} return; } // capture Bookings-page bookings by unknown addresses for review
+    if(!hit) return; // no BD person on this meeting -> ignore
     var rec=hit.rec; if(!rec.act) rec.act=[];
     // Already logged this event?
     for(var k=0;k<rec.act.length;k++){ if(rec.act[k]&&rec.act[k].outlookEventId===ev.id){ return; } }
