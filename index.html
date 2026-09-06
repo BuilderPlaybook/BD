@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-45</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-04-47</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1729,7 +1729,65 @@ var _scWeek=null;
 var BD_GOALS=[];
 var BD_EVENTS=[];
 var STORE_KEY='bd_state_v3';
-var BD_BUILD='bd-2026-09-04-45';
+/* Self-contained LZ codec (LZString compressToUTF16/decompressFromUTF16, no
+   external library) for the BD main store. Every write of the store key is
+   packed: 'LZ1:'+compressed when smaller, else 'RAW:'+json; reads auto-detect
+   the prefix and untagged legacy values parse as-is. Storage version is
+   unchanged - the read handles both. Exposed on window so the staging adapter
+   uses the identical codec (Dave, 2026-09-04). */
+var _bdLZ=(function(){
+  var f=String.fromCharCode;
+  function _c(uncompressed, bitsPerChar, getCharFromInt){
+    if(uncompressed==null) return "";
+    var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",
+        context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;
+    for(ii=0;ii<uncompressed.length;ii+=1){
+      context_c=uncompressed.charAt(ii);
+      if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){ context_dictionary[context_c]=context_dictSize++; context_dictionaryToCreate[context_c]=true; }
+      context_wc=context_w+context_c;
+      if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){ context_w=context_wc; }
+      else{
+        if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){
+          if(context_w.charCodeAt(0)<256){ for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; } value=context_w.charCodeAt(0); for(i=0;i<8;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } }
+          else{ value=1; for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1)|value; if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=0; } value=context_w.charCodeAt(0); for(i=0;i<16;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } }
+          context_enlargeIn--; if(context_enlargeIn==0){ context_enlargeIn=Math.pow(2,context_numBits); context_numBits++; } delete context_dictionaryToCreate[context_w];
+        } else { value=context_dictionary[context_w]; for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } }
+        context_enlargeIn--; if(context_enlargeIn==0){ context_enlargeIn=Math.pow(2,context_numBits); context_numBits++; }
+        context_dictionary[context_wc]=context_dictSize++; context_w=String(context_c);
+      }
+    }
+    if(context_w!==""){ if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){ if(context_w.charCodeAt(0)<256){ for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; } value=context_w.charCodeAt(0); for(i=0;i<8;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } } else { value=1; for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1)|value; if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=0; } value=context_w.charCodeAt(0); for(i=0;i<16;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } } context_enlargeIn--; if(context_enlargeIn==0){ context_enlargeIn=Math.pow(2,context_numBits); context_numBits++; } delete context_dictionaryToCreate[context_w]; } else { value=context_dictionary[context_w]; for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; } } context_enlargeIn--; if(context_enlargeIn==0){ context_enlargeIn=Math.pow(2,context_numBits); context_numBits++; } }
+    value=2; for(i=0;i<context_numBits;i++){ context_data_val=(context_data_val<<1)|(value&1); if(context_data_position==bitsPerChar-1){ context_data_position=0; context_data.push(getCharFromInt(context_data_val)); context_data_val=0; } else context_data_position++; value=value>>1; }
+    while(true){ context_data_val=(context_data_val<<1); if(context_data_position==bitsPerChar-1){ context_data.push(getCharFromInt(context_data_val)); break; } else context_data_position++; }
+    return context_data.join('');
+  }
+  function _d(length, resetValue, getNextValue){
+    var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,
+        data={val:getNextValue(0),position:resetValue,index:1};
+    for(i=0;i<3;i+=1) dictionary[i]=i;
+    bits=0;maxpower=Math.pow(2,2);power=1;
+    while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; }
+    switch(next=bits){ case 0: bits=0;maxpower=Math.pow(2,8);power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; } c=f(bits); break; case 1: bits=0;maxpower=Math.pow(2,16);power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; } c=f(bits); break; case 2: return ""; }
+    dictionary[3]=c; w=c; result.push(c);
+    while(true){ if(data.index>length) return ""; bits=0;maxpower=Math.pow(2,numBits);power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; }
+      switch(c=bits){ case 0: bits=0;maxpower=Math.pow(2,8);power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; } dictionary[dictSize++]=f(bits); c=dictSize-1; enlargeIn--; break; case 1: bits=0;maxpower=Math.pow(2,16);power=1; while(power!=maxpower){ resb=data.val&data.position; data.position>>=1; if(data.position==0){ data.position=resetValue; data.val=getNextValue(data.index++); } bits|=(resb>0?1:0)*power; power<<=1; } dictionary[dictSize++]=f(bits); c=dictSize-1; enlargeIn--; break; case 2: return result.join(''); }
+      if(enlargeIn==0){ enlargeIn=Math.pow(2,numBits); numBits++; }
+      if(dictionary[c]) entry=dictionary[c]; else { if(c===dictSize) entry=w+w.charAt(0); else return null; }
+      result.push(entry); dictionary[dictSize++]=w+entry.charAt(0); enlargeIn--; w=entry;
+      if(enlargeIn==0){ enlargeIn=Math.pow(2,numBits); numBits++; }
+    }
+  }
+  return {
+    compressToUTF16:function(input){ if(input==null) return ""; return _c(input,15,function(a){return f(a+32);})+" "; },
+    decompressFromUTF16:function(compressed){ if(compressed==null) return ""; if(compressed=="") return null; return _d(compressed.length,16384,function(index){return compressed.charCodeAt(index)-32;}); }
+  };
+})();
+function _bdLzCompress(s){ return _bdLZ.compressToUTF16(s); }
+function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
+function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
+function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
+try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
+var BD_BUILD='bd-2026-09-04-47';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -10760,7 +10818,7 @@ function loadState(){
   BD_BOOK_LINKS=[]; BOOK_FUP={delayDays:3};
   try{
     var raw=localStorage.getItem(_tkey(STORE_KEY));
-    if(raw){
+    if(raw){ raw=_bdUnpackBlob(raw);
       var s=JSON.parse(raw);
       if(s.PARTNERS) _fill(PARTNERS,s.PARTNERS);
       if(s.TEMPLATES) _fill(TEMPLATES,s.TEMPLATES);
@@ -11179,7 +11237,7 @@ function mergeDuplicateAgentsPrompt(){
 function save(){
   try{ _bdGrpCache=null; }catch(_){}
   var key=STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x');
-  var payload=JSON.stringify(_statePayload());
+  var payload=_bdPackBlob(JSON.stringify(_statePayload()));
   var ok=false;
   try{ localStorage.setItem(key, payload); ok=true; }
   catch(e){
@@ -11222,7 +11280,7 @@ function importBackup(input){
       var data=(obj && obj.data) ? obj.data : obj;
       if(!data || typeof data!=='object' || Array.isArray(data)){ alert('That file is not a valid BD backup.'); return; }
       if(!window.confirm('Replace all current BD data with this backup? This overwrites what is stored in this browser.')) return;
-      localStorage.setItem(STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'), JSON.stringify(data));
+      localStorage.setItem(STORE_KEY+':'+((window.SMB_TENANT||{}).tenantId||'x'), _bdPackBlob(JSON.stringify(data)));
       loadState();
       try{ publishPartnersSteward(); }catch(e){}
       try{ publishTemplatesSteward(); }catch(e){}
@@ -12894,7 +12952,6 @@ var BD_MS_AUTHORITY='https://login.microsoftonline.com/organizations';
 var BD_MS_SCOPES='openid profile offline_access User.Read Mail.Read Mail.Send Calendars.ReadWrite';
 var BD_MS_KEY='smb.bd.msauth';
 var BD_MS_SEEN_KEY='smb.bd.msseen.v2';
-var BD_MS_UNMATCHED_KEY='smb.bd.msunmatched.v1';
 var BD_MS_LASTOK_KEY='smb.bd.mslastok.v1';
 var _bdMsAuthExpired=false;
 var BD_MS_POLL_MS=5*60*1000;
@@ -13026,19 +13083,6 @@ function _bdMsWarnStrip(){
    permanently and invisibly. Unmatched inbound is now kept here, re-checked
    against the address index on every scan (so adding the address later picks
    the message up), and surfaced on the dashboard. */
-function _bdMsUnmatched(){ try{ var a=JSON.parse(localStorage.getItem(BD_MS_UNMATCHED_KEY)||'[]'); return a&&a.length?a:[]; }catch(e){ return []; } }
-function _bdMsSaveUnmatched(list){ try{ localStorage.setItem(BD_MS_UNMATCHED_KEY, JSON.stringify((list||[]).slice(0,200))); }catch(e){} }
-var BD_MS_DISMISSED_KEY='smb.bd.msdismissed.v1';
-var BD_MS_UNDISMISS_KEY='smb.bd.msundismiss.v1';
-/* Dismissed message ids stay dismissed: without this, a rescan re-reads the
-   year and parks the same unmatched mail again, so a Dismiss (or Dismiss all)
-   would not stick. The unknown-sender path checks this set before re-listing. */
-function _bdMsDismissed(){ try{ return JSON.parse(localStorage.getItem(BD_MS_DISMISSED_KEY)||'{}')||{}; }catch(e){ return {}; } }
-function _bdMsSaveDismissed(map){ try{ localStorage.setItem(BD_MS_DISMISSED_KEY, JSON.stringify(map||{})); }catch(e){} }
-function _bdMsMarkDismissed(ids){ var m=_bdMsDismissed(); (ids||[]).forEach(function(id){ if(id!=null) m[String(id)]=1; }); _bdMsSaveDismissed(m); }
-function _bdMsReadUndismiss(){ try{ return JSON.parse(localStorage.getItem(BD_MS_UNDISMISS_KEY)||'null'); }catch(e){ return null; } }
-function _bdMsWriteUndismiss(o){ try{ localStorage.setItem(BD_MS_UNDISMISS_KEY, JSON.stringify(o)); }catch(e){} }
-function _bdMsClearUndismiss(){ try{ localStorage.removeItem(BD_MS_UNDISMISS_KEY); }catch(e){} }
 function _bdMsLogInbound(rec, m){
   if(!rec) return false;
   if(!rec.act) rec.act=[];
@@ -13050,109 +13094,6 @@ function _bdMsLogInbound(rec, m){
     msgId:mid, graphId:(m.graphId||m.id||''), webLink:(m.webLink||''), receivedAt:when, loggedAt:new Date().toISOString() });
   if(!rec.lastContact) rec.lastContact=_bdMsLocalDate(when);
   return true;
-}
-function _bdMsSweepUnmatched(ix){
-  var list=_bdMsUnmatched(); if(!list.length) return 0;
-  var keep=[], n=0;
-  list.forEach(function(u){
-    var hit=ix[String(u.from||'').toLowerCase()];
-    if(hit && _bdMsLogInbound(hit.rec, u)){ n++; return; }
-    if(hit) return;
-    keep.push(u);
-  });
-  if(n||keep.length!==list.length) _bdMsSaveUnmatched(keep);
-  return n;
-}
-/* ---- unmatched replies surface ---- */
-function _bdMsUnmatchedBlock(){
-  var list=_bdMsUnmatched();
-  if(!list.length) return '';
-  var _thr=_bdBdThreadSubjSet();
-  var _f=list.filter(function(u){ return _thr[_bdSubjBase(u.subject||'')]; });
-  if(_f.length!==list.length){ _bdMsSaveUnmatched(_f); list=_f; }
-  if(!list.length) return '';
-  var rows=list.slice(0,8).map(function(u){
-    var when=u.receivedAt?_bdMsLocalDate(u.receivedAt):'';
-    return '<tr><td class="cell-firm" style="width:100%;min-width:180px"><span style="font-weight:600">'+_esc(u.name||u.from||'-')+'</span>'+
-      ' <span class="muted">'+_esc(u.from||'')+'</span></td>'+
-      '<td class="nowrap muted" style="padding-right:18px">'+_esc(when||'-')+'</td>'+
-      '<td class="muted nowrap" style="padding-right:18px"><div style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(u.subject||'')+'">'+_esc(u.subject||'-')+'</div></td>'+
-      '<td class="right nowrap" style="padding-right:16px"><div style="display:inline-flex;gap:8px;justify-content:flex-end">'+
-      '<button type="button" class="btn btn-sm" onclick="bdAttachUnmatched(\''+_esc(u.msgId)+'\')">Attach to contact</button>'+
-      '<button type="button" class="btn btn-sm" onclick="bdDismissUnmatched(\''+_esc(u.msgId)+'\')">Dismiss</button></div></td></tr>';
-  }).join('');
-  var _undis=_bdMsReadUndismiss();
-  var _hdBtns='<span style="display:inline-flex;gap:8px;align-items:center">'+
-    '<span class="card-hd-meta">'+list.length+' from an address not on any record</span>'+
-    '<button type="button" class="btn btn-sm" onclick="bdDismissAllUnmatched()">Dismiss all</button>'+
-    (_undis&&_undis.removed&&_undis.removed.length?('<button type="button" class="btn btn-sm" onclick="bdUndismissUnmatched()">Undo dismiss ('+_undis.removed.length+')</button>'):'')+
-    '</span>';
-  return '<div class="card" style="margin-bottom:14px"><div class="card-hd"><span class="card-title">Unmatched replies</span>'+_hdBtns+'</div>'+
-    '<div class="card-bd"><div class="muted">These arrived in your inbox but the sender address is not on any partner or lot agent. Attach one to a contact and it is logged as a reply on that record.</div></div>'+
-    '<div class="tbl-wrap"><table style="width:100%"><thead><tr><th scope="col" style="text-align:left;width:100%">From</th><th scope="col" style="text-align:left">Received</th><th scope="col" style="text-align:left">Subject</th><th scope="col"></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    (list.length>8?'<div class="card-bd" style="padding-top:0"><div class="muted">Showing 8 of '+list.length+'.</div></div>':'')+
-    '</div>';
-}
-function _bdUnmatchedFind(mid){ var l=_bdMsUnmatched(); for(var i=0;i<l.length;i++){ if(l[i]&&String(l[i].msgId)===String(mid)) return l[i]; } return null; }
-function bdDismissUnmatched(mid){
-  var full=_bdMsUnmatched();
-  var removed=full.filter(function(u){ return String(u.msgId)===String(mid); });
-  var l=full.filter(function(u){ return String(u.msgId)!==String(mid); });
-  _bdMsSaveUnmatched(l);
-  _bdMsMarkDismissed(removed.map(function(u){ return u.msgId; }));
-  _bdMsWriteUndismiss({at:new Date().toISOString(), removed:removed});
-  if(_curPage==='dashboard') renderDash();
-  if(typeof toastSuccess==='function') toastSuccess('Dismissed','That message will not be listed again. Undo is on the Unmatched replies card.');
-}
-function bdDismissAllUnmatched(){
-  var full=_bdMsUnmatched();
-  if(!full.length){ if(typeof toastInfo==='function') toastInfo('Nothing to dismiss','The unmatched list is already empty.'); return; }
-  _bdMsMarkDismissed(full.map(function(u){ return u.msgId; }));
-  _bdMsWriteUndismiss({at:new Date().toISOString(), removed:full.slice()});
-  _bdMsSaveUnmatched([]);
-  if(_curPage==='dashboard') renderDash();
-  if(typeof toastSuccess==='function') toastSuccess('Cleared', full.length+' unmatched message'+(full.length===1?'':'s')+' dismissed. They will not be listed again. Undo is on the Unmatched replies card.');
-}
-function bdUndismissUnmatched(){
-  var u=_bdMsReadUndismiss();
-  if(!u||!u.removed||!u.removed.length){ if(typeof toastInfo==='function') toastInfo('Nothing to undo','No dismiss has been run on this browser.'); return; }
-  var m=_bdMsDismissed(); u.removed.forEach(function(x){ if(x&&x.msgId!=null) delete m[String(x.msgId)]; }); _bdMsSaveDismissed(m);
-  var cur=_bdMsUnmatched(); var have={}; cur.forEach(function(x){ if(x&&x.msgId!=null) have[String(x.msgId)]=1; });
-  u.removed.forEach(function(x){ if(x&&x.msgId!=null&&!have[String(x.msgId)]) cur.push(x); });
-  cur.sort(function(a,b){ return String((b&&b.receivedAt)||'').localeCompare(String((a&&a.receivedAt)||'')); });
-  _bdMsSaveUnmatched(cur); _bdMsClearUndismiss();
-  if(_curPage==='dashboard') renderDash();
-  if(typeof toastSuccess==='function') toastSuccess('Restored', u.removed.length+' message'+(u.removed.length===1?'':'s')+' back on the Unmatched replies list.');
-}
-function bdAttachUnmatched(mid){
-  var u=_bdUnmatchedFind(mid); if(!u) return;
-  var opts=(PARTNERS||[]).map(function(p){
-    var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id);
-    return '<option value="'+_esc(n+' - '+(p.firm||''))+'"></option>';
-  }).join('');
-  var body='<div style="font-size:var(--fz-body);color:var(--txm);margin-bottom:10px">From '+_esc(u.name||u.from)+' ('+_esc(u.from)+')'+(u.subject?(', subject '+_esc(u.subject)):'')+'.</div>'+
-    '<label for="bd-um-pick" style="display:block;font-size:var(--fz-body);font-weight:600;margin-bottom:4px">Contact</label>'+
-    '<input id="bd-um-pick" list="bd-um-list" placeholder="Start typing a name" style="width:100%;padding:7px 12px;border:1px solid var(--brd);border-radius:6px;font-size:var(--fz-body);font-family:inherit;background:var(--sur);color:var(--txt)">'+
-    '<datalist id="bd-um-list">'+opts+'</datalist>'+
-    '<div style="font-size:var(--fz-body);color:var(--txm);margin-top:10px">The sender address is saved on that contact so future mail from it matches automatically.</div>';
-  openModal({title:'Attach reply to a contact', body:body, saveLabel:'Attach', onSave:function(){
-    var el=document.getElementById('bd-um-pick'); var want=String(el&&el.value||'').trim();
-    if(!want){ modalErr('Pick a contact.'); return; }
-    var target=null;
-    (PARTNERS||[]).forEach(function(p){
-      var n=((p.cf||'')+' '+(p.cl||'')).trim()||p.firm||('Partner '+p.id);
-      if(!target && (n+' - '+(p.firm||''))===want) target=p;
-    });
-    if(!target){ modalErr('Pick a contact from the list.'); return; }
-    if(!String(target.email||'').trim()) target.email=u.from;
-    else if(String(target.email||'').trim().toLowerCase()!==String(u.from).toLowerCase() && !String(target.altEmail||'').trim()) target.altEmail=u.from;
-    _bdMsLogInbound(target, u);
-    _bdMsSaveUnmatched(_bdMsUnmatched().filter(function(x){ return String(x.msgId)!==String(mid); }));
-    try{ if(typeof publishPartnersSteward==='function') publishPartnersSteward(); }catch(e){}
-    save(); closeModal();
-    if(_curPage==='dashboard') renderDash();
-    if(typeof toastSuccess==='function') toastSuccess('Reply attached',((target.cf||'')+' '+(target.cl||'')).trim()+' now shows this reply, and '+u.from+' is saved on the record.');
-  }});
 }
 function _bdMsEmailIndex(){
   var ix={};
@@ -13173,8 +13114,6 @@ function _bdMsLocalDate(iso){
   try{ var d=new Date(iso); var m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return d.getFullYear()+'-'+m+'-'+day; }catch(e){ return _today(); }
 }
 function _bdMsProcessMessages(msgs, ix, seen){
-  var _re=_bdMsSweepUnmatched(ix);
-  var _thr=_bdBdThreadSubjSet();
   // Log any inbound message from a known partner/lot address that is not already
   // on that record. Dedupe is by msgId ON THE RECORD (the source of truth), not
   // by the seen-list: a message the seen-list marked but that never actually got
@@ -13186,24 +13125,7 @@ function _bdMsProcessMessages(msgs, ix, seen){
     var from=(m.from&&m.from.emailAddress&&m.from.emailAddress.address||'').toLowerCase();
     if(!from){ seen[mid]=1; return; }
     var hit=ix[from];
-    if(!hit){
-      /* Unknown sender: remember the message itself, not just its id, so it can
-         be attached to a contact later or picked up automatically once the
-         address is added. Marking it seen alone lost real replies. */
-      seen[mid]=1;
-      if(!_thr[_bdSubjBase(m.subject||'')]) return; // not a reply to a BD outreach thread -> ignore, do not clutter the queue
-      if(_bdMsDismissed()[String(mid)]) return;
-      var _um=_bdMsUnmatched(), _have=false;
-      for(var _i=0;_i<_um.length;_i++){ if(_um[_i]&&_um[_i].msgId===mid){ _have=true; break; } }
-      if(!_have){
-        _um.unshift({ msgId:mid, from:from,
-          name:((m.from&&m.from.emailAddress&&m.from.emailAddress.name)||''),
-          subject:(m.subject||''), preview:String(m.bodyPreview||'').slice(0,300),
-          receivedAt:(m.receivedDateTime||''), webLink:(m.webLink||''), graphId:(m.id||'') });
-        _bdMsSaveUnmatched(_um);
-      }
-      return;
-    }
+    if(!hit){ seen[mid]=1; return; } // unknown sender: skip (matched partners only)
     var rec=hit.rec;
     if(!rec.act) rec.act=[];
     var dup=false;
@@ -13225,18 +13147,6 @@ function _bdMsProcessMessages(msgs, ix, seen){
   return logged+_re;
 }
 function _bdSubjBase(s){ return String(s||'').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i,'').trim().toLowerCase(); }
-/* Set of base subjects for threads BD actually started (real outbound sends,
-   not passive synced mailbox history). Used to keep the Unmatched replies queue
-   to genuine replies-to-our-outreach from an unrecognised address, instead of
-   the entire inbox - newsletters, event invites, internal staff (Dave,
-   2026-09-04, after 200 unrelated emails surfaced). */
-function _bdBdThreadSubjSet(){
-  var set={};
-  function scan(list){ (list||[]).forEach(function(r){ (r&&r.act||[]).forEach(function(a){ if(a && !a.inbound && a.type==='Email' && !(a.synced && !a.bdTouch)){ var b=_bdSubjBase(a.subj); if(b) set[b]=1; } }); }); }
-  try{ scan(typeof PARTNERS!=='undefined'?PARTNERS:[]); }catch(e){}
-  try{ scan(typeof PROSPECTS!=='undefined'?PROSPECTS:[]); }catch(e){}
-  return set;
-}
 /* A thread 'originated in BDM' when the record carries an earlier deliberate
    BD send (non-synced or bdTouch) with the same base subject. Replies the user
    sends from Outlook inside such a thread score on the scorecard exactly like
@@ -13366,11 +13276,10 @@ function bdMsRescan(){
       try{ localStorage.removeItem(BD_MS_SEEN_KEY); }catch(e){}
       if(typeof toastInfo==='function') toastInfo('Rescanning','Reading your inbox. This can take a moment.');
       bdMsCheckNow().then(function(n){
-        var um=_bdMsUnmatched().length;
         try{ save(); }catch(e){}
         if(_curPage==='dashboard') renderDash();
         if(typeof toastSuccess==='function') toastSuccess('Rescan complete',
-          (n||0)+' message'+((n||0)===1?'':'s')+' logged'+(um?(', '+um+' unmatched reply'+(um===1?'':'ies')+' waiting on the dashboard'):'')+'.');
+          (n||0)+' message'+((n||0)===1?'':'s')+' logged.');
       }).catch(function(e){
         if(typeof toastError==='function') toastError('Rescan failed', e&&e.message?e.message:String(e));
       });
@@ -13844,6 +13753,10 @@ else init();
   var lastInputTs   = 0;
   var origSet = null;
   var booted  = false;
+  // localStorage holds compressed (LZ1:/RAW:); Firebase + all merge/stamp logic
+  // work on decompressed JSON. Uses the module's codec (Dave, 2026-09-04).
+  var pack   = (window._bdPackBlob   || function(s){ return s; });
+  var unpack = (window._bdUnpackBlob || function(s){ return s; });
 
   function badge(kind, text){
     try{
@@ -13971,16 +13884,16 @@ else init();
     try{
       if(!remoteRaw) return false;
       var localRaw = null;
-      try{ localRaw = localStorage.getItem(KEY); }catch(e){}
+      try{ var lp=localStorage.getItem(KEY); localRaw = (lp==null?null:unpack(lp)); }catch(e){}
       if(remoteRaw===localRaw) return false;
       if(!localRaw){
-        // Nothing local: take remote wholesale.
-        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, remoteRaw); }catch(e){ try{ localStorage.setItem(KEY, remoteRaw); }catch(_){ } }
+        // Nothing local: take remote wholesale (store compressed).
+        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, pack(remoteRaw)); }catch(e){ try{ localStorage.setItem(KEY, pack(remoteRaw)); }catch(_){ } }
       } else {
         var merged=_mergeStates(localRaw, remoteRaw);
         if(merged===localRaw) return false;   // nothing new to adopt
-        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, merged); }catch(e){ try{ localStorage.setItem(KEY, merged); }catch(_){ } }
-        // Push the merged copy so the cloud converges (both sides' edits).
+        try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, pack(merged)); }catch(e){ try{ localStorage.setItem(KEY, pack(merged)); }catch(_){ } }
+        // Push the merged copy (decompressed) so the cloud converges.
         try{ if(typeof merged==='string' && merged!==lastPushedRaw){ push(merged); } }catch(e){}
       }
       if(typeof window.loadState==='function'){
@@ -14001,9 +13914,10 @@ else init();
       origSet(k, v);
       if(k===KEY && booted){
         try{
-          var raw=stamp(v);
-          if(raw!==v){ origSet(KEY, raw); } // persist the stamped version locally too
-          if(raw!==lastPushedRaw) push(raw);
+          var json=unpack(v);            // decompress what the module just wrote
+          var raw=stamp(json);           // decompressed JSON, with savedAt
+          origSet(KEY, pack(raw));       // re-persist locally, compressed, stamped
+          if(raw!==lastPushedRaw) push(raw); // push decompressed JSON to Firebase
         }catch(e){}
       }
     };
@@ -14015,8 +13929,8 @@ else init();
   window.bdForcePushToCloud=function(){
     try{
       var raw=localStorage.getItem(KEY); if(!raw) return false;
-      var o=parse(raw)||{}; o.savedAt=new Date().toISOString(); var stamped=JSON.stringify(o);
-      try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, stamped); }catch(e){}
+      var o=parse(unpack(raw))||{}; o.savedAt=new Date().toISOString(); var stamped=JSON.stringify(o);
+      try{ (origSet||localStorage.setItem.bind(localStorage))(KEY, pack(stamped)); }catch(e){}
       lastPushedRaw=null;            // ensure push is not suppressed as a no-op
       push(stamped);
       flash('sync','Pushed your data to the team',1600);
@@ -14030,7 +13944,7 @@ else init();
       var adopted=adopt(remoteRaw);
       // If shared is empty, seed it from this browser so the other computer can pull.
       if(!remoteRaw){
-        try{ var lr=localStorage.getItem(KEY); if(lr){ push(stamp(lr)); } }catch(e){}
+        try{ var lr=localStorage.getItem(KEY); if(lr){ push(stamp(unpack(lr))); } }catch(e){}
       }
       booted=true;
       rest();
