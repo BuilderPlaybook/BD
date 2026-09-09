@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-52</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-54</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-52';
+var BD_BUILD='bd-2026-09-09-54';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -6059,8 +6059,12 @@ function _logEmailReply(kind,id){
     ctx.arr.unshift(a); ctx.applyLast(a.d); if(ctx.setReply) ctx.setReply(true,a.d); ctx.persist(); try{ orFreezeFor(kind,id); }catch(e){} closeModal(); ctx.rerender();
   }});
 }
+/* True email time for ordering/display: the real received/sent time from
+   Outlook, not loggedAt (which is the scan time and clusters when a batch syncs
+   at once, throwing the thread out of order) (Dave, 2026-09-09). */
+function _emailRealTs(a){ return (a&&(a.receivedAt||a.sentAt||a.sentDateTime||a.loggedAt||a.d))||''; }
 function _emailThreadCard(kind,id,acts,name,email){
-  var emails=(acts||[]).filter(function(a){ return a.type==='Email'; }).slice().sort(function(a,b){ return new Date(b.loggedAt||b.d)-new Date(a.loggedAt||a.d); });
+  var emails=(acts||[]).filter(function(a){ return a.type==='Email'; }).slice().sort(function(a,b){ return new Date(_emailRealTs(b))-new Date(_emailRealTs(a)); });
   var btns='';
   /* Reply in-thread: open the newest received message in Outlook by its
      webLink. Replying from there keeps the conversation threaded, instead of
@@ -6077,7 +6081,7 @@ function _emailThreadCard(kind,id,acts,name,email){
   } else {
     inner=emails.map(function(a){
       var dir=a.inbound?'<span class="chip c-grn">Received</span>':'<span class="chip c-blu">Sent</span>';
-      var when=a.loggedAt?fmtDateTime(a.loggedAt):fmtDate(a.d);
+      var _ets=_emailRealTs(a); var when=_ets?fmtDateTime(_ets):fmtDate(a.d);
       var mark='';
       if(!a.inbound && a.synced){
         var ref=_esc(String(a.msgId||a.loggedAt||''));
@@ -12990,16 +12994,13 @@ function _bdMsRandom(n){
   return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 function bdMsConnect(){
-  // Temporary guaranteed-visible feedback while we isolate why sign-in appears
-  // to do nothing (Dave, 2026-09-09). alert() cannot be swallowed like a toast.
   try{
     if(!(window.crypto && window.crypto.subtle)){
-      alert('Cannot start Outlook sign-in: this page is not in a secure (https) context. Open https://builderplaybook.github.io/BD/ directly, then try again.');
+      if(typeof toastError==='function') toastError('Cannot start sign-in','This page must be loaded over https.');
       return;
     }
     var verifier=_bdMsRandom(64);
-    try{ sessionStorage.setItem('smb.bd.pkce', verifier); }
-    catch(e){ alert('Cannot start Outlook sign-in: the browser is blocking storage (private mode or cookies blocked). '+((e&&e.message)||e)); return; }
+    try{ sessionStorage.setItem('smb.bd.pkce', verifier); }catch(e){}
     if(typeof toastInfo==='function') toastInfo('Opening Microsoft sign-in','Redirecting to Outlook...');
     crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(buf){
       var challenge=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -13013,10 +13014,10 @@ function bdMsConnect(){
         +'&code_challenge_method=S256';
       window.location.href=u;
     }).catch(function(e){
-      alert('Outlook sign-in could not start (security step failed): '+((e&&e.message)||e||'unknown'));
+      if(typeof toastError==='function') toastError('Sign-in could not start', String((e&&e.message)||e||'unknown'));
     });
   }catch(e){
-    alert('Outlook sign-in could not start: '+((e&&e.message)||e||'unknown'));
+    if(typeof toastError==='function') toastError('Sign-in could not start', String((e&&e.message)||e||'unknown'));
   }
 }
 function bdMsDisconnect(){ _bdMsClear(); if(_bdMsPollTimer){ clearInterval(_bdMsPollTimer); _bdMsPollTimer=null; } _bdMsPaintStatus(); if(typeof toastInfo==='function') toastInfo('Outlook disconnected','Inbox checking is off.'); }
@@ -13464,7 +13465,7 @@ function bdMsCheckNow(){
         if(total){
           if(typeof toastSuccess==='function') toastSuccess('Replies synced', total+' new '+(total===1?'reply':'replies')+' from your Inbox logged.');
         }
-        try{ if(typeof state!=='undefined' && state.page==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
+        try{ if(typeof _curPage!=='undefined' && _curPage==='dashboard' && typeof renderDash==='function') renderDash(); }catch(e){}
         _bdMsPaintStatus();
         return total;
       })
