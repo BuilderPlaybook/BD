@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-49</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-50</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-49';
+var BD_BUILD='bd-2026-09-09-50';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -4266,6 +4266,13 @@ function _lotArchToggle(address,price){ var k=_lotAddrKeyOf(address); if(!k) ret
 /* Sold / off-market lots. Keyed like LOT_TYPES/LOT_ARCH (address+price). Set by
    the feed reconcile when a scraper-sourced lot drops out of a healthy feed. */
 var LOT_OFFMARKET = {};
+/* New-lot tracking (Dave, 2026-09-09). LOT_FIRSTSEEN maps a normalized lot
+   address to the date it first appeared in a lot-feed refresh; LOT_LAST_REFRESH
+   is the date of the most recent refresh. A lot is "new to BD" when its
+   first-seen equals the last refresh. Seeded on the first refresh with the real
+   list date so the whole existing set is not falsely flagged new. */
+var LOT_FIRSTSEEN = {};
+var LOT_LAST_REFRESH = '';
 var BD_DISMISS = {rep:{},fu:{}};
 var _lotReconcileNote = null;
 function _lotAddrKeyOf(address){ return String(address||'').toLowerCase().replace(/\|/g,', ').replace(/\s+/g,' ').trim(); }
@@ -4288,7 +4295,12 @@ function _lotEmailedDate(r){
   });
   return best;
 }
-function _lotIsNew(r){ if(!r.listed) return false; var t=new Date(r.listed+'T00:00:00').getTime(); if(isNaN(t)) return false; return (Date.now()-t) <= 7*24*3600*1000; }
+function _lotIsNew(r){
+  // New = brand new to BD (first seen on the most recent refresh) OR recently
+  // listed (real MLS list date within 14 days).
+  try{ var k=_lotAddrKeyOf(r.address); if(k && LOT_LAST_REFRESH && LOT_FIRSTSEEN[k]===LOT_LAST_REFRESH) return true; }catch(e){}
+  if(!r.listed) return false; var t=new Date(r.listed+'T00:00:00').getTime(); if(isNaN(t)) return false; return (Date.now()-t) <= 14*24*3600*1000;
+}
 function _lotDom(r){ if(!r.listed) return null; var t=new Date(r.listed+'T00:00:00').getTime(); if(isNaN(t)) return null; var dd=Math.floor((Date.now()-t)/86400000); return dd<0?0:dd; }
 
 var PROSPECT_FILTER = {type:'all',status:'all'};
@@ -6868,6 +6880,16 @@ function refreshLotFeed(silent){
     }
     if(!newest && rows.length){ newest=_today(); }
     var res=_lotAgentMergeRows(rows);
+    // Stamp first-seen per lot + the last-refresh date so the New badge can flag
+    // lots that first appeared on this pull. First refresh seeds existing lots
+    // with their real list date (not today) so they are not all flagged new.
+    try{
+      var _seeded=!!LOT_LAST_REFRESH; LOT_LAST_REFRESH=_today();
+      rows.forEach(function(a){ (a.portfolio||[]).forEach(function(l){
+        var k=_lotAddrKeyOf(l.address); if(!k||LOT_FIRSTSEEN[k]) return;
+        LOT_FIRSTSEEN[k]=_seeded?_today():((String(l.listDate||'').slice(0,10))||'2000-01-01');
+      }); });
+    }catch(e){}
     _lotReconcileNote=null; _lotFeedReconcile(rows);
     if(newest){ LOT_FEED_UPDATED=newest; try{ localStorage.setItem(_tkey('bd_lot_feed_updated'), newest); }catch(e){} }
     try{ localStorage.setItem(_tkey('bd_lot_feed_pulled'), new Date().toISOString()); }catch(e){}
@@ -10843,6 +10865,8 @@ function loadState(){
       if(s.LOT_TYPES&&typeof s.LOT_TYPES==='object'){ LOT_TYPES={}; for(var _lk in s.LOT_TYPES){ var _lv=s.LOT_TYPES[_lk]; if(_lv==='res'||_lv==='com'){ var _lk2=_lk.split('|')[0].trim(); LOT_TYPES[_lk2||_lk]=_lv; } } }
       if(s.LOT_ARCH&&typeof s.LOT_ARCH==='object'){ LOT_ARCH={}; for(var _ak in s.LOT_ARCH){ if(s.LOT_ARCH[_ak]){ var _ak2=_ak.split('|')[0].trim(); LOT_ARCH[_ak2||_ak]=1; } } }
       if(s.LOT_OFFMARKET&&typeof s.LOT_OFFMARKET==='object'){ LOT_OFFMARKET={}; for(var _omk in s.LOT_OFFMARKET){ if(s.LOT_OFFMARKET[_omk]) LOT_OFFMARKET[_omk]=s.LOT_OFFMARKET[_omk]; } }
+      if(s.LOT_FIRSTSEEN&&typeof s.LOT_FIRSTSEEN==='object') LOT_FIRSTSEEN=s.LOT_FIRSTSEEN;
+      if(typeof s.LOT_LAST_REFRESH==='string') LOT_LAST_REFRESH=s.LOT_LAST_REFRESH;
       if(s.BD_DISMISS&&typeof s.BD_DISMISS==='object'){ BD_DISMISS={rep:(s.BD_DISMISS.rep&&typeof s.BD_DISMISS.rep==='object')?s.BD_DISMISS.rep:{}, fu:(s.BD_DISMISS.fu&&typeof s.BD_DISMISS.fu==='object')?s.BD_DISMISS.fu:{}}; }
       if(typeof s.BD_SIGNATURE==='string'){ BD_SIGNATURE=s.BD_SIGNATURE; }
       if(typeof s.BD_SIGNATURE_HTML==='string'){ BD_SIGNATURE_HTML=s.BD_SIGNATURE_HTML; }
@@ -10908,7 +10932,7 @@ function pullFromMarketing(){
 function _statePayload(){
   return {_v:BD_STORAGE_VERSION,savedAt:new Date().toISOString(),EMAIL_SIGNATURE:EMAIL_SIGNATURE,PARTNERS:PARTNERS,TEMPLATES:TEMPLATES,CHANNELS:CHANNELS,
     CHANNEL_TOUCHES:CHANNEL_TOUCHES,PROSPECTS:PROSPECTS,PERMIT_PULLS:PERMIT_PULLS,
-    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,BD_BOOK_LINKS:BD_BOOK_LINKS,BOOK_FUP:BOOK_FUP,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,BD_DISMISS:BD_DISMISS,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
+    PULL_ACTIVITY:PULL_ACTIVITY,LOT_AGENT_KEYS:LOT_AGENT_KEYS,BD_GOALS:BD_GOALS,BD_SC_PLANS:BD_SC_PLANS,BD_SC_LOG:BD_SC_LOG,BD_MEAS_CFG:BD_MEAS_CFG,BD_MEAS_OV:BD_MEAS_OV,teamsRegistry:teamsRegistry,BD_EVENTS:BD_EVENTS,BD_TEAM:BD_TEAM,OUTREACH:OUTREACH,BD_BOOK_LINKS:BD_BOOK_LINKS,BOOK_FUP:BOOK_FUP,LOT_TYPES:LOT_TYPES,LOT_ARCH:LOT_ARCH,LOT_OFFMARKET:LOT_OFFMARKET,LOT_FIRSTSEEN:LOT_FIRSTSEEN,LOT_LAST_REFRESH:LOT_LAST_REFRESH,BD_DISMISS:BD_DISMISS,BD_SIGNATURE:BD_SIGNATURE,BD_SIGNATURE_HTML:BD_SIGNATURE_HTML,BD_SIGNATURE_ATTS:BD_SIGNATURE_ATTS};
 }
 function _lotDedupeNormName(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,' ').replace(/\s+/g,' ').trim(); }
 function _lotDedupeScore(p){
