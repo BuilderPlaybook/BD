@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-50</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-51</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-50';
+var BD_BUILD='bd-2026-09-09-51';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -12990,20 +12990,31 @@ function _bdMsRandom(n){
   return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 function bdMsConnect(){
-  var verifier=_bdMsRandom(64);
-  try{ sessionStorage.setItem('smb.bd.pkce', verifier); }catch(e){}
-  crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(buf){
-    var challenge=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    var u=BD_MS_AUTHORITY+'/oauth2/v2.0/authorize'
-      +'?client_id='+encodeURIComponent(BD_MS_CLIENT_ID)
-      +'&response_type=code'
-      +'&redirect_uri='+encodeURIComponent(_bdMsRedirectUri())
-      +'&response_mode=query'
-      +'&scope='+encodeURIComponent(BD_MS_SCOPES)
-      +'&code_challenge='+challenge
-      +'&code_challenge_method=S256';
-    location.assign(u);
-  });
+  try{
+    if(!(window.crypto && window.crypto.subtle)){
+      if(typeof toastError==='function') toastError('Cannot start sign-in','This page must be loaded over https. Open the deployed BD site (not a local file), then try again.');
+      return;
+    }
+    if(typeof toastInfo==='function') toastInfo('Opening Microsoft sign-in','Redirecting to Outlook to reconnect...');
+    var verifier=_bdMsRandom(64);
+    try{ sessionStorage.setItem('smb.bd.pkce', verifier); }catch(e){}
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(buf){
+      var challenge=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      var u=BD_MS_AUTHORITY+'/oauth2/v2.0/authorize'
+        +'?client_id='+encodeURIComponent(BD_MS_CLIENT_ID)
+        +'&response_type=code'
+        +'&redirect_uri='+encodeURIComponent(_bdMsRedirectUri())
+        +'&response_mode=query'
+        +'&scope='+encodeURIComponent(BD_MS_SCOPES)
+        +'&code_challenge='+challenge
+        +'&code_challenge_method=S256';
+      location.assign(u);
+    }).catch(function(e){
+      if(typeof toastError==='function') toastError('Sign-in could not start', String((e&&e.message)||e||'unknown error'));
+    });
+  }catch(e){
+    if(typeof toastError==='function') toastError('Sign-in could not start', String((e&&e.message)||e||'unknown error'));
+  }
 }
 function bdMsDisconnect(){ _bdMsClear(); if(_bdMsPollTimer){ clearInterval(_bdMsPollTimer); _bdMsPollTimer=null; } _bdMsPaintStatus(); if(typeof toastInfo==='function') toastInfo('Outlook disconnected','Inbox checking is off.'); }
 function _bdMsTokenRequest(bodyParams){
@@ -13019,7 +13030,7 @@ function _bdMsHandleRedirect(){
     if(!code) return;
     var verifier=null; try{ verifier=sessionStorage.getItem('smb.bd.pkce'); }catch(e){}
     history.replaceState(null,'',location.pathname);
-    if(!verifier) return;
+    if(!verifier){ if(typeof toastError==='function') toastError('Sign-in did not complete','The security check was lost on the way back. Click Reconnect Outlook and finish in the same browser tab.'); return; }
     _bdMsTokenRequest({
       client_id:BD_MS_CLIENT_ID, grant_type:'authorization_code', code:code,
       redirect_uri:_bdMsRedirectUri(), code_verifier:verifier
@@ -13039,6 +13050,8 @@ function _bdMsHandleRedirect(){
         if(typeof toastError==='function') toastError('Outlook sign-in failed', ((t&&t.error_description)||'unknown').slice(0,140));
         else alert('Outlook sign-in failed: '+((t&&t.error_description)||'unknown').slice(0,140));
       }
+    }).catch(function(e){
+      if(typeof toastError==='function') toastError('Outlook sign-in failed','Could not reach Microsoft to finish signing in. Check your connection and click Reconnect Outlook again.');
     });
   }catch(e){}
 }
