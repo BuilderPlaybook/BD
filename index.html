@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-48</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-49</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-48';
+var BD_BUILD='bd-2026-09-09-49';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -13337,12 +13337,11 @@ function bdMsCheckNow(){
     var sentUrl='https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages'
       +'?$top=50&$orderby=sentDateTime desc'
       +'&$select=id,internetMessageId,subject,bodyPreview,toRecipients,ccRecipients,sentDateTime';
-    // Minimal, maximally-compatible fallback: some tenants reject one of the
-    // $select fields above (e.g. internetMessageId) with a 400, which the old
-    // .catch swallowed silently so sent replies never logged (Dave, 2026-09-09).
+    // Bulletproof fallback: no $select at all, so no field can be rejected by
+    // the tenant. Graph returns default fields (id, subject, toRecipients,
+    // bodyPreview, sentDateTime) which is everything the logger needs.
     var sentUrlMin='https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages'
-      +'?$top=50&$orderby=sentDateTime desc'
-      +'&$select=id,subject,toRecipients,ccRecipients,sentDateTime';
+      +'?$top=50&$orderby=sentDateTime desc';
     function fetchSent(url, pagesLeft, isRetry){
       return fetch(url,{headers:{Authorization:'Bearer '+tok}})
         .then(function(r){ if(!r.ok){ throw new Error('Graph '+r.status); } return r.json(); })
