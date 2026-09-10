@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-56</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-58</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-56';
+var BD_BUILD='bd-2026-09-09-58';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -12077,7 +12077,13 @@ function _bdRepliesAwaiting(){
       if(t==null || isNaN(t)){ t=new Date(a.d).getTime(); }
       if(isNaN(t)) return;
       if(a.inbound){ if(lastIn===null||t>lastIn.t) lastIn={t:t,a:a}; }
-      else if(a.type!=='Created'){ if(lastOut===null||t>lastOut) lastOut=t; }
+      /* Only an outbound EMAIL answers an inbound email. Calendar bookings,
+         calls and notes must not clear this list: a synced Meeting's time is
+         the scan time and jumps on every calendar sync, which made a booked
+         meeting look like a fresh reply and silently dropped the partner
+         (Dave, 2026-09-09). Dismiss and Reply both log an Email, so they still
+         clear it. */
+      else if(a.type==='Email'){ if(lastOut===null||t>lastOut) lastOut=t; }
     });
     if(lastIn && (lastOut===null || lastOut<lastIn.t)){
       out.push({p:p, kind:(kind||'partner'), when:lastIn.a.d, subj:lastIn.a.subj||'', wait:daysSince(lastIn.a.d)});
@@ -13085,6 +13091,10 @@ function _bdMsToken(){
 }
 function _bdMsSeen(){ try{ return JSON.parse(localStorage.getItem(BD_MS_SEEN_KEY)||'{}'); }catch(e){ return {}; } }
 function _bdMsMarkSeen(map){ try{ localStorage.setItem(BD_MS_SEEN_KEY, JSON.stringify(map)); }catch(e){} }
+var BD_MS_LASTERR_KEY='smb.bd.mslasterr.v1';
+function _bdMsLastErr(){ try{ var v=JSON.parse(localStorage.getItem(BD_MS_LASTERR_KEY)||'null'); return (v&&v.err)?v:null; }catch(e){ return null; } }
+function _bdMsSetLastErr(err){ try{ localStorage.setItem(BD_MS_LASTERR_KEY, JSON.stringify({at:new Date().toISOString(), err:String((err&&err.message)||err||'unknown').slice(0,200)})); }catch(e){} }
+function _bdMsClearLastErr(){ try{ localStorage.removeItem(BD_MS_LASTERR_KEY); }catch(e){} }
 function _bdMsLastOk(){ try{ return localStorage.getItem(BD_MS_LASTOK_KEY)||''; }catch(e){ return ''; } }
 function _bdMsLastOkMs(){ var s=_bdMsLastOk(); if(!s) return 0; var t=new Date(s).getTime(); return isNaN(t)?0:t; }
 /* Sync is unhealthy when the browser holds a Microsoft token object (so the
@@ -13109,7 +13119,8 @@ function _bdMsDownBanner(){
   if(!_bdMsIsDown()) return '';
   var t=_bdMsLastOkMs();
   var ago=t?Math.round((Date.now()-t)/3600000):null;
-  var why=_bdMsAuthExpired?'Your Outlook sign-in has expired.':(ago==null?'Outlook has not been checked yet in this browser.':('Last successful pull was '+ago+' hour'+(ago===1?'':'s')+' ago.'));
+  var _le=_bdMsLastErr();
+  var why=_bdMsAuthExpired?'Your Outlook sign-in has expired.':(_le?('Last check failed: '+_le.err+'.'):(ago==null?'Outlook has not been checked yet in this browser.':('Last successful pull was '+ago+' hour'+(ago===1?'':'s')+' ago.')));
   return '<div class="card" style="margin-bottom:14px;border-color:var(--red)"><div class="card-hd"><span class="card-title"><span class="chip c-red" style="margin-right:8px">Logging down</span>Outlook is not logging email or bookings</span>'+
     '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-primary btn-sm" onclick="openBdSettings()">Reconnect Outlook</button><button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>'+
     '<div class="card-bd"><div class="muted">'+_esc(why)+' Replies, sent mail, and calendar bookings are not being logged until this is fixed. Reconnect, then Check now to pull everything since the last successful sync.</div></div></div>';
@@ -13465,7 +13476,8 @@ function bdMsCheckNow(){
         // Always persist: sent-folder body-fills change data even when no new inbound.
         try{ _bdGrpCache=null; }catch(e){}
         try{ save(); }catch(e){}
-        try{ localStorage.setItem(BD_MS_LASTOK_KEY, new Date().toISOString()); }catch(e){}
+        var _okWrote=false; try{ localStorage.setItem(BD_MS_LASTOK_KEY, new Date().toISOString()); _okWrote=true; }catch(e){ _bdMsSetLastErr('Storage full: could not record the successful check ('+((e&&e.name)||'error')+'). Free browser storage.'); }
+        if(_okWrote) _bdMsClearLastErr();
         _bdMsAuthExpired=false;
         if(total){
           if(typeof toastSuccess==='function') toastSuccess('Replies synced', total+' new '+(total===1?'reply':'replies')+' from your Inbox logged.');
@@ -13476,7 +13488,9 @@ function bdMsCheckNow(){
       })
       .catch(function(err){
         _bdMsMarkSeen(seen);
+        _bdMsSetLastErr(err);
         _bdMsPaintStatus(String(err&&err.message||''));
+        try{ if(typeof _curPage!=='undefined'&&_curPage==='dashboard'&&typeof renderDash==='function') renderDash(); }catch(e){}
         return logged;
       });
   });
@@ -13645,6 +13659,13 @@ function _bdMsPaintStatus(errText){
         btns.innerHTML='<div class="muted" style="font-size:var(--fz-xs);margin-bottom:6px">Your Microsoft session ('+acct+') expired, so new replies are not syncing. Reconnect to resume.</div>'+
           '<button class="integ-btn" onclick="bdMsConnect()">Reconnect Outlook</button> '+
           '<button class="integ-btn" onclick="bdMsDisconnect()">Disconnect</button>';
+      } else if(_bdMsLastErr() || !_bdMsLastOk()){
+        var _le=_bdMsLastErr();
+        st.textContent=_le?'Connected, but checks are failing':'Connected, no check has succeeded yet'; st.className='integ-status pending';
+        btns.innerHTML='<div class=\"muted\" style=\"font-size:var(--fz-xs);margin-bottom:6px\">Signed in as '+acct+'. '+(_le?('Last check failed: '+_esc(_le.err)+'.'):'No email check has completed in this browser yet.')+' Click Check now; if it keeps failing, Disconnect and Reconnect.</div>'+
+          '<button class=\"integ-btn\" onclick=\"bdMsCheckNowManual()\">Check now</button> '+
+          '<button class=\"integ-btn\" onclick=\"bdMsConnect()\">Reconnect Outlook</button> '+
+          '<button class=\"integ-btn\" onclick=\"bdMsDisconnect()\">Disconnect</button>';
       } else {
         st.textContent='Connected: '+acct; st.className='integ-status live';
         btns.innerHTML='<button class="integ-btn" onclick="bdMsCheckNowManual()">Check now</button> '+
