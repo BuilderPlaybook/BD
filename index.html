@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-54</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-55</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-54';
+var BD_BUILD='bd-2026-09-09-55';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -13106,7 +13106,7 @@ function _bdMsDownBanner(){
   var ago=t?Math.round((Date.now()-t)/3600000):null;
   var why=_bdMsAuthExpired?'Your Outlook sign-in has expired.':(ago==null?'Outlook has not been checked yet in this browser.':('Last successful pull was '+ago+' hour'+(ago===1?'':'s')+' ago.'));
   return '<div class="card" style="margin-bottom:14px;border-color:var(--red)"><div class="card-hd"><span class="card-title"><span class="chip c-red" style="margin-right:8px">Logging down</span>Outlook is not logging email or bookings</span>'+
-    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-primary btn-sm" onclick="bdMsConnect()">Reconnect Outlook</button><button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>'+
+    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-primary btn-sm" onclick="openBdSettings()">Reconnect Outlook</button><button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>'+
     '<div class="card-bd"><div class="muted">'+_esc(why)+' Replies, sent mail, and calendar bookings are not being logged until this is fixed. Reconnect, then Check now to pull everything since the last successful sync.</div></div></div>';
 }
 function _bdMsWarnStrip(){
@@ -13116,7 +13116,7 @@ function _bdMsWarnStrip(){
   return '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:2px 0">'+
     '<span class="chip c-amb" role="status">Sync needs attention</span>'+
     '<span class="muted" style="font-size:var(--fz-body)">'+_esc(msg)+' Last successful check: '+_esc(when)+'.</span>'+
-    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-sm" onclick="bdMsConnect()">Reconnect Outlook</button>'+
+    '<span style="display:inline-flex;gap:8px"><button type="button" class="btn btn-sm" onclick="openBdSettings()">Reconnect Outlook</button>'+
     '<button type="button" class="btn btn-sm" onclick="bdMsCheckNowManual()">Check now</button></span></div>';
 }
 /* Inbound mail from an address that is not on any record used to be marked
