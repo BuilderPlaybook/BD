@@ -1438,7 +1438,7 @@ td:hover > .sc-note-pop{display:block}
       <button class="sb-hamburger" id="sb-hamburger" onclick="mktgToggleSidebar()" aria-label="Toggle navigation" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="tb-org">
         <div class="tb-org-mk" id="tb-org-mk">&nbsp;</div>
-        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-55</span></div></div>
+        <div><div class="tb-org-name" id="tb-org-name">&nbsp;</div><div class="tb-org-sub" id="tb-org-sub">BD <span id="bd-build-badge" title="Deployed build" style="color:var(--txd);font-weight:600">&middot; bd-2026-09-09-56</span></div></div>
       </div>
     </div>
     <div class="tb-c"><div class="bd-gsearch-wrap"><input id="bd-gsearch" class="bd-gsearch" type="text" placeholder="Search partners, opportunities, prospects" oninput="bdGlobalSearch(this.value)" onblur="setTimeout(bdGsearchHide,150)" aria-label="Global search"><div class="bd-gres" id="bd-gres"></div></div></div>
@@ -1787,7 +1787,7 @@ function _bdLzDecompress(s){ return _bdLZ.decompressFromUTF16(s); }
 function _bdPackBlob(json){ json=String(json==null?'':json); var c='LZ1:'+_bdLzCompress(json); var r='RAW:'+json; return c.length<r.length?c:r; }
 function _bdUnpackBlob(v){ if(v==null) return v; v=String(v); if(v.slice(0,4)==='LZ1:') return _bdLzDecompress(v.slice(4)); if(v.slice(0,4)==='RAW:') return v.slice(4); return v; }
 try{ window._bdPackBlob=_bdPackBlob; window._bdUnpackBlob=_bdUnpackBlob; }catch(e){}
-var BD_BUILD='bd-2026-09-09-55';
+var BD_BUILD='bd-2026-09-09-56';
 /* Storage Version Policy v1. The key itself carries the breaking version
    (bd_state_v3); BD_STORAGE_VERSION tracks non-breaking shape revisions so a
    boot migration can tell what it is looking at. Bump only on a true
@@ -10310,7 +10310,8 @@ function _bookFupDue(){
     if(!lastIn) return;                 /* no reply -> not a candidate */
     acts.forEach(function(a){
       if(!a||a.inbound||a.dismissed||a.type==='Created') return;
-      var stamp=a.loggedAt||null; var t=stamp?new Date(stamp).getTime():NaN;
+      // Real send time first; loggedAt is the scan time and moves on re-sync.
+      var stamp=a.sentAt||a.loggedAt||null; var t=stamp?new Date(stamp).getTime():NaN;
       if(isNaN(t)) t=new Date(a.d).getTime(); if(isNaN(t)) return;
       if(t>=lastIn.t){ if(lastOutAfter===null||t>lastOutAfter) lastOutAfter=t; }
     });
@@ -12067,7 +12068,11 @@ function _bdRepliesAwaiting(){
          genuinely-newer replies. Use receivedAt (inbound) / loggedAt when
          present; fall back to the date. */
       var t;
-      var stamp = a.receivedAt || a.loggedAt || null;
+      /* Outbound must use the REAL send time (sentAt), never loggedAt: loggedAt
+         is the scan time and moves whenever a sync or another device re-stamps
+         the row, which made old sends look newer than a partner's reply and
+         silently dropped that partner from this list (Dave, 2026-09-09). */
+      var stamp = a.inbound ? (a.receivedAt || a.loggedAt || null) : (a.sentAt || a.loggedAt || null);
       if(stamp){ t=new Date(stamp).getTime(); }
       if(t==null || isNaN(t)){ t=new Date(a.d).getTime(); }
       if(isNaN(t)) return;
